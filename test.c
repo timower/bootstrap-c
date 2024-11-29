@@ -1,1 +1,4 @@
-(foo + test) / 2
+const char *foo[] = {
+    "foo",
+    "bar",
+};
