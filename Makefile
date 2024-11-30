@@ -1,3 +1,4 @@
+CC ?= clang
 CFLAGS ?= -g
 
 bootstrap: bootstrap.o

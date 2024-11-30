@@ -514,9 +514,15 @@ external_declaration
 	| declaration
 	;
 
+declaration
+	: declaration_specifiers ';'
+	| declaration_specifiers init_declarator_list ';'
+	// not supproted: | static_assert_declaration
+	;
+
 function_definition
-	: declaration_specifiers declarator declaration_list compound_statement
-	| declaration_specifiers declarator compound_statement
+	: declaration_specifiers declarator compound_statement
+	// K&R : declaration_specifiers declarator declaration_list compound_statement
 	;
 
 declaration_list
