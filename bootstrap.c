@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 // 1. parse
-// 2. AST
+// 2. sema
 // 3. emit
 
 struct Token {
@@ -88,6 +88,8 @@ struct ExprAST {
   struct Token identifier;
 
   struct ExprAST *cond;
+
+  struct Type *type;
 };
 
 struct Type {
@@ -139,7 +141,16 @@ struct StmtAST {
     DECL_STMT,
     COMPOUND_STMT,
     EXPR_STMT,
-    FOR_STMT, // for(init, cond, expr) stmt
+
+    FOR_STMT,    // for(init, cond, expr) stmt
+    IF_STMT,     // if (expr) init else stmt
+    WHILE_STMT,  // while(expr) stmt
+    SWITCH_STMT, // switch(expr) stmt
+
+    RETURN_STMT,
+    CASE_STMT,
+    BREAK_STMT,
+    DEFAULT_STMT,
   } kind;
 
   struct DeclAST *decl;
@@ -196,6 +207,79 @@ void printToken(struct Token token) {
   printf("(");
   printStr(token.data, token.end);
   printf(") ");
+}
+
+void failParseArg(struct ParseState *state, const char *msg, const char *arg) {
+  int line = 1;
+  int column = 0;
+  for (const char *c = state->start; c < state->current && c < state->end;
+       c++) {
+    if (*c == '\n') {
+      line++;
+      column = 0;
+    } else {
+      column++;
+    }
+  }
+
+  printf("%d:%d: ", line, column);
+  if (state->curToken.data < state->end) {
+    printToken(state->curToken);
+  }
+  printf(": %s%s\n", msg, arg);
+  exit(1);
+}
+
+void failParse(struct ParseState *state, const char *msg) {
+  failParseArg(state, msg, "");
+}
+
+void printType(struct Type *type) {
+  if (type->isConst) {
+    printf("const ");
+  }
+  switch (type->kind) {
+  case INT_TYPE:
+    printf("int ");
+    break;
+  case VOID_TYPE:
+    printf("void ");
+    break;
+  case CHAR_TYPE:
+    printf("char ");
+    break;
+  case POINTER_TYPE:
+    printType(type->arg);
+    printf("* ");
+    break;
+  case ARRAY_TYPE:
+    printType(type->arg);
+    printf("[] ");
+    break;
+  case STRUCT_TYPE:
+    printf("struct ");
+    printStr(type->tag.data, type->tag.end);
+    printf(" ");
+    break;
+  case ENUM_TYPE:
+    printf("enum ");
+    if (type->tag.data) {
+      printStr(type->tag.data, type->tag.end);
+    }
+    printf(" ");
+    break;
+  case FUNC_TYPE:
+    printf("(");
+    for (struct Type *arg = type->arg; arg != NULL; arg = arg->argNext) {
+      printType(arg);
+      if (arg->argNext != NULL) {
+        printf(",");
+      }
+    }
+    printf(") -> ");
+    printType(type->result);
+    break;
+  }
 }
 
 void printExpr(struct ExprAST *expr) {
@@ -259,7 +343,11 @@ void printExpr(struct ExprAST *expr) {
     break;
   case SIZEOF_EXPR:
     printf("SIZEOF(");
-    printExpr(expr->rhs);
+    if (expr->type) {
+      printType(expr->type);
+    } else {
+      printExpr(expr->rhs);
+    }
     printf(")");
     break;
   case CONDITIONAL_EXPR:
@@ -280,54 +368,6 @@ void printExpr(struct ExprAST *expr) {
     printf(")");
     break;
   case ARG_LIST:
-    break;
-  }
-}
-
-void printType(struct Type *type) {
-  if (type->isConst) {
-    printf("const ");
-  }
-  switch (type->kind) {
-  case INT_TYPE:
-    printf("int ");
-    break;
-  case VOID_TYPE:
-    printf("void ");
-    break;
-  case CHAR_TYPE:
-    printf("char ");
-    break;
-  case POINTER_TYPE:
-    printType(type->arg);
-    printf("* ");
-    break;
-  case ARRAY_TYPE:
-    printType(type->arg);
-    printf("[] ");
-    break;
-  case STRUCT_TYPE:
-    printf("struct ");
-    printStr(type->tag.data, type->tag.end);
-    printf(" ");
-    break;
-  case ENUM_TYPE:
-    printf("enum ");
-    if (type->tag.data) {
-      printStr(type->tag.data, type->tag.end);
-    }
-    printf(" ");
-    break;
-  case FUNC_TYPE:
-    printf("(");
-    for (struct Type *arg = type->arg; arg != NULL; arg = arg->argNext) {
-      printType(arg);
-      if (arg->argNext != NULL) {
-        printf(",");
-      }
-    }
-    printf(") -> ");
-    printType(type->result);
     break;
   }
 }
@@ -361,6 +401,46 @@ void printStmt(struct StmtAST *stmt) {
     printf("\n):");
     printStmt(stmt->stmt);
     break;
+  case IF_STMT:
+    printf("if(");
+    printExpr(stmt->expr);
+    printf(")\n");
+    printStmt(stmt->init);
+    if (stmt->stmt) {
+      printf("else\n");
+      printStmt(stmt->stmt);
+    }
+    break;
+  case RETURN_STMT:
+    printf("return ");
+    if (stmt->expr) {
+      printExpr(stmt->expr);
+    }
+    printf(";\n");
+    break;
+  case SWITCH_STMT:
+    printf("switch (");
+    printExpr(stmt->expr);
+    printf(")\n");
+    printStmt(stmt->stmt);
+    break;
+  case DEFAULT_STMT:
+    printf("default:\n");
+    break;
+  case BREAK_STMT:
+    printf("break;\n");
+    break;
+  case CASE_STMT:
+    printf("case ");
+    printExpr(stmt->expr);
+    printf(":\n");
+    break;
+  case WHILE_STMT:
+    printf("while (");
+    printExpr(stmt->expr);
+    printf(")\n");
+    printStmt(stmt->stmt);
+    break;
   }
 }
 
@@ -384,7 +464,8 @@ void printDecl(struct DeclAST *decl) {
       printf("  ");
       printDecl(field);
     }
-    printf("}");
+    printf("} ");
+    printToken(decl->name);
     break;
   case VAR_DECL:
     printType(decl->type);
@@ -590,7 +671,7 @@ struct Token getToken(struct ParseState *state) {
       case ',': token.kind = COMMA; break;
       default:
         printf("Unknown token! %c", lastChar);
-        exit(1);
+        failParse(state, "Unknown token");
       // clang-format on
     }
   }
@@ -603,6 +684,12 @@ struct Token getToken(struct ParseState *state) {
 
 int match(struct ParseState *state, int tok) {
   return state->curToken.kind == tok;
+}
+
+void expect(struct ParseState *state, int tok) {
+  if (!match(state, tok)) {
+    failParseArg(state, "Expected: ", token_str[tok]);
+  }
 }
 
 struct Token getNextToken(struct ParseState *state) {
@@ -655,15 +742,8 @@ struct ExprAST *parseParen(struct ParseState *state) {
   getNextToken(state); // eat (
 
   struct ExprAST *expr = parseExpression(state);
-  if (expr == NULL) {
-    return NULL;
-  }
 
-  if (!match(state, CLOSE_PAREN)) {
-    puts("Expected ')'");
-    return NULL;
-  }
-
+  expect(state, CLOSE_PAREN);
   getNextToken(state); // eat )
   return expr;
 }
@@ -679,7 +759,7 @@ struct ExprAST *parsePrimary(struct ParseState *state) {
   case OPEN_PAREN:
     return parseParen(state);
   default:
-    puts("Unknow primary expression");
+    failParse(state, "Unknow primary expression");
     return NULL;
   }
 }
@@ -689,14 +769,8 @@ struct ExprAST *parseIndex(struct ParseState *state, struct ExprAST *lhs) {
   expr->lhs = lhs;
 
   expr->rhs = parseExpression(state);
-  if (expr->rhs == NULL) {
-    return NULL;
-  }
 
-  if (!match(state, CLOSE_BRACKET)) {
-    puts("Expected ]");
-    return NULL;
-  }
+  expect(state, CLOSE_BRACKET);
   getNextToken(state);
 
   return expr;
@@ -723,20 +797,13 @@ struct ExprAST *parseCall(struct ParseState *state, struct ExprAST *lhs) {
     cur->lhs = parseAssignment(state);
     cur->rhs = NULL;
 
-    if (cur->lhs == NULL) {
-      return NULL;
-    }
-
     if (!match(state, COMMA)) {
       break;
     }
     getNextToken(state);
   }
 
-  if (!match(state, CLOSE_PAREN)) {
-    puts("expected , or )");
-    return NULL;
-  }
+  expect(state, CLOSE_PAREN);
   getNextToken(state);
 
   return expr;
@@ -749,11 +816,7 @@ struct ExprAST *parseMember(struct ParseState *state, struct ExprAST *lhs) {
   expr->op = state->curToken;
   getNextToken(state);
 
-  if (!match(state, IDENTIFIER)) {
-    puts("Expected identifier");
-    return NULL;
-  }
-
+  expect(state, IDENTIFIER);
   expr->identifier = state->curToken;
   getNextToken(state);
   return expr;
@@ -805,6 +868,28 @@ struct ExprAST *parsePostfix(struct ParseState *state) {
   return expr;
 }
 
+int isDecl(struct Token tok) {
+  // We don't support typedef, so this is easy
+  switch (tok.kind) {
+  case CONST:
+  case STRUCT:
+  case ENUM:
+  case INT:
+  case CHAR:
+  case VOID:
+    return 1;
+  default:
+    return 0;
+  }
+}
+
+struct DeclAST *newDecl() {
+  struct DeclAST *decl = malloc(sizeof(struct DeclAST));
+  return decl;
+}
+
+void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl);
+
 struct ExprAST *parseUnary(struct ParseState *state) {
   if (match(state, INC_OP) || match(state, DEC_OP) || match(state, AND) ||
       match(state, STAR) || match(state, PLUS) || match(state, MINUS) ||
@@ -820,8 +905,22 @@ struct ExprAST *parseUnary(struct ParseState *state) {
   if (match(state, SIZEOF)) {
     getNextToken(state);
     struct ExprAST *expr = newExpr(SIZEOF_EXPR);
-    expr->lhs = NULL;
-    expr->rhs = parseUnary(state);
+
+    expect(state, OPEN_PAREN);
+    getNextToken(state);
+
+    if (isDecl(state->curToken)) {
+      struct DeclAST *dummy = newDecl();
+      parseDeclSpecifier(state, dummy);
+      expr->type = dummy->type;
+    } else {
+      expr->lhs = NULL;
+      expr->rhs = parseUnary(state);
+    }
+
+    expect(state, CLOSE_PAREN);
+    getNextToken(state);
+
     return expr;
   }
 
@@ -912,16 +1011,10 @@ struct ExprAST *parseBinOpRhs(struct ParseState *state, int prec,
     getNextToken(state);
 
     struct ExprAST *rhs = parseCast(state);
-    if (rhs == NULL) {
-      return NULL;
-    }
 
     int nextPred = getPrecedence(state->curToken);
     if (curPred < nextPred) {
       rhs = parseBinOpRhs(state, curPred + 1, rhs);
-      if (rhs == NULL) {
-        return NULL;
-      }
     }
 
     struct ExprAST *newLhs = newExpr(BINARY_EXPR);
@@ -935,11 +1028,6 @@ struct ExprAST *parseBinOpRhs(struct ParseState *state, int prec,
 
 struct ExprAST *parseBinOp(struct ParseState *state) {
   struct ExprAST *lhs = parseCast(state);
-
-  if (lhs == NULL) {
-    return NULL;
-  }
-
   return parseBinOpRhs(state, 0, lhs);
 }
 
@@ -951,10 +1039,7 @@ struct ExprAST *parseConditional(struct ParseState *state) {
   getNextToken(state);
 
   struct ExprAST *trueBranch = parseExpression(state);
-  if (!match(state, COLON)) {
-    puts("Expected :");
-    return NULL;
-  }
+  expect(state, COLON);
   getNextToken(state);
   struct ExprAST *falseBranch = parseConditional(state);
 
@@ -1015,11 +1100,6 @@ struct Type *newType(int kind) {
   return type;
 }
 
-struct DeclAST *newDecl() {
-  struct DeclAST *decl = malloc(sizeof(struct DeclAST));
-  return decl;
-}
-
 struct DeclAST *parseNoInitDecl(struct ParseState *state);
 
 void parseStruct(struct ParseState *state, struct DeclAST *decl) {
@@ -1027,10 +1107,7 @@ void parseStruct(struct ParseState *state, struct DeclAST *decl) {
   decl->type = newType(STRUCT_TYPE);
 
   // (non)optional tag
-  if (!match(state, IDENTIFIER)) {
-    puts("Epxected struct tag");
-    exit(EXIT_FAILURE);
-  }
+  expect(state, IDENTIFIER);
 
   decl->type->tag = getNextToken(state);
 
@@ -1046,10 +1123,7 @@ void parseStruct(struct ParseState *state, struct DeclAST *decl) {
   struct DeclAST *fields = decl;
   while (!match(state, CLOSE_BRACE)) {
     fields->fieldNext = parseNoInitDecl(state);
-    if (!match(state, SEMICOLON)) {
-      puts("Expeceted ;");
-      exit(EXIT_FAILURE);
-    }
+    expect(state, SEMICOLON);
     getNextToken(state); // eat ;
     fields = fields->fieldNext;
   }
@@ -1065,10 +1139,7 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   decl->type = newType(ENUM_TYPE);
 
   // not supported: enum tag.
-  if (!match(state, OPEN_BRACE)) {
-    puts("Expected {");
-    exit(EXIT_FAILURE);
-  }
+  expect(state, OPEN_BRACE);
   getNextToken(state);
 
   decl->kind = ENUM_DECL;
@@ -1076,10 +1147,7 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   // parse constants
   struct DeclAST *fields = decl;
   while (!match(state, CLOSE_BRACE)) {
-    if (!match(state, IDENTIFIER)) {
-      puts("Expected identifier");
-      exit(EXIT_FAILURE);
-    }
+    expect(state, IDENTIFIER);
 
     struct DeclAST *field = newDecl();
     field->kind = VAR_DECL;
@@ -1094,10 +1162,7 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
       break;
     }
 
-    if (!match(state, COMMA)) {
-      puts("Expected ,");
-      exit(EXIT_FAILURE);
-    }
+    expect(state, COMMA);
     getNextToken(state);
   }
   getNextToken(state); // eat }
@@ -1105,21 +1170,6 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   fields->fieldNext = NULL;
   decl->fields = decl->fieldNext;
   decl->fieldNext = NULL;
-}
-
-int isDecl(struct ParseState *state) {
-  // We don't support typedef, so this is easy
-  switch (state->curToken.kind) {
-  case CONST:
-  case STRUCT:
-  case ENUM:
-  case INT:
-  case CHAR:
-  case VOID:
-    return 1;
-  default:
-    return 0;
-  }
 }
 
 void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
@@ -1144,8 +1194,7 @@ void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
     getNextToken(state);
     decl->type = newType(VOID_TYPE);
   } else {
-    puts("Unknown type!");
-    exit(1);
+    failParse(state, "Unknown type!");
   }
   decl->type->isConst = isConst;
 }
@@ -1178,10 +1227,7 @@ void parseFuncDecl(struct ParseState *state, struct DeclAST *decl) {
       break;
     }
 
-    if (!match(state, COMMA)) {
-      puts("Expected ,");
-      exit(EXIT_FAILURE);
-    }
+    expect(state, COMMA);
     getNextToken(state); // eat ,
   }
 
@@ -1201,10 +1247,7 @@ void parseDeclarator(struct ParseState *state, struct DeclAST *decl) {
     decl->type = ptrType;
   }
 
-  if (!match(state, IDENTIFIER)) {
-    puts("Expected declaration name");
-    exit(EXIT_FAILURE);
-  }
+  expect(state, IDENTIFIER);
   decl->name = getNextToken(state);
 
   // (1D) arrays
@@ -1212,11 +1255,7 @@ void parseDeclarator(struct ParseState *state, struct DeclAST *decl) {
     getNextToken(state);
 
     // size not supported
-
-    if (!match(state, CLOSE_BRACKET)) {
-      puts("Expected ]");
-      exit(EXIT_FAILURE);
-    }
+    expect(state, CLOSE_BRACKET);
     getNextToken(state);
 
     struct Type *arrayType = newType(ARRAY_TYPE);
@@ -1238,10 +1277,7 @@ struct DeclAST *parseNoInitDecl(struct ParseState *state) {
 
   // We don't support taging and creating a struct in the same decl.
   if (decl->kind == STRUCT_DECL) {
-    if (!match(state, SEMICOLON)) {
-      puts("Expected ;");
-      return NULL;
-    }
+    expect(state, SEMICOLON);
     return decl;
   }
 
@@ -1260,19 +1296,13 @@ struct ExprAST *parseInitializer(struct ParseState *state) {
   while (1) {
     // Should be parseInitializer(state), but let's not support nested inits.
     cur->lhs = parseAssignment(state);
-    if (cur->lhs == NULL) {
-      return NULL;
-    }
 
     // close without trailing comma
     if (match(state, CLOSE_BRACE)) {
       break;
     }
 
-    if (!match(state, COMMA)) {
-      puts("Expected comma");
-      return NULL;
-    }
+    expect(state, COMMA);
     getNextToken(state); // eat ,
 
     // close with trailing comma
@@ -1316,12 +1346,12 @@ struct StmtAST *parseCompoundStmt(struct ParseState *state) {
 
 struct StmtAST *parseExprStmt(struct ParseState *state) {
   struct StmtAST *stmt = newStmt(EXPR_STMT);
-  stmt->expr = parseExpression(state);
 
   if (!match(state, SEMICOLON)) {
-    puts("Expected ;");
-    return NULL;
+    stmt->expr = parseExpression(state);
   }
+
+  expect(state, SEMICOLON);
   getNextToken(state);
 
   return stmt;
@@ -1339,13 +1369,10 @@ struct StmtAST *parseForStmt(struct ParseState *state) {
   getNextToken(state); // eat for
   struct StmtAST *stmt = newStmt(FOR_STMT);
 
-  if (!match(state, OPEN_PAREN)) {
-    puts("Expected (");
-    return NULL;
-  }
+  expect(state, OPEN_PAREN);
   getNextToken(state);
 
-  if (isDecl(state)) {
+  if (isDecl(state->curToken)) {
     stmt->init = parseDeclStmt(state);
   } else {
     stmt->init = parseExprStmt(state);
@@ -1353,10 +1380,72 @@ struct StmtAST *parseForStmt(struct ParseState *state) {
   stmt->cond = parseExprStmt(state);
   stmt->expr = parseExpression(state);
 
-  if (!match(state, CLOSE_PAREN)) {
-    puts("Expected )");
-    return NULL;
+  expect(state, CLOSE_PAREN);
+  getNextToken(state);
+
+  stmt->stmt = parseStmt(state);
+
+  return stmt;
+}
+
+struct StmtAST *parseIfStmt(struct ParseState *state) {
+  getNextToken(state); // eat if
+
+  expect(state, OPEN_PAREN);
+  getNextToken(state);
+
+  struct StmtAST *stmt = newStmt(IF_STMT);
+
+  stmt->expr = parseExpression(state);
+  expect(state, CLOSE_PAREN);
+  getNextToken(state);
+
+  stmt->init = parseStmt(state);
+
+  if (match(state, ELSE)) {
+    getNextToken(state);
+    stmt->stmt = parseStmt(state);
   }
+
+  return stmt;
+}
+
+struct StmtAST *parseReturnStmt(struct ParseState *state) {
+  getNextToken(state);
+
+  struct StmtAST *stmt = newStmt(RETURN_STMT);
+  // parse value
+  if (!match(state, SEMICOLON)) {
+    stmt->expr = parseExpression(state);
+  }
+
+  expect(state, SEMICOLON);
+  getNextToken(state);
+  return stmt;
+}
+
+struct StmtAST *parseCaseStmt(struct ParseState *state) {
+  getNextToken(state);
+
+  struct StmtAST *stmt = newStmt(CASE_STMT);
+
+  stmt->expr = parseConditional(state);
+
+  expect(state, COLON);
+  getNextToken(state);
+  return stmt;
+}
+
+struct StmtAST *parseSwitchOrWhileStmt(struct ParseState *state, int kind) {
+  getNextToken(state);
+
+  expect(state, OPEN_PAREN);
+  getNextToken(state);
+
+  struct StmtAST *stmt = newStmt(kind);
+
+  stmt->expr = parseExpression(state);
+  expect(state, CLOSE_PAREN);
   getNextToken(state);
 
   stmt->stmt = parseStmt(state);
@@ -1365,7 +1454,7 @@ struct StmtAST *parseForStmt(struct ParseState *state) {
 }
 
 struct StmtAST *parseStmt(struct ParseState *state) {
-  if (isDecl(state)) {
+  if (isDecl(state->curToken)) {
     return parseDeclStmt(state);
   }
 
@@ -1375,6 +1464,45 @@ struct StmtAST *parseStmt(struct ParseState *state) {
 
   if (match(state, FOR)) {
     return parseForStmt(state);
+  }
+
+  if (match(state, IF)) {
+    return parseIfStmt(state);
+  }
+
+  if (match(state, RETURN)) {
+    return parseReturnStmt(state);
+  }
+
+  if (match(state, SWITCH)) {
+    return parseSwitchOrWhileStmt(state, SWITCH_STMT);
+  }
+  if (match(state, WHILE)) {
+    return parseSwitchOrWhileStmt(state, WHILE_STMT);
+  }
+
+  if (match(state, CASE)) {
+    return parseCaseStmt(state);
+  }
+
+  if (match(state, BREAK)) {
+    getNextToken(state);
+    struct StmtAST *stmt = newStmt(BREAK_STMT);
+
+    expect(state, SEMICOLON);
+    getNextToken(state);
+
+    return stmt;
+  }
+
+  if (match(state, DEFAULT)) {
+    getNextToken(state);
+    struct StmtAST *stmt = newStmt(DEFAULT_STMT);
+
+    expect(state, COLON);
+    getNextToken(state);
+
+    return stmt;
   }
 
   return parseExprStmt(state);
@@ -1393,15 +1521,9 @@ struct DeclAST *parseDeclarationOrFunction(struct ParseState *state) {
     getNextToken(state);
 
     decl->init = parseInitializer(state);
-    if (decl->init == NULL) {
-      return NULL;
-    }
   }
 
-  if (!match(state, SEMICOLON)) {
-    puts("Expected ;");
-    return NULL;
-  }
+  expect(state, SEMICOLON);
   getNextToken(state);
 
   return decl;
@@ -1417,7 +1539,8 @@ int main(int argc, char **argv) {
   if (fd == -1) {
     return -1;
   }
-  off_t size = lseek(fd, 0, SEEK_END);
+
+  int size = lseek(fd, 0, SEEK_END);
   if (size == -1) {
     return -1;
   }
@@ -1449,15 +1572,11 @@ int main(int argc, char **argv) {
 
     // struct ExprAST *expr = parseExpression(&state);
     // printExpr(expr);
-    // if (expr == NULL) {
-    //   return -1;
-    // }
+
+    // struct StmtAST *stmt = parseStmt(&state);
+    // printStmt(stmt);
 
     struct DeclAST *decl = parseDeclarationOrFunction(&state);
-    if (decl == NULL) {
-      puts("error NULL decl");
-      return -1;
-    }
     printDecl(decl);
   }
 
