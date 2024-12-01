@@ -1550,10 +1550,19 @@ struct Value getNextTemp(struct EmitState *state) {
 
 struct Value emitExpr(struct EmitState *state, struct ExprAST *expr);
 
+// Turns an i1 into an i32
 struct Value upcasti1(struct EmitState *state, struct Value val) {
   struct Value up = getNextTemp(state);
   up.type = val.type;
   printf("  %s = zext i1 %s to %s\n", up.val, val.val, up.type);
+  return up;
+}
+
+// Turns an i31 into an i1
+struct Value makeBool(struct EmitState *state, struct Value val) {
+  struct Value up = getNextTemp(state);
+  up.type = val.type;
+  printf("  %s = icmp ne %s %s, 0\n", up.val, val.type, val.val);
   return up;
 }
 
@@ -1847,6 +1856,67 @@ void emitLocalDecl(struct EmitState *state, struct DeclAST *decl) {
   }
 }
 
+void emitStmt(struct EmitState *state, struct StmtAST *stmt);
+
+void emitIf(struct EmitState *state, struct StmtAST *stmt) {
+  struct Value cond = emitExpr(state, stmt->expr);
+  cond = makeBool(state, cond);
+
+  int idx = state->tmpCounter++;
+  printf("  br i1 %s, label %%if.true.%d, label %%if.false.%d\n", cond.val, idx,
+         idx);
+
+  printf("if.true.%d:\n", idx);
+  emitStmt(state, stmt->init);
+  printf("  br label %%if.cont.%d\n", idx);
+
+  printf("if.false.%d:\n", idx);
+  emitStmt(state, stmt->stmt);
+  printf("  br label %%if.cont.%d\n", idx);
+
+  printf("if.cont.%d:\n", idx);
+}
+
+void emitWhile(struct EmitState *state, struct StmtAST *stmt) {
+  int idx = state->tmpCounter++;
+
+  printf("  br label %%while.cond.%d\n", idx);
+  printf("while.cond.%d:\n", idx);
+  struct Value cond = makeBool(state, emitExpr(state, stmt->expr));
+  printf("  br i1 %s, label %%while.body.%d, label %%while.cont.%d\n", cond.val,
+         idx, idx);
+
+  printf("while.body.%d:\n", idx);
+  emitStmt(state, stmt->stmt);
+  printf(" br label %%while.cond.%d\n", idx);
+
+  printf("while.cont.%d:\n", idx);
+}
+
+void emitFor(struct EmitState *state, struct StmtAST *stmt) {
+  int idx = state->tmpCounter++;
+
+  emitStmt(state, stmt->init);
+
+  printf("  br label %%for.cond.%d\n", idx);
+  printf("for.cond.%d:\n", idx);
+  // cond must be an expression stmt, parseFor guarantees it.
+  struct Value cond = makeBool(state, emitExpr(state, stmt->cond->expr));
+  printf("  br i1 %s, label %%for.body.%d, label %%for.cont.%d\n", cond.val,
+         idx, idx);
+
+  printf("for.body.%d:\n", idx);
+  emitStmt(state, stmt->stmt);
+  printf(" br label %%for.incr.%d\n", idx);
+
+  // TODO: continue would jump here
+  printf("for.incr.%d:\n", idx);
+  emitExpr(state, stmt->expr);
+  printf(" br label %%for.cond.%d\n", idx);
+
+  printf("for.cont.%d:\n", idx);
+}
+
 void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
   switch (stmt->kind) {
   case EXPR_STMT:
@@ -1863,12 +1933,21 @@ void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
     break;
 
   case COMPOUND_STMT:
+    // TODO: new state;
+    for (struct StmtAST *cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
+      emitStmt(state, cur);
+    }
+    break;
 
-  case FOR_STMT:
   case IF_STMT:
-  case WHILE_STMT:
-  case SWITCH_STMT:
+    return emitIf(state, stmt);
 
+  case WHILE_STMT:
+    return emitWhile(state, stmt);
+  case FOR_STMT:
+    return emitFor(state, stmt);
+
+  case SWITCH_STMT:
   case CASE_STMT:
   case BREAK_STMT:
   case DEFAULT_STMT:
