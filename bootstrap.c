@@ -6,8 +6,6 @@
 #include <unistd.h>
 
 // 1. parse
-// 2. sema
-// 3. emit
 
 struct Token {
   enum {
@@ -61,7 +59,7 @@ struct ExprAST {
     VARIABLE_EXPR, // foo
     ARRAY_EXPR,    // {a, b, c}
 
-    CALL_EXPR,   // lhs()
+    CALL_EXPR,   // lhs(rhs->lhs, rhs->rhs->lhs, ..)
     INDEX_EXPR,  // lhs[rhs]
     MEMBER_EXPR, // primary.identifier or primary->identifier based on op
     UNARY_EXPR,  // lhs++, lhs-- or --rhs ++rhs based on op
@@ -496,7 +494,16 @@ void printDecl(struct DeclAST *decl) {
 /// end debug only
 /// \}
 
-const char *keywords[] = {
+const char *tokens[] = {
+    "->",      "++",       "--",     "<<",     ">>",       "<=",       ">=",
+    "==",      "!=",       "&&",     "||",     "*=",       "/=",       "%=",
+    "+=",      "-=",       "<<=",    ">>=",    "&=",       "^=",       "|=",
+
+    ";",       "{",        "}",      ",",      ":",        "=",        "(",
+    ")",       "[",        "]",      ".",      "&",        "!",        "~",
+    "-",       "+",        "*",      "/",      "%",        "<",        ">",
+    "^",       "|",        "?",
+
     "sizeof",  "typedef",  "extern", "static", "auto",     "register", "char",
     "short",   "int",      "long",   "signed", "unsigned", "float",    "double",
     "const",   "volatile", "void",   "struct", "union",    "enum",     "case",
@@ -506,7 +513,7 @@ const char *keywords[] = {
 
 // Returns the current character and advances the current pointer.
 int nextChar(struct ParseState *state) {
-  if (state->current == state->end) {
+  if (state->current >= state->end) {
     return EOF;
   }
 
@@ -517,7 +524,7 @@ int nextChar(struct ParseState *state) {
 
 // Returns the current character without advancing
 int peekChar(struct ParseState *state) {
-  if (state->current == state->end) {
+  if (state->current >= state->end) {
     return EOF;
   }
   return *state->current;
@@ -551,9 +558,10 @@ struct Token getToken(struct ParseState *state) {
     token.data = tokenStart;
     token.end = state->current; // one past the end!
 
-    for (int i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
-      if (memcmp(token.data, keywords[i], strlen(keywords[i])) == 0) {
-        token.kind = SIZEOF + i;
+    // Check if it's a keyword.
+    for (int i = 0; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
+      if (memcmp(token.data, tokens[i], strlen(tokens[i])) == 0) {
+        token.kind = PTR_OP + i;
         return token;
       }
     }
@@ -618,67 +626,21 @@ struct Token getToken(struct ParseState *state) {
   }
 
   // Asume operator
-  if (lastChar == '=' && peekChar(state) == '=') {
-    nextChar(state);
-    token.kind = EQ_OP;
-  } else if (lastChar == '-' && peekChar(state) == '>') {
-    nextChar(state);
-    token.kind = PTR_OP;
-  } else if (lastChar == '|' && peekChar(state) == '|') {
-    nextChar(state);
-    token.kind = OR_OP;
-  } else if (lastChar == '&' && peekChar(state) == '&') {
-    nextChar(state);
-    token.kind = AND_OP;
-  } else if (lastChar == '!' && peekChar(state) == '=') {
-    nextChar(state);
-    token.kind = NE_OP;
-  } else if (lastChar == '+' && peekChar(state) == '+') {
-    nextChar(state);
-    token.kind = INC_OP;
-  } else if (lastChar == '-' && peekChar(state) == '-') {
-    nextChar(state);
-    token.kind = DEC_OP;
-  } else if (lastChar == '+' && peekChar(state) == '=') {
-    nextChar(state);
-    token.kind = ADD_ASSIGN;
-  } else {
-    switch (lastChar) {
-      // clang-format off
-      case ';': token.kind = SEMICOLON; break;
-      case '{': token.kind = OPEN_BRACE; break;
-      case '}': token.kind = CLOSE_BRACE; break;
-      case ':': token.kind = COLON; break;
-      case '=': token.kind = EQ; break;
-      case '(': token.kind = OPEN_PAREN; break;
-      case ')': token.kind = CLOSE_PAREN; break;
-      case '[': token.kind = OPEN_BRACKET; break;
-      case ']': token.kind = CLOSE_BRACKET; break;
-      case '.': token.kind = DOT; break;
-      case '&': token.kind = AND; break;
-      case '!': token.kind = BANG; break;
-      case '~': token.kind = TILDE; break;
-      case '-': token.kind = MINUS; break;
-      case '+': token.kind = PLUS; break;
-      case '*': token.kind = STAR; break;
-      case '/': token.kind = SLASH; break;
-      case '%': token.kind = PERCENT; break;
-      case '<': token.kind = LESS; break;
-      case '>': token.kind = GREATER; break;
-      case '^': token.kind = HAT; break;
-      case '|': token.kind = PIPE; break;
-      case '?': token.kind = QUESTION; break;
-      case ',': token.kind = COMMA; break;
-      default:
-        printf("Unknown token! %c", lastChar);
-        failParse(state, "Unknown token");
-      // clang-format on
+  for (int i = 0; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
+    int len = strlen(tokens[i]);
+    if (memcmp(tokenStart, tokens[i], len) == 0) {
+      token.kind = PTR_OP + i;
+      token.data = tokenStart;
+
+      state->current = tokenStart + len;
+      token.end = state->current;
+
+      return token;
     }
   }
 
-  token.data = tokenStart;
-  token.end = state->current;
-
+  printf("Unknown token! %c", lastChar);
+  failParse(state, "Unknown token");
   return token;
 }
 
@@ -1529,6 +1491,61 @@ struct DeclAST *parseDeclarationOrFunction(struct ParseState *state) {
   return decl;
 }
 
+// 2. sema
+// TODO
+
+// 3. emit
+struct EmitState {};
+
+// IR Value
+struct Value {
+  const char *type;
+
+  // reg name or just the value
+  const char *val;
+};
+
+void emitFail(const char *msg) {
+  puts(msg);
+  exit(1);
+}
+
+struct Value intToVal(int num) {
+  struct Value val;
+  val.type = "i32";
+
+  char *buf = malloc(16);
+  sprintf(buf, "%d", num);
+  val.val = buf;
+
+  return val;
+}
+
+// \returns The register name or value of the expr
+struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
+  switch (expr->kind) {
+  case INT_EXPR:
+    return intToVal(expr->value);
+  case STR_EXPR:
+  case VARIABLE_EXPR:
+  case ARRAY_EXPR:
+
+  case CALL_EXPR:
+  case INDEX_EXPR:
+  case MEMBER_EXPR:
+  case UNARY_EXPR:
+  case SIZEOF_EXPR:
+
+  case CONDITIONAL_EXPR:
+
+  case BINARY_EXPR:
+  case ARG_LIST:
+    emitFail("Unsupported");
+    struct Value v;
+    return v;
+  }
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     puts("Usage: compile file.c");
@@ -1564,21 +1581,29 @@ int main(int argc, char **argv) {
   state.current = state.start = fileMem;
   state.end = fileMem + size;
 
+  struct EmitState emitState;
+
   getNextToken(&state);
 
+  puts("define i32 @main() {");
   while (state.curToken.kind != TOK_EOF) {
     // printToken(state.curToken);
     // getNextToken(&state);
 
-    // struct ExprAST *expr = parseExpression(&state);
+    struct ExprAST *expr = parseExpression(&state);
+    struct Value val = emitExpr(&emitState, expr);
+    printf("  ret %s %s\n", val.type, val.val);
+
     // printExpr(expr);
+    break;
 
     // struct StmtAST *stmt = parseStmt(&state);
     // printStmt(stmt);
 
-    struct DeclAST *decl = parseDeclarationOrFunction(&state);
-    printDecl(decl);
+    // struct DeclAST *decl = parseDeclarationOrFunction(&state);
+    // printDecl(decl);
   }
+  puts("}");
 
   // No cleanup needed
   return 0;
