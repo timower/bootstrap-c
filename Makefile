@@ -1,5 +1,5 @@
 CC ?= clang
-CFLAGS ?= -g
+CFLAGS ?= -g -Wall
 
 bootstrap: bootstrap.o
 

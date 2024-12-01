@@ -116,7 +116,12 @@ struct Type {
 };
 
 struct DeclAST {
-  enum { VAR_DECL, STRUCT_DECL, ENUM_DECL, FUNC_DECL } kind;
+  enum {
+    VAR_DECL,
+    STRUCT_DECL,
+    ENUM_DECL,
+    FUNC_DECL,
+  } kind;
 
   struct Type *type;
 
@@ -165,6 +170,27 @@ struct StmtAST {
 
   // To form linked list of compound stmts;
   struct StmtAST *nextStmt;
+};
+
+struct EmitState {
+  int tmpCounter;
+
+  struct LocalVar *vars;
+};
+
+// LLVM IR Value
+struct Value {
+  const char *type;
+
+  // reg name or just the value
+  const char *val;
+};
+
+struct LocalVar {
+  struct Token name;
+  struct Value value;
+
+  struct LocalVar *next;
 };
 
 /// debug only:
@@ -641,6 +667,7 @@ struct Token getToken(struct ParseState *state) {
 
   printf("Unknown token! %c", lastChar);
   failParse(state, "Unknown token");
+  token.kind = EOF;
   return token;
 }
 
@@ -1495,16 +1522,6 @@ struct DeclAST *parseDeclarationOrFunction(struct ParseState *state) {
 // TODO
 
 // 3. emit
-struct EmitState {};
-
-// IR Value
-struct Value {
-  const char *type;
-
-  // reg name or just the value
-  const char *val;
-};
-
 void emitFail(const char *msg) {
   puts(msg);
   exit(1);
@@ -1521,28 +1538,342 @@ struct Value intToVal(int num) {
   return val;
 }
 
+struct Value getNextTemp(struct EmitState *state) {
+  struct Value val;
+
+  char *buf = malloc(16);
+  sprintf(buf, "%%tmp%d", state->tmpCounter++);
+  val.val = buf;
+
+  return val;
+}
+
+struct Value emitExpr(struct EmitState *state, struct ExprAST *expr);
+
+struct Value upcasti1(struct EmitState *state, struct Value val) {
+  struct Value up = getNextTemp(state);
+  up.type = val.type;
+  printf("  %s = zext i1 %s to %s\n", up.val, val.val, up.type);
+  return up;
+}
+
+struct Value LookupVar(struct EmitState *state, struct Token tok) {
+  for (struct LocalVar *local = state->vars; local != NULL;
+       local = local->next) {
+    if (memcmp(tok.data, local->name.data, tok.end - tok.data) == 0) {
+      return local->value;
+    }
+  }
+
+  printToken(tok);
+  emitFail("Unkown variable!");
+  struct Value v;
+  v.val = "undef";
+  return v;
+}
+
+struct Value emitAddr(struct EmitState *state, struct ExprAST *expr) {
+  switch (expr->kind) {
+  case VARIABLE_EXPR:
+    return LookupVar(state, expr->identifier);
+
+  case INDEX_EXPR:
+  case MEMBER_EXPR:
+    // TODO..
+
+  case INT_EXPR:
+  case BINARY_EXPR:
+  case UNARY_EXPR:
+  case CONDITIONAL_EXPR:
+  case SIZEOF_EXPR:
+  case STR_EXPR:
+  case ARRAY_EXPR:
+  case CALL_EXPR:
+  case ARG_LIST:
+    printExpr(expr);
+    emitFail("Can't be use as lvalue");
+    break;
+  }
+
+  struct Value v;
+  v.val = "undef";
+  return v;
+}
+
+struct Value emitAssignment(struct EmitState *state, struct ExprAST *expr) {
+  struct Value addr = emitAddr(state, expr->lhs);
+  struct Value val = emitExpr(state, expr->rhs);
+  printf("  store %s %s, ptr %s\n", val.type, val.val, addr.val);
+  return val;
+}
+
+struct Value emitBinOp(struct EmitState *state, struct ExprAST *expr) {
+  if (expr->op.kind == EQ) {
+    return emitAssignment(state, expr);
+  }
+
+  struct Value lhs = emitExpr(state, expr->lhs);
+  struct Value rhs = emitExpr(state, expr->rhs);
+
+  if (strcmp(lhs.type, rhs.type) != 0) {
+    printExpr(expr);
+    emitFail("Lhs and rhs don't have same type!");
+  }
+
+  const char *instr;
+  int upcast = 0;
+  // TODO: signedness, current all ops are signed.
+  switch (expr->op.kind) {
+  case PLUS:
+    instr = "add";
+    break;
+  case MINUS:
+    instr = "sub";
+    break;
+  case STAR:
+    instr = "mul";
+    break;
+  case SLASH:
+    instr = "sdiv";
+    break;
+  case PERCENT:
+    instr = "srem";
+    break;
+
+  case LEFT_OP:
+    instr = "shl";
+    break;
+  case RIGHT_OP:
+    instr = "ashr";
+    break;
+
+  case LESS:
+    instr = "icmp slt";
+    upcast = 1;
+    break;
+  case GREATER:
+    instr = "icmp sgt";
+    upcast = 1;
+    break;
+  case LE_OP:
+    instr = "icmp sle";
+    upcast = 1;
+    break;
+  case GE_OP:
+    instr = "icmp sge";
+    upcast = 1;
+    break;
+  case EQ_OP:
+    instr = "icmp eq";
+    upcast = 1;
+    break;
+  case NE_OP:
+    instr = "icmp ne";
+    upcast = 1;
+    break;
+
+  case AND:
+    instr = "and";
+    break;
+  case HAT:
+    instr = "xor";
+    break;
+  case PIPE:
+    instr = "or";
+
+  default:
+    emitFail("Invalid bin op");
+  }
+
+  struct Value res = getNextTemp(state);
+  res.type = lhs.type;
+  printf("  %s = %s %s %s, %s\n", res.val, instr, lhs.type, lhs.val, rhs.val);
+
+  if (upcast) {
+    return upcasti1(state, res);
+  }
+
+  return res;
+}
+
+struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
+
+  struct Value operand = emitExpr(state, expr->rhs);
+
+  const char *instr;
+  const char *constop;
+  int upcast = 0;
+  switch (expr->op.kind) {
+  default:
+    emitFail("Invalid unary");
+    break;
+  case INC_OP:
+  case DEC_OP:
+  case AND:
+  case STAR:
+    emitFail("Not supported yet");
+    break;
+
+  case PLUS:
+    return operand;
+  case MINUS:
+    instr = "sub";
+    constop = "0";
+    break;
+  case TILDE:
+    instr = "xor";
+    constop = "-1";
+    break;
+  case BANG:
+    instr = "icmp ne";
+    constop = "0";
+    upcast = 1;
+    break;
+  }
+
+  struct Value res = getNextTemp(state);
+  res.type = operand.type;
+  printf("  %s = %s %s %s, %s\n", res.val, instr, res.type, constop,
+         operand.val);
+
+  if (upcast) {
+    return upcasti1(state, res);
+  }
+
+  return res;
+}
+
+struct Value emitVarRef(struct EmitState *state, struct ExprAST *expr) {
+  struct Value addr = emitAddr(state, expr);
+
+  struct Value val = getNextTemp(state);
+  val.type = addr.type; // TODO: will this be a problem?
+  printf("  %s = load %s, ptr %s\n", val.val, addr.type, addr.val);
+  return val;
+}
+
 // \returns The register name or value of the expr
 struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
   switch (expr->kind) {
   case INT_EXPR:
     return intToVal(expr->value);
-  case STR_EXPR:
-  case VARIABLE_EXPR:
-  case ARRAY_EXPR:
+  case BINARY_EXPR:
+    return emitBinOp(state, expr);
+  case UNARY_EXPR:
+    return emitUnary(state, expr);
+  case CONDITIONAL_EXPR:
 
+  case VARIABLE_EXPR:
+    return emitVarRef(state, expr);
+
+  case SIZEOF_EXPR:
+  case STR_EXPR:
+  case ARRAY_EXPR:
   case CALL_EXPR:
   case INDEX_EXPR:
   case MEMBER_EXPR:
-  case UNARY_EXPR:
-  case SIZEOF_EXPR:
 
-  case CONDITIONAL_EXPR:
-
-  case BINARY_EXPR:
   case ARG_LIST:
+    emitFail("Unsupported expr");
+  }
+
+  struct Value v;
+  v.type = "i32";
+  v.val = "undef";
+  return v;
+}
+
+void emitReturn(struct EmitState *state, struct StmtAST *stmt) {
+  if (stmt->expr) {
+    struct Value v = emitExpr(state, stmt->expr);
+    printf("  ret %s %s\n", v.type, v.val);
+    return;
+  }
+
+  printf("  ret void\n");
+}
+
+// Convert type to LLVM type.
+const char *convertType(struct Type *type) {
+  switch (type->kind) {
+  case VOID_TYPE:
+    return "void";
+  case CHAR_TYPE:
+    return "i8";
+  case INT_TYPE:
+  case ENUM_TYPE:
+    return "i32";
+  case POINTER_TYPE:
+    return "ptr";
+  case STRUCT_TYPE:
+  case ARRAY_TYPE:
+  case FUNC_TYPE:
+    emitFail("TODO");
+  }
+  return NULL;
+}
+
+struct LocalVar *newLocal(struct Token name, struct Value val) {
+  struct LocalVar *local = malloc(sizeof(struct LocalVar));
+  local->name = name;
+  local->value = val;
+  return local;
+}
+
+void emitLocalVar(struct EmitState *state, struct DeclAST *decl) {
+  struct Value val = getNextTemp(state);
+  val.type = convertType(decl->type);
+  printf("  %s = alloca %s\n", val.val, val.type);
+
+  struct LocalVar *local = newLocal(decl->name, val);
+  local->next = state->vars;
+  state->vars = local;
+
+  if (decl->init) {
+    struct Value init = emitExpr(state, decl->init);
+    printf("  store %s %s, ptr %s\n", init.type, init.val, val.val);
+  }
+}
+
+void emitLocalDecl(struct EmitState *state, struct DeclAST *decl) {
+  switch (decl->kind) {
+  case VAR_DECL:
+    emitLocalVar(state, decl);
+    break;
+  case STRUCT_DECL:
+  case ENUM_DECL:
+  case FUNC_DECL:
     emitFail("Unsupported");
-    struct Value v;
-    return v;
+  }
+}
+
+void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
+  switch (stmt->kind) {
+  case EXPR_STMT:
+    if (stmt->expr) {
+      emitExpr(state, stmt->expr);
+    }
+    break;
+  case RETURN_STMT:
+    emitReturn(state, stmt);
+    break;
+
+  case DECL_STMT:
+    emitLocalDecl(state, stmt->decl);
+    break;
+
+  case COMPOUND_STMT:
+
+  case FOR_STMT:
+  case IF_STMT:
+  case WHILE_STMT:
+  case SWITCH_STMT:
+
+  case CASE_STMT:
+  case BREAK_STMT:
+  case DEFAULT_STMT:
+    emitFail("Unsupported stmt");
+    break;
   }
 }
 
@@ -1582,6 +1913,7 @@ int main(int argc, char **argv) {
   state.end = fileMem + size;
 
   struct EmitState emitState;
+  emitState.tmpCounter = 0;
 
   getNextToken(&state);
 
@@ -1590,14 +1922,14 @@ int main(int argc, char **argv) {
     // printToken(state.curToken);
     // getNextToken(&state);
 
-    struct ExprAST *expr = parseExpression(&state);
-    struct Value val = emitExpr(&emitState, expr);
-    printf("  ret %s %s\n", val.type, val.val);
+    // struct ExprAST *expr = parseExpression(&state);
+    // struct Value val = emitExpr(&emitState, expr);
+    // printf("  ret %s %s\n", val.type, val.val);
 
     // printExpr(expr);
-    break;
 
-    // struct StmtAST *stmt = parseStmt(&state);
+    struct StmtAST *stmt = parseStmt(&state);
+    emitStmt(&emitState, stmt);
     // printStmt(stmt);
 
     // struct DeclAST *decl = parseDeclarationOrFunction(&state);
