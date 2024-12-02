@@ -1038,22 +1038,32 @@ struct ExprAST *parseConditional(struct ParseState *state) {
   expr->rhs = falseBranch;
   return expr;
 }
-
+int isAssign(struct Token tok) {
+  switch (tok.kind) {
+  case EQ:
+  case MUL_ASSIGN:
+  case DIV_ASSIGN:
+  case MOD_ASSIGN:
+  case ADD_ASSIGN:
+  case SUB_ASSIGN:
+  case LEFT_ASSIGN:
+  case RIGHT_ASSIGN:
+  case AND_ASSIGN:
+  case XOR_ASSIGN:
+  case OR_ASSIGN:
+    return 1;
+  default:
+    return 0;
+  }
+}
 struct ExprAST *parseAssignment(struct ParseState *state) {
   struct ExprAST *lhs = parseConditional(state);
-  if (!match(state, EQ) && !match(state, MUL_ASSIGN) &&
-      !match(state, DIV_ASSIGN) && !match(state, MOD_ASSIGN) &&
-      !match(state, ADD_ASSIGN) && !match(state, SUB_ASSIGN) &&
-      !match(state, LEFT_ASSIGN) && !match(state, RIGHT_ASSIGN) &&
-      !match(state, AND_ASSIGN) && !match(state, XOR_ASSIGN) &&
-      !match(state, OR_ASSIGN)) {
+  if (!isAssign(state->curToken)) {
     return lhs;
   }
-  struct Token op = state->curToken;
-  getNextToken(state);
 
+  struct Token op = getNextToken(state);
   struct ExprAST *rhs = parseAssignment(state);
-
   struct ExprAST *expr = newExpr(BINARY_EXPR);
   expr->op = op;
   expr->lhs = lhs;
@@ -1609,10 +1619,17 @@ struct Value emitAddr(struct EmitState *state, struct ExprAST *expr) {
   return v;
 }
 
+void emitStore(struct Value addr, struct Value val) {
+  if (strcmp(addr.type, val.type) != 0) {
+    emitFail("Incompatible type in assignment");
+  }
+  printf("  store %s %s, ptr %s\n", val.type, val.val, addr.val);
+}
+
 struct Value emitAssignment(struct EmitState *state, struct ExprAST *expr) {
   struct Value addr = emitAddr(state, expr->lhs);
   struct Value val = emitExpr(state, expr->rhs);
-  printf("  store %s %s, ptr %s\n", val.type, val.val, addr.val);
+  emitStore(addr, val);
   return val;
 }
 
@@ -1706,6 +1723,11 @@ struct Value emitBinOp(struct EmitState *state, struct ExprAST *expr) {
 }
 
 struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
+  if (expr->op.kind == AND) {
+    struct Value res = emitAddr(state, expr->rhs);
+    res.type = "ptr";
+    return res;
+  }
 
   struct Value operand = emitExpr(state, expr->rhs);
 
@@ -1718,7 +1740,6 @@ struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
     break;
   case INC_OP:
   case DEC_OP:
-  case AND:
   case STAR:
     emitFail("Not supported yet");
     break;
@@ -1840,7 +1861,7 @@ void emitLocalVar(struct EmitState *state, struct DeclAST *decl) {
 
   if (decl->init) {
     struct Value init = emitExpr(state, decl->init);
-    printf("  store %s %s, ptr %s\n", init.type, init.val, val.val);
+    emitStore(val, init);
   }
 }
 
@@ -1862,17 +1883,23 @@ void emitIf(struct EmitState *state, struct StmtAST *stmt) {
   struct Value cond = emitExpr(state, stmt->expr);
   cond = makeBool(state, cond);
 
+  const char *falseLabel = "false";
+  if (stmt->stmt == NULL) {
+    falseLabel = "cont";
+  }
   int idx = state->tmpCounter++;
-  printf("  br i1 %s, label %%if.true.%d, label %%if.false.%d\n", cond.val, idx,
-         idx);
+  printf("  br i1 %s, label %%if.true.%d, label %%if.%s.%d\n", cond.val, idx,
+         falseLabel, idx);
 
   printf("if.true.%d:\n", idx);
   emitStmt(state, stmt->init);
   printf("  br label %%if.cont.%d\n", idx);
 
-  printf("if.false.%d:\n", idx);
-  emitStmt(state, stmt->stmt);
-  printf("  br label %%if.cont.%d\n", idx);
+  if (stmt->stmt) {
+    printf("if.false.%d:\n", idx);
+    emitStmt(state, stmt->stmt);
+    printf("  br label %%if.cont.%d\n", idx);
+  }
 
   printf("if.cont.%d:\n", idx);
 }
