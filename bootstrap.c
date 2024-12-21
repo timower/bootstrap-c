@@ -47,7 +47,7 @@ struct Token {
     LEFT_ASSIGN, RIGHT_ASSIGN, ELLIPSIS,  FOR, PTR_OP, INC_OP, DEC_OP, LEFT_OP,
     RIGHT_OP, LE_OP, GE_OP, EQ_OP, NE_OP, AND_OP, OR_OP, MUL_ASSIGN,
     DIV_ASSIGN, MOD_ASSIGN, ADD_ASSIGN, SUB_ASSIGN, AND_ASSIGN, XOR_ASSIGN,
-    OR_ASSIGN, IF, DO, SEMICOLON, OPEN_BRACE, CLOSE_BRACE, COMMA, COLON, EQ,
+    OR_ASSIGN, IF, AS, SEMICOLON, OPEN_BRACE, CLOSE_BRACE, COMMA, COLON, EQ,
     OPEN_PAREN, CLOSE_PAREN, OPEN_BRACKET, CLOSE_BRACKET, DOT, AND, BANG,
     TILDE, MINUS, PLUS, STAR, SLASH, PERCENT, LESS, GREATER, HAT, PIPE,
     QUESTION,
@@ -122,7 +122,6 @@ struct Type {
     VOID_TYPE,
     INT_TYPE2,
     STRUCT_TYPE,
-    ENUM_TYPE,
     POINTER_TYPE,
     ARRAY_TYPE,
     FUNC_TYPE,
@@ -229,6 +228,8 @@ struct SemaState {
   // Return type of the current function.
   struct Type *result;
 
+  struct Type *switchType;
+
   // Local variables and enum fields.
   struct DeclList *locals;
 
@@ -282,7 +283,7 @@ const i8 *tokens[] = {
     ">>=",      "...",     "for",    "->",     "++",     "--",     "<<",
     ">>",       "<=",      ">=",     "==",     "!=",     "&&",     "||",
     "*=",       "/=",      "%=",     "+=",     "-=",     "&=",     "^=",
-    "|=",       "if",      "do",     ";",      "{",      "}",      ",",
+    "|=",       "if",      "as",     ";",      "{",      "}",      ",",
     ":",        "=",       "(",      ")",      "[",      "]",      ".",
     "&",        "!",       "~",      "-",      "+",      "*",      "/",
     "%",        "<",       ">",      "^",      "|",      "?",
@@ -359,13 +360,6 @@ void printType(struct Type *type) {
   case STRUCT_TYPE:
     printf("struct ");
     printStr(type->tag.data, type->tag.end);
-    printf(" ");
-    break;
-  case ENUM_TYPE:
-    printf("enum ");
-    if (type->tag.data != NULL) {
-      printStr(type->tag.data, type->tag.end);
-    }
     printf(" ");
     break;
   case FUNC_TYPE:
@@ -1046,7 +1040,20 @@ struct ExprAST *parseUnary(struct ParseState *state) {
 }
 
 struct ExprAST *parseCast(struct ParseState *state) {
-  return parseUnary(state);
+  struct ExprAST *lhs = parseUnary(state);
+
+  if (!match(state, AS)) {
+    return lhs;
+  }
+  getNextToken(state);
+
+  struct DeclAST *dummy = newDecl();
+  parseDeclSpecifier(state, dummy);
+
+  struct ExprAST *expr = newExpr(CAST_EXPR);
+  expr->lhs = lhs;
+  expr->type = dummy->type;
+  return expr;
 }
 
 i32 getPrecedence(struct Token tok) {
@@ -1247,7 +1254,7 @@ struct Type *getInt32() {
 
 void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   getNextToken(state);
-  decl->type = newType(ENUM_TYPE);
+  decl->type = getInt32();
 
   // not supported: enum tag.
   expect(state, OPEN_BRACE);
@@ -1691,9 +1698,6 @@ i32 typeEq(struct Type *one, struct Type *two) {
 
   switch (one->kind) {
   case VOID_TYPE:
-    // TODO type safe enums
-    // All enums are typed as 'i32'
-  case ENUM_TYPE:
     break;
 
   case INT_TYPE2:
@@ -1713,6 +1717,7 @@ i32 typeEq(struct Type *one, struct Type *two) {
     failSema("TODO: type eq func");
     break;
   }
+
   return 1;
 }
 
@@ -1721,14 +1726,6 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
   struct Type *from = expr->type;
 
   if (typeEq(from, to)) {
-    return expr;
-  }
-
-  // i32 and enums are equivalent currently.
-  if ((from->kind == ENUM_TYPE && to->kind == INT_TYPE2 && to->isSigned &&
-       to->size == 32) ||
-      (from->kind == INT_TYPE2 && from->isSigned && from->size == 32 &&
-       to->kind == ENUM_TYPE)) {
     return expr;
   }
 
@@ -1759,14 +1756,6 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
 struct Type *getCommonType(struct Type *a, struct Type *b) {
   if (typeEq(a, b)) {
     return a;
-  }
-
-  // i32, enum -> i32
-  if (a->kind == INT_TYPE2 && b->kind == ENUM_TYPE) {
-    return a;
-  }
-  if (b->kind == INT_TYPE2 && a->kind == ENUM_TYPE) {
-    return b;
   }
 
   // i32, char -> i32
@@ -1862,8 +1851,6 @@ i32 getSize(struct SemaState *state, struct Type *type) {
   switch (type->kind) {
   case VOID_TYPE:
     return 0;
-  case ENUM_TYPE:
-    return 4;
   case INT_TYPE2:
     return type->size / 8;
 
@@ -2163,8 +2150,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
       failSema("Can't index non array or pointer");
     }
     semaExpr(state, expr->rhs);
-    if (expr->rhs->type->kind != INT_TYPE2 &&
-        expr->rhs->type->kind != ENUM_TYPE) {
+    if (expr->rhs->type->kind != INT_TYPE2) {
       failSema("Can't index with non integer");
     }
     expr->type = expr->lhs->type->arg;
@@ -2326,6 +2312,14 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
   }
 }
 
+struct SemaState newState(struct SemaState *parent) {
+  struct SemaState state = {0};
+  state.parent = parent;
+  state.result = parent->result;
+  state.switchType = parent->switchType;
+  return state;
+}
+
 void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
   switch (stmt->kind) {
   case EXPR_STMT:
@@ -2342,17 +2336,17 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     }
     if (stmt->expr != NULL) {
       semaExpr(state, stmt->expr);
-      stmt->expr = doConvert(stmt->expr, state->result);
-      if (stmt->expr == NULL) {
+      struct ExprAST *conv = doConvert(stmt->expr, state->result);
+      if (conv == NULL) {
+        printStmt(stmt);
         return failSema("Return type mismatch");
       }
+      stmt->expr = conv;
     }
     break;
 
   case COMPOUND_STMT: {
-    struct SemaState subState = {0};
-    subState.parent = state;
-    subState.result = state->result;
+    struct SemaState subState = newState(state);
 
     for (struct StmtAST *cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       semaStmt(&subState, cur);
@@ -2376,9 +2370,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     break;
 
   case FOR_STMT: {
-    struct SemaState subState = {0};
-    subState.parent = state;
-    subState.result = state->result;
+    struct SemaState subState = newState(state);
     semaStmt(&subState, stmt->init);
     // cond must be expr stmt.
     semaExpr(&subState, stmt->cond->expr);
@@ -2388,21 +2380,26 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     semaStmt(&subState, stmt->stmt);
   } break;
 
-  case SWITCH_STMT:
-    semaExpr(state, stmt->expr);
-    // TODO: check if can be converted to i32?
-    if (stmt->expr->type->kind != INT_TYPE2 &&
-        stmt->expr->type->kind != ENUM_TYPE) {
+  case SWITCH_STMT: {
+    struct SemaState subState = newState(state);
+
+    semaExpr(&subState, stmt->expr);
+    subState.switchType = stmt->expr->type;
+
+    if (stmt->expr->type->kind != INT_TYPE2) {
       printType(stmt->expr->type);
-      failSema("Switch expr must be i32");
+      failSema("Switch expr must be integer");
     }
-    semaStmt(state, stmt->stmt);
+
+    semaStmt(&subState, stmt->stmt);
+  } break;
 
   case CASE_STMT:
     semaExpr(state, stmt->expr);
-    if (stmt->expr->type->kind != INT_TYPE2 &&
-        stmt->expr->type->kind != ENUM_TYPE) {
-      failSema("case expr must be i32");
+    if (!typeEq(stmt->expr->type, state->switchType)) {
+      printStmt(stmt);
+      printType(state->switchType);
+      failSema("case expr must match switch type");
     }
     break;
 
@@ -2446,8 +2443,6 @@ const i8 *convertType(struct Type *type) {
     sprintf(buf, "i%d", type->size);
     return buf;
   }
-  case ENUM_TYPE:
-    return "i32";
   case POINTER_TYPE:
     return "ptr";
   case STRUCT_TYPE: {
@@ -2489,9 +2484,9 @@ struct LocalVar *newLocal(struct Token name, struct Value val) {
   return local;
 }
 
-struct Value intToVal(i32 num) {
+struct Value intToVal(i32 num, struct Type *type) {
   struct Value val;
-  val.type = "i32";
+  val.type = convertType(type);
 
   i8 *buf = malloc(16);
   sprintf(buf, "%d", num);
@@ -2923,9 +2918,11 @@ struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
     struct Value val = emitLoad(state, operand, convertType(opExpr->type));
 
     // Use emitBinary to handle the inc/dec
-    struct Value one = intToVal(expr->op.kind == INC_OP ? 1 : -1);
-    struct Value res = emitBinary(state, opExpr->type, PLUS, val, opExpr->type,
-                                  one, getInt32());
+    struct Type *type =
+        opExpr->type->kind == POINTER_TYPE ? getInt32() : opExpr->type;
+    struct Value one = intToVal(expr->op.kind == INC_OP ? 1 : -1, type);
+    struct Value res =
+        emitBinary(state, opExpr->type, PLUS, val, opExpr->type, one, type);
     emitStore(operand, res);
 
     if (expr->lhs != NULL) {
@@ -3114,16 +3111,28 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
     return v;
   }
 
+  if (from->kind != INT_TYPE2 || to->kind != INT_TYPE2) {
+    failEmit("Unsupported cast");
+  }
+
+  // No-op, same size cast.
+  if (from->size == to->size) {
+    return v;
+  }
+
   struct Value res = getNextTemp(state);
   res.type = convertType(to);
 
   if (from->size > to->size) {
     printf("  %s = trunc %s %s to %s\n", res.val, v.type, v.val, res.type);
-  } else if (to->isSigned) {
-    printf("  %s = sext %s %s to %s\n", res.val, v.type, v.val, res.type);
-  } else if (!to->isSigned) {
-    printf("  %s = zext %s %s to %s\n", res.val, v.type, v.val, res.type);
+  } else if (from->size < to->size) {
+    if (to->isSigned) {
+      printf("  %s = sext %s %s to %s\n", res.val, v.type, v.val, res.type);
+    } else {
+      printf("  %s = zext %s %s to %s\n", res.val, v.type, v.val, res.type);
+    }
   } else {
+    // Is impossible due to the check above.
     failEmit("Unsupported cast");
   }
 
@@ -3168,7 +3177,7 @@ struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
       v.val = "null";
       return v;
     }
-    return intToVal(expr->value);
+    return intToVal(expr->value, expr->type);
   case BINARY_EXPR:
     return emitBinOp(state, expr);
   case UNARY_EXPR:
