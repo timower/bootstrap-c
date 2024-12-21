@@ -9,7 +9,7 @@ Each commit after adds a new feature, and is compiled by the previous commit.
 TODO
 ----
  - [x] Add correct integer types (i8, i16, i32, i64) and (u8, u16, u32, u64).
- - [ ] Add `as` cast operator.
+ - [x] Add `as` cast operator.
  - [ ] Remove implicit casts.
  - [ ] Support multiple file imports.
  - [ ] Type safe enums.

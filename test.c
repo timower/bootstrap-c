@@ -1,1 +1,1 @@
-i32 main(i32 argc, i8 **argv) { return argc >> 1; }
+u32 foo(i64 x) { return x as u32; }
