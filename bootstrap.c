@@ -25,7 +25,7 @@ struct Token {
     IDENTIFIER, CONSTANT, STRING_LITERAL, INT2,
 
     // keywords
-    CONTINUE, DEFAULT, SIZEOF, STRUCT, SWITCH, RETURN, CONST,
+    CONTINUE, DEFAULT, SIZEOF, STRUCT, SWITCH, RETURN, IMPORT, CONST,
     WHILE,    BREAK,   VOID,   ENUM,   CASE,   ELSE,
 
     // operators
@@ -143,6 +143,7 @@ struct DeclAST {
     ENUM_DECL,
     FUNC_DECL,
     ENUM_FIELD_DECL,
+    IMPORT_DECL,
   } kind;
 
   struct Type *type;
@@ -207,6 +208,11 @@ struct DeclList {
   struct DeclList *next;
 };
 
+struct ImportList {
+  struct Token name;
+  struct ImportList *next;
+};
+
 struct SemaState {
   struct SemaState *parent;
 
@@ -225,6 +231,8 @@ struct SemaState {
   // Should only be added to the root sema state.
   struct DeclAST *extraDecls;
   i32 strCount;
+
+  struct ImportList *imports;
 };
 
 struct EmitState {
@@ -263,15 +271,15 @@ struct Case {
 const i8 *tokens[] = {
     "EOF",      "IDENT",   "CONST",  "STR",    "INT",
 
-    "continue", "default", "sizeof", "struct", "switch", "return", "const",
-    "while",    "break",   "void",   "enum",   "case",   "else",   "<<=",
-    ">>=",      "...",     "for",    "->",     "++",     "--",     "<<",
-    ">>",       "<=",      ">=",     "==",     "!=",     "&&",     "||",
-    "*=",       "/=",      "%=",     "+=",     "-=",     "&=",     "^=",
-    "|=",       "if",      "as",     ";",      "{",      "}",      ",",
-    ":",        "=",       "(",      ")",      "[",      "]",      ".",
-    "&",        "!",       "~",      "-",      "+",      "*",      "/",
-    "%",        "<",       ">",      "^",      "|",      "?",
+    "continue", "default", "sizeof", "struct", "switch", "return", "import",
+    "const",    "while",   "break",  "void",   "enum",   "case",   "else",
+    "<<=",      ">>=",     "...",    "for",    "->",     "++",     "--",
+    "<<",       ">>",      "<=",     ">=",     "==",     "!=",     "&&",
+    "||",       "*=",      "/=",     "%=",     "+=",     "-=",     "&=",
+    "^=",       "|=",      "if",     "as",     ";",      "{",      "}",
+    ",",        ":",       "=",      "(",      ")",      "[",      "]",
+    ".",        "&",       "!",      "~",      "-",      "+",      "*",
+    "/",        "%",       "<",      ">",      "^",      "|",      "?",
 };
 
 const i8 *intTypes[] = {
@@ -1663,21 +1671,48 @@ struct DeclAST *parseDeclarationOrFunction(struct ParseState *state) {
   return decl;
 }
 
+struct DeclAST *parseFile(const i8 *name);
+
+struct DeclAST *parseImportDecl(struct ParseState *state) {
+  getNextToken(state); // eat import
+
+  expect(state, IDENTIFIER);
+  struct Token name = getNextToken(state);
+
+  expect(state, SEMICOLON);
+  getNextToken(state);
+
+  struct DeclAST *decl = newDecl();
+  decl->kind = IMPORT_DECL;
+  decl->name = name;
+  return decl;
+}
+
+struct DeclAST *parseTopLevelDecl(struct ParseState *state) {
+  if (match(state, IMPORT)) {
+    return parseImportDecl(state);
+  }
+  return parseDeclarationOrFunction(state);
+}
+
 struct DeclAST *parseTopLevel(struct ParseState *state) {
   getNextToken(state); // Prep token parser
 
   struct DeclAST *lastDecl = NULL;
   struct DeclAST *firstDecl = NULL;
+
   while (state->curToken.kind != TOK_EOF) {
-    struct DeclAST *decl = parseDeclarationOrFunction(state);
+    struct DeclAST *decl = parseTopLevelDecl(state);
 
     if (lastDecl == NULL) {
       firstDecl = decl;
     } else {
       lastDecl->next = decl;
     }
+
     lastDecl = decl;
   }
+
   return firstDecl;
 }
 
@@ -2214,29 +2249,50 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
   }
 }
 
+struct SemaState initState() {
+  struct SemaState semaState = {0};
+  struct Token nullTok;
+  nullTok.kind = IDENTIFIER;
+  nullTok.data = "NULL";
+  nullTok.end = nullTok.data + 4;
+
+  // Add null as a nullptr
+  struct DeclAST *nullDecl = newDecl();
+  nullDecl->kind = ENUM_FIELD_DECL;
+  nullDecl->name = nullTok;
+  nullDecl->enumValue = 0;
+  nullDecl->type = newType(POINTER_TYPE);
+  nullDecl->type->arg = newType(VOID_TYPE);
+
+  semaState.locals = newDeclList(nullDecl);
+  return semaState;
+}
+
 void semaStmt(struct SemaState *state, struct StmtAST *stmt);
 
-void semaDecl(struct SemaState *state, struct DeclAST *decl) {
-  if (decl->name.kind != TOK_EOF) {
+struct DeclAST *semaTopLevel(struct SemaState *state, struct DeclAST *decl);
 
+void addLocalDecl(struct SemaState *state, struct DeclAST *decl) {
+  struct DeclAST *prev = findLocal(state->locals, decl->name);
+  if (prev != NULL) {
     // Allow redef of functions, TODO: verify type match...
-    struct DeclAST *prev = findLocal(state->locals, decl->name);
-    if (prev != NULL && prev->kind == FUNC_DECL) {
+    if (prev->kind == FUNC_DECL && prev->body == NULL) {
       prev->hasDef = 1;
-    }
-
-    if (decl->kind != FUNC_DECL && prev != NULL) {
+    } else {
       printToken(decl->name);
       failSema("Variable redef");
     }
-
-    struct DeclList *newLocal = newDeclList(decl);
-    newLocal->next = state->locals;
-    state->locals = newLocal;
   }
 
+  struct DeclList *newLocal = newDeclList(decl);
+  newLocal->next = state->locals;
+  state->locals = newLocal;
+}
+
+void semaDecl(struct SemaState *state, struct DeclAST *decl) {
   switch (decl->kind) {
   case ENUM_FIELD_DECL:
+    addLocalDecl(state, decl);
     return;
 
   case STRUCT_DECL:
@@ -2264,6 +2320,8 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
     return;
 
   case ENUM_DECL: {
+    addLocalDecl(state, decl);
+
     // TODO: this is wrong..
     struct SemaState *root = getRoot(state);
 
@@ -2277,6 +2335,7 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
   } break;
 
   case FUNC_DECL:
+    addLocalDecl(state, decl);
     if (decl->body != NULL) {
       struct SemaState funcState = {0};
       funcState.parent = state;
@@ -2294,6 +2353,7 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
     break;
 
   case VAR_DECL:
+    addLocalDecl(state, decl);
     if (decl->init != NULL) {
       if (decl->type->kind == ARRAY_TYPE) {
         semaExprNoDecay(state, decl->init);
@@ -2317,6 +2377,40 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
       }
     }
     break;
+  case IMPORT_DECL: {
+    if (state->parent != NULL) {
+      failSema("Import not allowed in local scope");
+    }
+
+    // Check if we already import this one
+    for (struct ImportList *cur = state->imports; cur != NULL;
+         cur = cur->next) {
+      if (tokCmp(decl->name, cur->name)) {
+        return;
+      }
+    }
+
+    // Add to imports
+    struct ImportList *imports = calloc(1, sizeof(struct ImportList));
+    imports->name = decl->name;
+    imports->next = state->imports;
+    state->imports = imports;
+
+    i8 *buf = malloc(256);
+    sprintf(buf, "%.*s.b", decl->name.end - decl->name.data, decl->name.data);
+    struct DeclAST *fileDecls = parseFile(buf);
+    if (fileDecls == NULL) {
+      failSema("Failed to import file");
+    }
+
+    // semaTopLevel will return a combined list of decls from the file and the
+    // extraDecls.
+    struct DeclAST *extras = semaTopLevel(state, fileDecls);
+    state->extraDecls = extras;
+
+  } break;
+  default:
+    failSema("Unknown decl kind");
   }
 }
 
@@ -2336,6 +2430,9 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     }
     break;
   case DECL_STMT:
+    if (stmt->decl->kind != VAR_DECL) {
+      failSema("Only var decls allowed in local scope");
+    }
     return semaDecl(state, stmt->decl);
 
   case RETURN_STMT:
@@ -3268,13 +3365,14 @@ struct Value emitLocalVar(struct EmitState *state, struct DeclAST *decl) {
 void emitLocalDecl(struct EmitState *state, struct DeclAST *decl) {
   switch (decl->kind) {
   case VAR_DECL:
-  case ENUM_DECL:
     emitLocalVar(state, decl);
     break;
+
+  case ENUM_DECL:
   case ENUM_FIELD_DECL:
   case STRUCT_DECL:
   case FUNC_DECL:
-    failEmit("Unsupported");
+    failEmit("Local Unsupported");
   }
 }
 
@@ -3588,24 +3686,22 @@ void emitTopLevel(struct EmitState *state, struct DeclAST *decl) {
   }
 }
 
-i32 main(i32 argc, i8 **argv) {
-  if (argc != 2) {
-    puts("Usage: compile file.c");
-    return -1;
-  }
-
-  i32 fd = open(argv[1], 0); //  O_RDONLY
+struct DeclAST *parseFile(const i8 *name) {
+  i32 fd = open(name, 0); //  O_RDONLY
   if (fd == -1) {
-    return -1;
+    puts("open failed!");
+    return NULL;
   }
 
   i64 size = lseek(fd, 0, 2); //  SEEK_END
   if (size == -1) {
-    return -1;
+    puts("seek failed!");
+    return NULL;
   }
 
   if (lseek(fd, 0, 0) == -1) { // SEEK_SET
-    return -1;
+    puts("seek failed!");
+    return NULL;
   }
 
   i8 *fileMem = malloc(size as u64);
@@ -3614,33 +3710,32 @@ i32 main(i32 argc, i8 **argv) {
   while (off != size) {
     i64 r = read(fd, fileMem + off, (size - off) as u64);
     if (r == -1) {
-      return -1;
+      puts("read failed!");
+      return NULL;
     }
     off += r;
   }
 
-  struct ParseState parseState;
+  struct ParseState parseState = {0};
   parseState.current = parseState.start = fileMem;
   parseState.end = fileMem + size;
 
-  struct DeclAST *decls = parseTopLevel(&parseState);
+  return parseTopLevel(&parseState);
+}
 
-  struct SemaState semaState = {0};
-  struct Token nullTok;
-  nullTok.kind = IDENTIFIER;
-  nullTok.data = "NULL";
-  nullTok.end = nullTok.data + 4;
+i32 main(i32 argc, i8 **argv) {
+  if (argc != 2) {
+    puts("Usage: compile file.c");
+    return -1;
+  }
 
-  // Add null as a nullptr
-  struct DeclAST *nullDecl = newDecl();
-  nullDecl->kind = ENUM_FIELD_DECL;
-  nullDecl->name = nullTok;
-  nullDecl->enumValue = 0;
-  nullDecl->type = newType(POINTER_TYPE);
-  nullDecl->type->arg = newType(VOID_TYPE);
+  struct DeclAST *decls = parseFile(argv[1]);
+  if (decls == NULL) {
+    puts("Failed to parse file");
+    return -1;
+  }
 
-  semaState.locals = newDeclList(nullDecl);
-
+  struct SemaState semaState = initState();
   decls = semaTopLevel(&semaState, decls);
 
   struct EmitState emitState = {0};
