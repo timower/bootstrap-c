@@ -8,10 +8,10 @@ Each commit after adds a new feature, and is compiled by the previous commit.
 
 TODO
 ----
- - [ ] Add correct integer types (i8, i16, i32, i64) and (u8, u16, u32, u64).
- - [ ] Support multiple file imports.
+ - [x] Add correct integer types (i8, i16, i32, i64) and (u8, u16, u32, u64).
  - [ ] Add `as` cast operator.
  - [ ] Remove implicit casts.
+ - [ ] Support multiple file imports.
  - [ ] Type safe enums.
  - [ ] Change type syntax to `let foo: type`.
  - [ ] Require extern for external functions.
