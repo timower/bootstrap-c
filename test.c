@@ -1,7 +1,1 @@
-int main() {
-  char c = -1;
-  if (c == -1) {
-    return 1;
-  }
-  return 0;
-}
+i32 main(i32 argc, i8 **argv) { return argc >> 1; }

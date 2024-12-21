@@ -34,26 +34,20 @@ struct Token {
 
     // clang-format off
     // constants
-    IDENTIFIER, CONSTANT, STRING_LITERAL,
-    // TYPE_NAME,
-
-    // operators
-    PTR_OP, INC_OP, DEC_OP, LEFT_OP, RIGHT_OP, LE_OP, GE_OP, EQ_OP, NE_OP,
-    AND_OP, OR_OP, MUL_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, ADD_ASSIGN, SUB_ASSIGN,
-    LEFT_ASSIGN, RIGHT_ASSIGN, AND_ASSIGN, XOR_ASSIGN, OR_ASSIGN,
-
-    ELLIPSIS,
-
-    SEMICOLON, OPEN_BRACE, CLOSE_BRACE, COMMA, COLON, EQ, OPEN_PAREN,
-    CLOSE_PAREN, OPEN_BRACKET, CLOSE_BRACKET, DOT, AND, BANG, TILDE, MINUS,
-    PLUS, STAR, SLASH, PERCENT, LESS, GREATER, HAT, PIPE, QUESTION,
+    IDENTIFIER, CONSTANT, STRING_LITERAL, INT2,
 
     // keywords
-    SIZEOF, TYPEDEF, EXTERN, STATIC, AUTO, REGISTER, CHAR, SHORT, INT, LONG,
-    SIGNED, UNSIGNED, FLOAT, DOUBLE, CONST, VOLATILE, VOID, STRUCT, UNION,
-    ENUM, CASE, DEFAULT, IF, ELSE, SWITCH, WHILE, DO, FOR, GOTO, CONTINUE,
-    BREAK, RETURN,
+    CONTINUE, DEFAULT, SIZEOF, STRUCT, SWITCH, RETURN, CONST,
+    WHILE,    BREAK,   VOID,   ENUM,   CASE,   ELSE,
 
+    // operators
+    LEFT_ASSIGN, RIGHT_ASSIGN, ELLIPSIS,  FOR, PTR_OP, INC_OP, DEC_OP, LEFT_OP,
+    RIGHT_OP, LE_OP, GE_OP, EQ_OP, NE_OP, AND_OP, OR_OP, MUL_ASSIGN,
+    DIV_ASSIGN, MOD_ASSIGN, ADD_ASSIGN, SUB_ASSIGN, AND_ASSIGN, XOR_ASSIGN,
+    OR_ASSIGN, IF, DO, SEMICOLON, OPEN_BRACE, CLOSE_BRACE, COMMA, COLON, EQ,
+    OPEN_PAREN, CLOSE_PAREN, OPEN_BRACKET, CLOSE_BRACKET, DOT, AND, BANG,
+    TILDE, MINUS, PLUS, STAR, SLASH, PERCENT, LESS, GREATER, HAT, PIPE,
+    QUESTION,
     // clang-format on
   } kind;
 
@@ -123,8 +117,7 @@ struct ExprAST {
 struct Type {
   enum {
     VOID_TYPE,
-    CHAR_TYPE,
-    INT_TYPE,
+    INT_TYPE2,
     STRUCT_TYPE,
     ENUM_TYPE,
     POINTER_TYPE,
@@ -144,8 +137,10 @@ struct Type {
 
   int isConst;
 
-  // For array types
+  // For array or integer types
   int size;
+
+  int isSigned;
 
   // For funcs
   int isVarargs;
@@ -276,33 +271,36 @@ struct Case {
   struct Case *next;
 };
 
-/// debug only:
-/// \{
+const char *tokens[] = {
+    "EOF",      "IDENT",   "CONST",  "STR",    "INT",
 
-const char *token_str[] = {
-    "TOK_EOF", "IDENTIFIER", "CONSTANT", "STRING_LITERAL",
-    "->",      "++",         "--",       "<<",
-    ">>",      "<=",         ">=",       "==",
-    "!=",      "&&",         "||",       "*=",
-    "/=",      "%=",         "+=",       "-=",
-    "<<=",     ">>=",        "&=",       "^=",
-    "|=",      "...",        ";",        "{",
-    "}",       ",",          ":",        "=",
-    "(",       ")",          "[",        "]",
-    ".",       "&",          "!",        "~",
-    "-",       "+",          "*",        "/",
-    "%",       "<",          ">",        "^",
-    "|",       "?",          "SIZEOF",   "TYPEDEF",
-    "EXTERN",  "STATIC",     "AUTO",     "REGISTER",
-    "CHAR",    "SHORT",      "INT",      "LONG",
-    "SIGNED",  "UNSIGNED",   "FLOAT",    "DOUBLE",
-    "CONST",   "VOLATILE",   "VOID",     "STRUCT",
-    "UNION",   "ENUM",       "CASE",     "DEFAULT",
-    "IF",      "ELSE",       "SWITCH",   "WHILE",
-    "DO",      "FOR",        "GOTO",     "CONTINUE",
-    "BREAK",   "RETURN",
+    "continue", "default", "sizeof", "struct", "switch", "return", "const",
+    "while",    "break",   "void",   "enum",   "case",   "else",   "<<=",
+    ">>=",      "...",     "for",    "->",     "++",     "--",     "<<",
+    ">>",       "<=",      ">=",     "==",     "!=",     "&&",     "||",
+    "*=",       "/=",      "%=",     "+=",     "-=",     "&=",     "^=",
+    "|=",       "if",      "do",     ";",      "{",      "}",      ",",
+    ":",        "=",       "(",      ")",      "[",      "]",      ".",
+    "&",        "!",       "~",      "-",      "+",      "*",      "/",
+    "%",        "<",       ">",      "^",      "|",      "?",
 };
 
+const char *intTypes[] = {
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    // legacy
+    "int",
+    "char",
+};
+
+/// debug only:
+/// \{
 void printStr(char *start, char *end) {
   for (char *c = start; c != end; c++) {
     putchar(*c);
@@ -310,7 +308,7 @@ void printStr(char *start, char *end) {
 }
 
 void printToken(struct Token token) {
-  printf("%s", token_str[token.kind]);
+  printf("%s", tokens[token.kind]);
   printf("(");
   printStr(token.data, token.end);
   printf(") ");
@@ -348,14 +346,15 @@ void printType(struct Type *type) {
     printf("const ");
   }
   switch (type->kind) {
-  case INT_TYPE:
-    printf("int ");
+  case INT_TYPE2:
+    if (type->isSigned) {
+      printf("i%d ", type->size);
+    } else {
+      printf("u%d ", type->size);
+    }
     break;
   case VOID_TYPE:
     printf("void ");
-    break;
-  case CHAR_TYPE:
-    printf("char ");
     break;
   case POINTER_TYPE:
     printType(type->arg);
@@ -417,7 +416,7 @@ void printExpr(struct ExprAST *expr) {
     printf(")");
     break;
   case BINARY_EXPR:
-    printf("%s(", token_str[expr->op.kind]);
+    printf("%s(", tokens[expr->op.kind]);
     printExpr(expr->lhs);
     printf(" ");
     printExpr(expr->rhs);
@@ -442,7 +441,7 @@ void printExpr(struct ExprAST *expr) {
   case MEMBER_EXPR:
     printf("MEMBER(");
     printExpr(expr->lhs);
-    printf(" %s ", token_str[expr->op.kind]);
+    printf(" %s ", tokens[expr->op.kind]);
     printStr(expr->identifier.data, expr->identifier.end);
     printf(")");
     break;
@@ -451,7 +450,7 @@ void printExpr(struct ExprAST *expr) {
     if (expr->lhs != NULL) {
       printExpr(expr->lhs);
     }
-    printf("%s", token_str[expr->op.kind]);
+    printf("%s", tokens[expr->op.kind]);
     if (expr->rhs != NULL) {
       printExpr(expr->rhs);
     }
@@ -646,22 +645,6 @@ int tokCmpStr(struct Token one, const char *str) {
 }
 
 // 1. parse
-const char *tokens[] = {
-    "->",      "++",       "--",     "<<",     ">>",       "<=",       ">=",
-    "==",      "!=",       "&&",     "||",     "*=",       "/=",       "%=",
-    "+=",      "-=",       "<<=",    ">>=",    "&=",       "^=",       "|=",
-
-    "...",     ";",        "{",      "}",      ",",        ":",        "=",
-    "(",       ")",        "[",      "]",      ".",        "&",        "!",
-    "~",       "-",        "+",      "*",      "/",        "%",        "<",
-    ">",       "^",        "|",      "?",
-
-    "sizeof",  "typedef",  "extern", "static", "auto",     "register", "char",
-    "short",   "int",      "long",   "signed", "unsigned", "float",    "double",
-    "const",   "volatile", "void",   "struct", "union",    "enum",     "case",
-    "default", "if",       "else",   "switch", "while",    "do",       "for",
-    "goto",    "continue", "break",  "return",
-};
 
 // Returns the current character and advances the current pointer.
 int nextChar(struct ParseState *state) {
@@ -714,9 +697,17 @@ struct Token getToken(struct ParseState *state) {
     token.end = state->current; // one past the end!
 
     // Check if it's a keyword.
-    for (int i = 0; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
+    for (int i = CONTINUE; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
       if (tokCmpStr(token, tokens[i])) {
-        token.kind = PTR_OP + i;
+        token.kind = i;
+        return token;
+      }
+    }
+
+    // int types [iu](8|16|32|64)
+    for (int i = 0; i < sizeof(intTypes) / sizeof(intTypes[0]); i++) {
+      if (tokCmpStr(token, intTypes[i])) {
+        token.kind = INT2;
         return token;
       }
     }
@@ -781,11 +772,11 @@ struct Token getToken(struct ParseState *state) {
   }
 
   // Asume operator
-  for (int i = 0; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
+  for (int i = CONTINUE; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
     int len = strlen(tokens[i]);
     int remaining = state->end - tokenStart;
     if (len < remaining && memcmp(tokenStart, tokens[i], len) == 0) {
-      token.kind = PTR_OP + i;
+      token.kind = i;
       token.data = tokenStart;
 
       state->current = tokenStart + len;
@@ -807,7 +798,7 @@ int match(struct ParseState *state, int tok) {
 
 void expect(struct ParseState *state, int tok) {
   if (!match(state, tok)) {
-    failParseArg(state, "Expected: ", token_str[tok]);
+    failParseArg(state, "Expected: ", tokens[tok]);
   }
 }
 
@@ -860,7 +851,6 @@ struct ExprAST *parseNumber(struct ParseState *state) {
 
 struct ExprAST *parseString(struct ParseState *state) {
   struct ExprAST *result = newExpr(STR_EXPR);
-  // TODO: handle escapes.
   result->identifier = state->curToken;
   getNextToken(state);
   return result;
@@ -1011,9 +1001,8 @@ int isDecl(struct Token tok) {
   case CONST:
   case STRUCT:
   case ENUM:
-  case INT:
-  case CHAR:
   case VOID:
+  case INT2:
     return 1;
   default:
     return 0;
@@ -1065,34 +1054,8 @@ struct ExprAST *parseUnary(struct ParseState *state) {
 }
 
 struct ExprAST *parseCast(struct ParseState *state) {
-  // TODO: no need for casts?
   return parseUnary(state);
 }
-
-// TODO: dedup code?
-// struct ExprAST *parseFactor(struct ParseState *state) {
-//   struct ExprAST *expr = parseCast(state);
-//   if (expr == NULL) {
-//     return expr;
-//   }
-//   while (match(state, STAR) || match(state, SLASH) || match(state, PERCENT))
-//   {
-//     struct Token op = getNextToken(state);
-//     struct ExprAST *rhs = parsePrimary(state);
-//     if (rhs == NULL) {
-//       return expr;
-//     }
-//
-//     struct ExprAST *new = newExpr(BINARY_EXPR);
-//     new->lhs = expr;
-//     new->op = op;
-//     new->rhs = rhs;
-//
-//     expr = new;
-//   }
-//   return expr;
-// }
-//
 
 int getPrecedence(struct Token tok) {
   switch (tok.kind) {
@@ -1283,6 +1246,13 @@ void parseStruct(struct ParseState *state, struct DeclAST *decl) {
   decl->next = NULL;
 }
 
+struct Type *getInt32() {
+  struct Type *type = newType(INT_TYPE2);
+  type->isSigned = 1;
+  type->size = 32;
+  return type;
+}
+
 void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   getNextToken(state);
   decl->type = newType(ENUM_TYPE);
@@ -1301,7 +1271,7 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
 
     struct DeclAST *field = newDecl();
     field->kind = ENUM_FIELD_DECL;
-    field->type = newType(INT_TYPE);
+    field->type = getInt32();
 
     field->name = getNextToken(state);
     field->enumValue = idx++;
@@ -1335,12 +1305,23 @@ void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
     parseStruct(state, decl);
   } else if (match(state, ENUM)) {
     parseEnum(state, decl);
-  } else if (match(state, INT)) {
+  } else if (match(state, INT2)) {
+    decl->type = newType(INT_TYPE2);
+
+    // TODO: legacy types, to be removed.
+    if (tokCmpStr(state->curToken, "int")) {
+      decl->type->isSigned = 1;
+      decl->type->size = 32;
+    } else if (tokCmpStr(state->curToken, "char")) {
+      decl->type->isSigned = 1;
+      decl->type->size = 8;
+    } else {
+      decl->type->isSigned = *state->curToken.data == 'i';
+      char *end = state->curToken.end;
+      decl->type->size = strtol(state->curToken.data + 1, &end, 10);
+    }
+
     getNextToken(state);
-    decl->type = newType(INT_TYPE);
-  } else if (match(state, CHAR)) {
-    getNextToken(state);
-    decl->type = newType(CHAR_TYPE);
   } else if (match(state, VOID)) {
     getNextToken(state);
     decl->type = newType(VOID_TYPE);
@@ -1727,13 +1708,14 @@ int typeEq(struct Type *one, struct Type *two) {
   }
 
   switch (one->kind) {
-  case INT_TYPE:
   case VOID_TYPE:
-  case CHAR_TYPE:
     // TODO type safe enums
     // All enums are typed as 'int'
   case ENUM_TYPE:
     break;
+
+  case INT_TYPE2:
+    return one->isSigned == two->isSigned && one->size == two->size;
 
   case ARRAY_TYPE:
     if (one->size != 0 && two->size != 0 && one->size != two->size) {
@@ -1746,7 +1728,7 @@ int typeEq(struct Type *one, struct Type *two) {
     return tokCmp(one->tag, two->tag);
 
   case FUNC_TYPE:
-    failSema("TODO: type eq struct, enum, func");
+    failSema("TODO: type eq func");
     break;
   }
   return 1;
@@ -1760,15 +1742,23 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
     return expr;
   }
 
-  // Int and enums are equivalent currently.
-  if ((from->kind == ENUM_TYPE && to->kind == INT_TYPE) ||
-      (from->kind == INT_TYPE && to->kind == ENUM_TYPE)) {
+  // i32 and enums are equivalent currently.
+  if ((from->kind == ENUM_TYPE && to->kind == INT_TYPE2 && to->isSigned &&
+       to->size == 32) ||
+      (from->kind == INT_TYPE2 && from->isSigned && from->size == 32 &&
+       to->kind == ENUM_TYPE)) {
     return expr;
   }
 
-  // int and char can be converted.
-  if ((from->kind == INT_TYPE && to->kind == CHAR_TYPE) ||
-      (from->kind == CHAR_TYPE && to->kind == INT_TYPE)) {
+  // Sign change, no-op for now. TODO: remove
+  if (from->kind == INT_TYPE2 && to->kind == INT_TYPE2 &&
+      from->size == to->size) {
+    return expr;
+  }
+
+  // Same signedness but different type
+  if (from->kind == INT_TYPE2 && to->kind == INT_TYPE2 &&
+      from->size != to->size) {
     struct ExprAST *res = newExpr(CAST_EXPR);
     res->lhs = expr;
     res->type = to;
@@ -1790,18 +1780,18 @@ struct Type *getCommonType(struct Type *a, struct Type *b) {
   }
 
   // int, enum -> int
-  if (a->kind == INT_TYPE && b->kind == ENUM_TYPE) {
+  if (a->kind == INT_TYPE2 && b->kind == ENUM_TYPE) {
     return a;
   }
-  if (b->kind == INT_TYPE && a->kind == ENUM_TYPE) {
+  if (b->kind == INT_TYPE2 && a->kind == ENUM_TYPE) {
     return b;
   }
 
   // int, char -> int
-  if (a->kind == INT_TYPE && b->kind == CHAR_TYPE) {
-    return a;
-  }
-  if (b->kind == INT_TYPE && a->kind == CHAR_TYPE) {
+  if (a->kind == INT_TYPE2 && b->kind == INT_TYPE2) {
+    if (a->size > b->size) {
+      return a;
+    }
     return b;
   }
 
@@ -1816,9 +1806,8 @@ struct Type *getCommonType(struct Type *a, struct Type *b) {
   return NULL;
 }
 
-// TODO: remove implicit pointer to int conversion for if(ptr) and if (!ptr)
 void checkBool(struct ExprAST *expr) {
-  if (expr->type->kind != INT_TYPE) { // && expr->type->kind != POINTER_TYPE) {
+  if (expr->type->kind != INT_TYPE2) {
     printExpr(expr);
     failSema(": Expected bool!");
   }
@@ -1891,11 +1880,10 @@ int getSize(struct SemaState *state, struct Type *type) {
   switch (type->kind) {
   case VOID_TYPE:
     return 0;
-  case INT_TYPE:
   case ENUM_TYPE:
     return 4;
-  case CHAR_TYPE:
-    return 1;
+  case INT_TYPE2:
+    return type->size / 8;
 
   case POINTER_TYPE:
   case FUNC_TYPE:
@@ -1988,24 +1976,28 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
     expr->lhs = doConvert(expr->lhs, commonType);
     expr->rhs = doConvert(expr->rhs, commonType);
 
-    expr->type = newType(INT_TYPE);
+    expr->type = getInt32();
     return;
 
   case MINUS:
     if (expr->lhs->type->kind == POINTER_TYPE &&
         expr->rhs->type->kind == POINTER_TYPE) {
 
-      if (expr->lhs->type->arg->kind != CHAR_TYPE ||
-          expr->rhs->type->arg->kind != CHAR_TYPE) {
+      if (expr->lhs->type->arg->kind != INT_TYPE2 ||
+          expr->lhs->type->arg->size != 8 ||
+          expr->rhs->type->arg->kind != INT_TYPE2 ||
+          expr->rhs->type->arg->size != 8) {
         // TODO: emit (expr) / sizeof(type)
         failSema("Only char pointer subtract supported");
       }
 
-      expr->type = newType(INT_TYPE);
+      expr->type = newType(INT_TYPE2);
+      expr->type->isSigned = 1;
+      expr->type->size = 64; // TODO: depend on target
       break;
     }
   case PLUS:
-    if (expr->op.kind != MINUS && expr->lhs->type->kind == INT_TYPE &&
+    if (expr->op.kind != MINUS && expr->lhs->type->kind == INT_TYPE2 &&
         expr->rhs->type->kind == POINTER_TYPE) {
       expr->type = expr->rhs->type;
       break;
@@ -2013,18 +2005,19 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
   case ADD_ASSIGN:
   case SUB_ASSIGN:
     if (expr->lhs->type->kind == POINTER_TYPE &&
-        expr->rhs->type->kind == INT_TYPE) {
+        expr->rhs->type->kind == INT_TYPE2) {
       expr->type = expr->lhs->type;
       break;
     }
 
   default:
     if (isAssign(expr->op)) {
-      expr->rhs = doConvert(expr->rhs, expr->lhs->type);
-      if (expr->rhs == NULL) {
+      struct ExprAST *conv = doConvert(expr->rhs, expr->lhs->type);
+      if (conv == NULL) {
         printExpr(expr);
         failSema(": Assign doesn't match");
       }
+      expr->rhs = conv;
       expr->type = expr->lhs->type;
       break;
     }
@@ -2105,7 +2098,8 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
       if (curArgTy != NULL) {
         cur->lhs = doConvert(cur->lhs, curArgTy);
         if (cur->lhs == NULL) {
-          failSema("Arg type mismatch");
+          printExpr(expr);
+          failSema(" Arg type mismatch");
         }
       }
       if (curArgTy != NULL) {
@@ -2147,7 +2141,9 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
 
   case STR_EXPR:
     expr->type = newType(ARRAY_TYPE);
-    expr->type->arg = newType(CHAR_TYPE);
+    expr->type->arg = newType(INT_TYPE2);
+    expr->type->arg->size = 8;
+    expr->type->arg->isSigned = 1;
 
     expr->type->size = getStringLength(expr->identifier);
 
@@ -2167,7 +2163,9 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
   } break;
 
   case INT_EXPR:
-    expr->type = newType(INT_TYPE);
+    expr->type = newType(INT_TYPE2);
+    expr->type->size = 32;
+    expr->type->isSigned = 1;
     return;
 
   case BINARY_EXPR:
@@ -2181,7 +2179,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
       failSema("Can't index non array or pointer");
     }
     semaExpr(state, expr->rhs);
-    if (expr->rhs->type->kind != INT_TYPE &&
+    if (expr->rhs->type->kind != INT_TYPE2 &&
         expr->rhs->type->kind != ENUM_TYPE) {
       failSema("Can't index with non integer");
     }
@@ -2214,7 +2212,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
 
     // TODO: correct?
     if (expr->op.kind == BANG) {
-      expr->type = newType(INT_TYPE);
+      expr->type = getInt32();
     }
 
     break;
@@ -2227,7 +2225,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
       expr->value = getSize(state, expr->sizeofArg);
     }
     expr->kind = INT_EXPR;
-    expr->type = newType(INT_TYPE);
+    expr->type = getInt32();
     break;
   case CAST_EXPR:
     semaExpr(state, expr->lhs);
@@ -2409,7 +2407,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
   case SWITCH_STMT:
     semaExpr(state, stmt->expr);
     // TODO: check if can be converted to int?
-    if (stmt->expr->type->kind != INT_TYPE &&
+    if (stmt->expr->type->kind != INT_TYPE2 &&
         stmt->expr->type->kind != ENUM_TYPE) {
       printType(stmt->expr->type);
       failSema("Switch expr must be int");
@@ -2418,7 +2416,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
 
   case CASE_STMT:
     semaExpr(state, stmt->expr);
-    if (stmt->expr->type->kind != INT_TYPE &&
+    if (stmt->expr->type->kind != INT_TYPE2 &&
         stmt->expr->type->kind != ENUM_TYPE) {
       failSema("case expr must be int");
     }
@@ -2449,19 +2447,21 @@ struct DeclAST *semaTopLevel(struct SemaState *state, struct DeclAST *decl) {
 }
 
 // 3. emit
-void failEmit(const char *msg) {
+void failEmit(const i8 *msg) {
   puts(msg);
   exit(1);
 }
 
 // Convert type to LLVM type.
-const char *convertType(struct Type *type) {
+const i8 *convertType(struct Type *type) {
   switch (type->kind) {
   case VOID_TYPE:
     return "void";
-  case CHAR_TYPE:
-    return "i8";
-  case INT_TYPE:
+  case INT_TYPE2: {
+    i8 *buf = malloc(16);
+    sprintf(buf, "i%d", type->size);
+    return buf;
+  }
   case ENUM_TYPE:
     return "i32";
   case POINTER_TYPE:
@@ -2941,7 +2941,7 @@ struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
     // Use emitBinary to handle the inc/dec
     struct Value one = intToVal(expr->op.kind == INC_OP ? 1 : -1);
     struct Value res = emitBinary(state, opExpr->type, PLUS, val, opExpr->type,
-                                  one, newType(INT_TYPE));
+                                  one, getInt32());
     emitStore(operand, res);
 
     if (expr->lhs != NULL) {
@@ -3133,10 +3133,12 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
   struct Value res = getNextTemp(state);
   res.type = convertType(to);
 
-  if (from->kind == INT_TYPE && to->kind == CHAR_TYPE) {
+  if (from->size > to->size) {
     printf("  %s = trunc %s %s to %s\n", res.val, v.type, v.val, res.type);
-  } else if (from->kind == CHAR_TYPE && to->kind == INT_TYPE) {
+  } else if (from->isSigned && to->isSigned) {
     printf("  %s = sext %s %s to %s\n", res.val, v.type, v.val, res.type);
+  } else if (!from->isSigned && !to->isSigned) {
+    printf("  %s = zext %s %s to %s\n", res.val, v.type, v.val, res.type);
   } else {
     failEmit("Not supported!");
   }
