@@ -6,27 +6,30 @@
 #include <unistd.h>
 
 #if 0
-int putchar(int __c);
-int puts(const char *s);
-int printf(const char *format, ...);
-int sprintf (char * s, const char * format, ...);
-void exit(int status);
-int strcmp (const char *s1, const char *s2);
-int open (const char *file, int oflags, ...);
+i32 putchar(i32 __c);
+i32 puts(const i8 *s);
+i32 printf(const i8 *format, ...);
+i32 sprintf (i8 * s, const i8 * format, ...);
+void exit(i32 status);
+i32 strcmp (const i8 *s1, const i8 *s2);
+i32 open (const i8 *file, i32 oflags, ...);
 
 // TODO: size_t
 // \{
-int memcmp(const void *s1, const void *s2, int n);
-int strlen(const char *s);
-void *malloc(int size);
-void *calloc(int count, int size);
+i32 memcmp(const void *s1, const void *s2, u64 n);
+u64 strlen(const i8 *s);
+void *malloc(u64 size);
+void *calloc(u64 count, u64 size);
 
 // long
-int strtol(const char *ptr, char **end, int base);
-int lseek (int fd, int offset, int whence);
-int read (int fd, void *buf, int nbytes);
+i64 strtol(const i8 *ptr, i8 **end, i32 base);
+i64 lseek (i32 fd, i64 offset, i32 whence);
+i64 read (i32 fd, void *buf, u64 nbytes);
 // \}
 #endif
+#define i8 char
+#define i32 int
+#define i64 long
 
 struct Token {
   enum {
@@ -51,17 +54,17 @@ struct Token {
     // clang-format on
   } kind;
 
-  char *data;
-  char *end;
+  i8 *data;
+  i8 *end;
 };
 
 struct ParseState {
   // [start, end[ contains the current data buffer.
-  char *start;
-  char *end;
+  i8 *start;
+  i8 *end;
 
   // Pointer in [start, end[ where we're currently parsing.
-  char *current;
+  i8 *current;
 
   // Currently parsed token.
   struct Token curToken;
@@ -99,7 +102,7 @@ struct ExprAST {
   // primary_expr
   // \{
   // int
-  int value;
+  i32 value;
   // \}
 
   // binary
@@ -135,18 +138,18 @@ struct Type {
   struct Type *arg;
   struct Type *argNext;
 
-  int isConst;
+  i32 isConst;
 
   // For array or integer types
-  int size;
+  i32 size;
 
-  int isSigned;
+  i32 isSigned;
 
   // For funcs
-  int isVarargs;
+  i32 isVarargs;
 
   // TODO: remove, now that we have cast expr.
-  int isDecay;
+  i32 isDecay;
 };
 
 struct DeclAST {
@@ -175,10 +178,10 @@ struct DeclAST {
   struct StmtAST *body;
 
   // For enum values
-  int enumValue;
+  i32 enumValue;
 
   // For function declarations that do have defs
-  int hasDef;
+  i32 hasDef;
 };
 
 struct StmtAST {
@@ -235,15 +238,15 @@ struct SemaState {
   // Extra decls added during sema, used for string literals.
   // Should only be added to the root sema state.
   struct DeclAST *extraDecls;
-  int strCount;
+  i32 strCount;
 };
 
 struct EmitState {
-  int tmpCounter;
+  i32 tmpCounter;
   struct LocalVar *vars;
 
-  char *curBreakLabel;
-  char *defaultLabel;
+  i8 *curBreakLabel;
+  i8 *defaultLabel;
   struct Case *cases;
 
   struct EmitState *parent;
@@ -251,10 +254,10 @@ struct EmitState {
 
 // LLVM IR Value
 struct Value {
-  const char *type;
+  const i8 *type;
 
   // reg name or just the value
-  const char *val;
+  const i8 *val;
 };
 
 struct LocalVar {
@@ -266,12 +269,12 @@ struct LocalVar {
 
 struct Case {
   struct Value val;
-  int n;
+  i32 n;
 
   struct Case *next;
 };
 
-const char *tokens[] = {
+const i8 *tokens[] = {
     "EOF",      "IDENT",   "CONST",  "STR",    "INT",
 
     "continue", "default", "sizeof", "struct", "switch", "return", "const",
@@ -285,24 +288,14 @@ const char *tokens[] = {
     "%",        "<",       ">",      "^",      "|",      "?",
 };
 
-const char *intTypes[] = {
-    "i8",
-    "i16",
-    "i32",
-    "i64",
-    "u8",
-    "u16",
-    "u32",
-    "u64",
-    // legacy
-    "int",
-    "char",
+const i8 *intTypes[] = {
+    "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
 };
 
 /// debug only:
 /// \{
-void printStr(char *start, char *end) {
-  for (char *c = start; c != end; c++) {
+void printStr(i8 *start, i8 *end) {
+  for (i8 *c = start; c != end; c++) {
     putchar(*c);
   }
 }
@@ -314,13 +307,12 @@ void printToken(struct Token token) {
   printf(") ");
 }
 
-int iseol(int c) { return c == '\n' || c == '\r'; }
+i32 iseol(i32 c) { return c == '\n' || c == '\r'; }
 
-void failParseArg(struct ParseState *state, const char *msg, const char *arg) {
-  int line = 1;
-  int column = 0;
-  for (const char *c = state->start; c < state->current && c < state->end;
-       c++) {
+void failParseArg(struct ParseState *state, const i8 *msg, const i8 *arg) {
+  i32 line = 1;
+  i32 column = 0;
+  for (const i8 *c = state->start; c < state->current && c < state->end; c++) {
     if (iseol(*c)) {
       line++;
       column = 0;
@@ -337,7 +329,7 @@ void failParseArg(struct ParseState *state, const char *msg, const char *arg) {
   exit(1);
 }
 
-void failParse(struct ParseState *state, const char *msg) {
+void failParse(struct ParseState *state, const i8 *msg) {
   failParseArg(state, msg, "");
 }
 
@@ -620,13 +612,13 @@ void printDecl(struct DeclAST *decl) {
 /// \}
 
 // utils
-int tokCmp(struct Token one, struct Token two) {
+i32 tokCmp(struct Token one, struct Token two) {
   if (one.kind != two.kind) {
     return 0;
   }
 
-  int len1 = one.end - one.data;
-  int len2 = two.end - two.data;
+  i64 len1 = one.end - one.data;
+  i64 len2 = two.end - two.data;
   if (len1 != len2) {
     return 0;
   }
@@ -634,9 +626,9 @@ int tokCmp(struct Token one, struct Token two) {
   return memcmp(one.data, two.data, len1) == 0;
 }
 
-int tokCmpStr(struct Token one, const char *str) {
-  int len1 = one.end - one.data;
-  int len2 = strlen(str);
+i32 tokCmpStr(struct Token one, const i8 *str) {
+  i64 len1 = one.end - one.data;
+  i64 len2 = strlen(str);
   if (len1 != len2) {
     return 0;
   }
@@ -647,18 +639,18 @@ int tokCmpStr(struct Token one, const char *str) {
 // 1. parse
 
 // Returns the current character and advances the current pointer.
-int nextChar(struct ParseState *state) {
+i32 nextChar(struct ParseState *state) {
   if (state->current >= state->end) {
     return -1;
   }
 
-  int result = *state->current;
+  i32 result = *state->current;
   state->current++;
   return result;
 }
 
 // Returns the current character without advancing
-int peekChar(struct ParseState *state) {
+i32 peekChar(struct ParseState *state) {
   if (state->current >= state->end) {
     return -1;
   }
@@ -666,14 +658,14 @@ int peekChar(struct ParseState *state) {
 }
 
 /// True if the current character is an EOL character
-int is_space(int c) { return iseol(c) || c == ' ' || c == '\t'; }
-int is_alpha(int c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
-int is_digit(int c) { return c >= '0' && c <= '9'; }
-int is_alnum(int c) { return is_digit(c) || is_alpha(c); }
+i32 is_space(i32 c) { return iseol(c) || c == ' ' || c == '\t'; }
+i32 is_alpha(i32 c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+i32 is_digit(i32 c) { return c >= '0' && c <= '9'; }
+i32 is_alnum(i32 c) { return is_digit(c) || is_alpha(c); }
 
 struct Token getToken(struct ParseState *state) {
-  char *tokenStart = state->current;
-  char lastChar = nextChar(state);
+  i8 *tokenStart = state->current;
+  i8 lastChar = nextChar(state);
   struct Token token;
 
   // Eat whitespace
@@ -697,15 +689,15 @@ struct Token getToken(struct ParseState *state) {
     token.end = state->current; // one past the end!
 
     // Check if it's a keyword.
-    for (int i = CONTINUE; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
+    for (i32 i = CONTINUE; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
       if (tokCmpStr(token, tokens[i])) {
         token.kind = i;
         return token;
       }
     }
 
-    // int types [iu](8|16|32|64)
-    for (int i = 0; i < sizeof(intTypes) / sizeof(intTypes[0]); i++) {
+    // i32 types [iu](8|16|32|64)
+    for (i32 i = 0; i < sizeof(intTypes) / sizeof(intTypes[0]); i++) {
       if (tokCmpStr(token, intTypes[i])) {
         token.kind = INT2;
         return token;
@@ -718,7 +710,7 @@ struct Token getToken(struct ParseState *state) {
 
   if (lastChar == '\'') {
     while (peekChar(state) != '\'') {
-      int next = nextChar(state);
+      i32 next = nextChar(state);
       if (next == '\\') {
         nextChar(state);
       }
@@ -732,7 +724,7 @@ struct Token getToken(struct ParseState *state) {
 
   if (lastChar == '"') {
     while (peekChar(state) != '"') {
-      int next = nextChar(state);
+      i32 next = nextChar(state);
       if (next == '\\') {
         nextChar(state);
       }
@@ -772,9 +764,9 @@ struct Token getToken(struct ParseState *state) {
   }
 
   // Asume operator
-  for (int i = CONTINUE; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
-    int len = strlen(tokens[i]);
-    int remaining = state->end - tokenStart;
+  for (i32 i = CONTINUE; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
+    i64 len = strlen(tokens[i]);
+    i64 remaining = state->end - tokenStart;
     if (len < remaining && memcmp(tokenStart, tokens[i], len) == 0) {
       token.kind = i;
       token.data = tokenStart;
@@ -792,11 +784,11 @@ struct Token getToken(struct ParseState *state) {
   return token;
 }
 
-int match(struct ParseState *state, int tok) {
+i32 match(struct ParseState *state, i32 tok) {
   return state->curToken.kind == tok;
 }
 
-void expect(struct ParseState *state, int tok) {
+void expect(struct ParseState *state, i32 tok) {
   if (!match(state, tok)) {
     failParseArg(state, "Expected: ", tokens[tok]);
   }
@@ -808,13 +800,13 @@ struct Token getNextToken(struct ParseState *state) {
   return result;
 }
 
-struct ExprAST *newExpr(int kind) {
+struct ExprAST *newExpr(i32 kind) {
   struct ExprAST *result = calloc(1, sizeof(struct ExprAST));
   result->kind = kind;
   return result;
 }
 
-char getEscaped(int c) {
+i8 getEscaped(i32 c) {
   switch (c) {
   case 'n':
     return '\n';
@@ -832,7 +824,7 @@ char getEscaped(int c) {
 struct ExprAST *parseNumber(struct ParseState *state) {
   struct ExprAST *result = newExpr(INT_EXPR);
 
-  char *start = state->curToken.data;
+  i8 *start = state->curToken.data;
   if (*start == '\'') {
     if (start[1] == '\\') {
       result->value = getEscaped(start[2]);
@@ -840,8 +832,8 @@ struct ExprAST *parseNumber(struct ParseState *state) {
       result->value = start[1];
     }
   } else {
-    char *endp = state->curToken.end;
-    int num = strtol(start, &endp, 10);
+    i8 *endp = state->curToken.end;
+    i32 num = strtol(start, &endp, 10);
     result->value = num;
   }
 
@@ -995,7 +987,7 @@ struct ExprAST *parsePostfix(struct ParseState *state) {
   return expr;
 }
 
-int isDecl(struct Token tok) {
+i32 isDecl(struct Token tok) {
   // We don't support typedef, so this is easy
   switch (tok.kind) {
   case CONST:
@@ -1057,7 +1049,7 @@ struct ExprAST *parseCast(struct ParseState *state) {
   return parseUnary(state);
 }
 
-int getPrecedence(struct Token tok) {
+i32 getPrecedence(struct Token tok) {
   switch (tok.kind) {
   case STAR:
   case SLASH:
@@ -1099,10 +1091,10 @@ int getPrecedence(struct Token tok) {
   }
 }
 
-struct ExprAST *parseBinOpRhs(struct ParseState *state, int prec,
+struct ExprAST *parseBinOpRhs(struct ParseState *state, i32 prec,
                               struct ExprAST *lhs) {
   while (1) {
-    int curPred = getPrecedence(state->curToken);
+    i32 curPred = getPrecedence(state->curToken);
     if (curPred < prec) {
       return lhs;
     }
@@ -1112,7 +1104,7 @@ struct ExprAST *parseBinOpRhs(struct ParseState *state, int prec,
 
     struct ExprAST *rhs = parseCast(state);
 
-    int nextPred = getPrecedence(state->curToken);
+    i32 nextPred = getPrecedence(state->curToken);
     if (curPred < nextPred) {
       rhs = parseBinOpRhs(state, curPred + 1, rhs);
     }
@@ -1150,7 +1142,7 @@ struct ExprAST *parseConditional(struct ParseState *state) {
   return expr;
 }
 
-int isAssign(struct Token tok) {
+i32 isAssign(struct Token tok) {
   switch (tok.kind) {
   case EQ:
   case MUL_ASSIGN:
@@ -1206,7 +1198,7 @@ struct ExprAST *parseExpression(struct ParseState *state) {
   return expr;
 }
 
-struct Type *newType(int kind) {
+struct Type *newType(i32 kind) {
   struct Type *type = calloc(1, sizeof(struct Type));
   type->kind = kind;
   return type;
@@ -1265,7 +1257,7 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
 
   // parse constants
   struct DeclAST *fields = decl;
-  int idx = 0;
+  i32 idx = 0;
   while (!match(state, CLOSE_BRACE)) {
     expect(state, IDENTIFIER);
 
@@ -1294,7 +1286,7 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
 }
 
 void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
-  int isConst = 0;
+  i32 isConst = 0;
   if (match(state, CONST)) {
     getNextToken(state);
     isConst = 1;
@@ -1307,19 +1299,9 @@ void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
     parseEnum(state, decl);
   } else if (match(state, INT2)) {
     decl->type = newType(INT_TYPE2);
-
-    // TODO: legacy types, to be removed.
-    if (tokCmpStr(state->curToken, "int")) {
-      decl->type->isSigned = 1;
-      decl->type->size = 32;
-    } else if (tokCmpStr(state->curToken, "char")) {
-      decl->type->isSigned = 1;
-      decl->type->size = 8;
-    } else {
-      decl->type->isSigned = *state->curToken.data == 'i';
-      char *end = state->curToken.end;
-      decl->type->size = strtol(state->curToken.data + 1, &end, 10);
-    }
+    decl->type->isSigned = *state->curToken.data == 'i';
+    i8 *end = state->curToken.end;
+    decl->type->size = strtol(state->curToken.data + 1, &end, 10);
 
     getNextToken(state);
   } else if (match(state, VOID)) {
@@ -1461,7 +1443,7 @@ struct ExprAST *parseInitializer(struct ParseState *state) {
   return expr;
 }
 
-struct StmtAST *newStmt(int kind) {
+struct StmtAST *newStmt(i32 kind) {
   struct StmtAST *stmt = calloc(1, sizeof(struct StmtAST));
   stmt->kind = kind;
   return stmt;
@@ -1578,7 +1560,7 @@ struct StmtAST *parseCaseStmt(struct ParseState *state) {
   return stmt;
 }
 
-struct StmtAST *parseSwitchOrWhileStmt(struct ParseState *state, int kind) {
+struct StmtAST *parseSwitchOrWhileStmt(struct ParseState *state, i32 kind) {
   getNextToken(state);
 
   expect(state, OPEN_PAREN);
@@ -1690,7 +1672,7 @@ struct DeclAST *parseTopLevel(struct ParseState *state) {
 }
 
 // 2. sema
-void failSema(const char *msg) {
+void failSema(const i8 *msg) {
   puts(msg);
   exit(1);
 }
@@ -1702,7 +1684,7 @@ struct SemaState *getRoot(struct SemaState *state) {
   return state;
 }
 
-int typeEq(struct Type *one, struct Type *two) {
+i32 typeEq(struct Type *one, struct Type *two) {
   if (one->kind != two->kind) {
     return 0;
   }
@@ -1710,7 +1692,7 @@ int typeEq(struct Type *one, struct Type *two) {
   switch (one->kind) {
   case VOID_TYPE:
     // TODO type safe enums
-    // All enums are typed as 'int'
+    // All enums are typed as 'i32'
   case ENUM_TYPE:
     break;
 
@@ -1779,7 +1761,7 @@ struct Type *getCommonType(struct Type *a, struct Type *b) {
     return a;
   }
 
-  // int, enum -> int
+  // i32, enum -> i32
   if (a->kind == INT_TYPE2 && b->kind == ENUM_TYPE) {
     return a;
   }
@@ -1787,7 +1769,7 @@ struct Type *getCommonType(struct Type *a, struct Type *b) {
     return b;
   }
 
-  // int, char -> int
+  // i32, char -> i32
   if (a->kind == INT_TYPE2 && b->kind == INT_TYPE2) {
     if (a->size > b->size) {
       return a;
@@ -1864,8 +1846,8 @@ struct DeclAST *lookupLocal(struct SemaState *state, struct Token name) {
 }
 
 struct DeclAST *findField(struct DeclAST *structDecl, struct Token name,
-                          int *idxOut) {
-  int idx = 0;
+                          i32 *idxOut) {
+  i32 idx = 0;
   for (struct DeclAST *field = structDecl->fields; field != NULL;
        field = field->next, idx++) {
     if (tokCmp(name, field->name)) {
@@ -1876,7 +1858,7 @@ struct DeclAST *findField(struct DeclAST *structDecl, struct Token name,
   return NULL;
 }
 
-int getSize(struct SemaState *state, struct Type *type) {
+i32 getSize(struct SemaState *state, struct Type *type) {
   switch (type->kind) {
   case VOID_TYPE:
     return 0;
@@ -1894,7 +1876,7 @@ int getSize(struct SemaState *state, struct Type *type) {
     return type->size * getSize(state, type->arg);
   case STRUCT_TYPE: {
     struct DeclAST *decl = lookupType(state, type->tag);
-    int size = 0;
+    i32 size = 0;
     for (struct DeclAST *field = decl->fields; field != NULL;
          field = field->next) {
       size += getSize(state, field->type);
@@ -1919,8 +1901,8 @@ void semaExpr(struct SemaState *state, struct ExprAST *expr) {
     decl->kind = VAR_DECL;
     decl->type = expr->type;
 
-    char *name = malloc(32);
-    int n = sprintf(name, "str.%d", root->strCount++);
+    i8 *name = malloc(32);
+    i32 n = sprintf(name, "str.%d", root->strCount++);
     decl->name.kind = IDENTIFIER;
     decl->name.data = name;
     decl->name.end = name + n;
@@ -1960,7 +1942,7 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
   case COMMA:
     expr->type = expr->rhs->type;
     break;
-    // comparision results in int.
+    // comparision results in i32.
   case LESS:
   case GREATER:
   case LE_OP:
@@ -2037,10 +2019,10 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
   }
 }
 
-int getStringLength(struct Token tok) {
-  int len = 0;
+i32 getStringLength(struct Token tok) {
+  i32 len = 0;
 
-  for (char *c = tok.data; c < tok.end; c++) {
+  for (i8 *c = tok.data; c < tok.end; c++) {
     if (*c == '\\') {
       c++;
       len++;
@@ -2096,17 +2078,19 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
       semaExpr(state, cur->lhs);
 
       if (curArgTy != NULL) {
-        cur->lhs = doConvert(cur->lhs, curArgTy);
-        if (cur->lhs == NULL) {
+        struct ExprAST *conv = doConvert(cur->lhs, curArgTy);
+        if (conv == NULL) {
           printExpr(expr);
+          printType(curArgTy);
           failSema(" Arg type mismatch");
         }
+        cur->lhs = conv;
       }
       if (curArgTy != NULL) {
         curArgTy = curArgTy->argNext;
       }
     }
-    int isValidVararg = expr->lhs->type->isVarargs && curArgTy == NULL;
+    i32 isValidVararg = expr->lhs->type->isVarargs && curArgTy == NULL;
     if (!isValidVararg && (curArgTy == NULL) != (cur == NULL)) {
       failSema("Function call arg length mismatch");
     }
@@ -2153,7 +2137,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
   case VARIABLE_EXPR: {
     struct DeclAST *local = lookupLocal(state, expr->identifier);
 
-    // enum value, transform this expr to an int.
+    // enum value, transform this expr to an i32.
     if (local->kind == ENUM_FIELD_DECL) {
       expr->kind = INT_EXPR;
       expr->value = local->enumValue;
@@ -2406,11 +2390,11 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
 
   case SWITCH_STMT:
     semaExpr(state, stmt->expr);
-    // TODO: check if can be converted to int?
+    // TODO: check if can be converted to i32?
     if (stmt->expr->type->kind != INT_TYPE2 &&
         stmt->expr->type->kind != ENUM_TYPE) {
       printType(stmt->expr->type);
-      failSema("Switch expr must be int");
+      failSema("Switch expr must be i32");
     }
     semaStmt(state, stmt->stmt);
 
@@ -2418,7 +2402,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     semaExpr(state, stmt->expr);
     if (stmt->expr->type->kind != INT_TYPE2 &&
         stmt->expr->type->kind != ENUM_TYPE) {
-      failSema("case expr must be int");
+      failSema("case expr must be i32");
     }
     break;
 
@@ -2467,21 +2451,21 @@ const i8 *convertType(struct Type *type) {
   case POINTER_TYPE:
     return "ptr";
   case STRUCT_TYPE: {
-    int len = type->tag.end - type->tag.data;
-    char *buf = malloc(len + 10);
+    i32 len = type->tag.end - type->tag.data;
+    i8 *buf = malloc(len + 10);
     sprintf(buf, "%%struct.%.*s", len, type->tag.data);
     return buf;
   }
 
   case ARRAY_TYPE: {
-    char *buf = malloc(32);
+    i8 *buf = malloc(32);
     sprintf(buf, "[%d x %s]", type->size, convertType(type->arg));
     return buf;
   }
 
   case FUNC_TYPE: {
-    char *buf = malloc(128);
-    char *cur = buf + sprintf(buf, "%s (", convertType(type->result));
+    i8 *buf = malloc(128);
+    i8 *cur = buf + sprintf(buf, "%s (", convertType(type->result));
     for (struct Type *arg = type->arg; arg != NULL; arg = arg->argNext) {
       cur += sprintf(cur, "%s", convertType(arg));
       if (arg->argNext != NULL) {
@@ -2505,11 +2489,11 @@ struct LocalVar *newLocal(struct Token name, struct Value val) {
   return local;
 }
 
-struct Value intToVal(int num) {
+struct Value intToVal(i32 num) {
   struct Value val;
   val.type = "i32";
 
-  char *buf = malloc(16);
+  i8 *buf = malloc(16);
   sprintf(buf, "%d", num);
   val.val = buf;
 
@@ -2519,7 +2503,7 @@ struct Value intToVal(int num) {
 struct Value getNextTemp(struct EmitState *state) {
   struct Value val;
 
-  char *buf = malloc(16);
+  i8 *buf = malloc(16);
   sprintf(buf, "%%tmp%d", state->tmpCounter++);
   val.val = buf;
 
@@ -2529,18 +2513,18 @@ struct Value getNextTemp(struct EmitState *state) {
 struct Value getGlobal(struct Token ident) {
   struct Value val;
 
-  int len = ident.end - ident.data;
-  char *buf = malloc(len + 2);
+  i32 len = ident.end - ident.data;
+  i8 *buf = malloc(len + 2);
   sprintf(buf, "@%.*s", len, ident.data);
   val.val = buf;
 
   return val;
 }
 
-struct Value getTempGlobal(struct EmitState *state, const char *prefix) {
+struct Value getTempGlobal(struct EmitState *state, const i8 *prefix) {
   struct Value val;
 
-  char *buf = malloc(64);
+  i8 *buf = malloc(64);
   sprintf(buf, "@%s%d", prefix, state->tmpCounter++);
   val.val = buf;
 
@@ -2645,7 +2629,7 @@ void emitStore(struct Value addr, struct Value val) {
 }
 
 struct Value emitLoad(struct EmitState *state, struct Value addr,
-                      const char *type) {
+                      const i8 *type) {
   struct Value val = getNextTemp(state);
   val.type = type;
   printf("  %s = load %s, ptr %s\n", val.val, val.type, addr.val);
@@ -2653,12 +2637,12 @@ struct Value emitLoad(struct EmitState *state, struct Value addr,
 }
 
 struct Value emitBinary(struct EmitState *state, struct Type *resType,
-                        int opKind, struct Value lhs, struct Type *lhsType,
+                        i32 opKind, struct Value lhs, struct Type *lhsType,
                         struct Value rhs, struct Type *rhsType) {
 
-  // ptr - ptr -> int
-  int lhsPointer = lhsType->kind == POINTER_TYPE;
-  int rhsPointer = rhsType->kind == POINTER_TYPE;
+  // ptr - ptr -> i32
+  i32 lhsPointer = lhsType->kind == POINTER_TYPE;
+  i32 rhsPointer = rhsType->kind == POINTER_TYPE;
   if (lhsPointer && rhsPointer && opKind == MINUS) {
     failEmit("TODO");
   }
@@ -2668,7 +2652,7 @@ struct Value emitBinary(struct EmitState *state, struct Type *resType,
     struct Value ptrOp = lhsPointer ? lhs : rhs;
     struct Value intOp = lhsPointer ? rhs : lhs;
 
-    // negate the int for minus op
+    // negate the i32 for minus op
     if (opKind == MINUS) {
       struct Value neg = getNextTemp(state);
       neg.type = intOp.type;
@@ -2688,8 +2672,8 @@ struct Value emitBinary(struct EmitState *state, struct Type *resType,
     failEmit("Lhs and rhs don't have same type!");
   }
 
-  const char *instr;
-  int upcast = 0;
+  const i8 *instr;
+  i32 upcast = 0;
   switch (opKind) {
   default:
     failEmit("Invalid binary op");
@@ -2774,7 +2758,7 @@ struct Value emitAssignment(struct EmitState *state, struct ExprAST *expr) {
 
   struct Value lval = emitLoad(state, addr, convertType(expr->lhs->type));
 
-  int op = 0;
+  i32 op = 0;
   switch (expr->op.kind) {
   case ADD_ASSIGN:
     op = PLUS;
@@ -2819,10 +2803,10 @@ struct Value emitAssignment(struct EmitState *state, struct ExprAST *expr) {
 
 struct Value emitLogicalBinOp(struct EmitState *state, struct ExprAST *expr) {
   struct Value lhs = emitExpr(state, expr->lhs);
-  int idx = state->tmpCounter++;
+  i32 idx = state->tmpCounter++;
 
-  const char *firstLabel = "true";
-  const char *secondLabel = "false";
+  const i8 *firstLabel = "true";
+  const i8 *secondLabel = "false";
   if (expr->op.kind == OR_OP) {
     firstLabel = "false";
     secondLabel = "true";
@@ -2953,9 +2937,9 @@ struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
   struct Value operand = emitExpr(state, expr->rhs);
   struct Value res = getNextTemp(state);
 
-  const char *instr;
-  const char *constop;
-  int upcast = 0;
+  const i8 *instr;
+  const i8 *constop;
+  i32 upcast = 0;
   switch (expr->op.kind) {
   default:
   case INC_OP:
@@ -3013,15 +2997,15 @@ struct Value emitVarRef(struct EmitState *state, struct ExprAST *expr) {
 }
 
 struct Value getStrConst(struct Type *type, struct Token tok) {
-  int len = tok.end - tok.data;
-  char *val = malloc(len + 16);
+  i32 len = tok.end - tok.data;
+  i8 *val = malloc(len + 16);
 
-  char *cur = val;
+  i8 *cur = val;
   cur += sprintf(val, "c\""); // %.*s\\00\"", len, tok.data);
 
-  for (int i = 0; i < len; i++) {
+  for (i32 i = 0; i < len; i++) {
     if (tok.data[i] == '\\') {
-      char c = getEscaped(tok.data[++i]);
+      i8 c = getEscaped(tok.data[++i]);
       cur += sprintf(cur, "\\%02x", c);
     } else {
       *cur++ = tok.data[i];
@@ -3058,7 +3042,7 @@ struct Value emitArray(struct EmitState *state, struct ExprAST *expr) {
     return res;
   }
 
-  char *buf = malloc(64 * expr->type->size);
+  i8 *buf = malloc(64 * expr->type->size);
   res.val = buf;
 
   buf += sprintf(buf, "[ ");
@@ -3135,12 +3119,12 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
 
   if (from->size > to->size) {
     printf("  %s = trunc %s %s to %s\n", res.val, v.type, v.val, res.type);
-  } else if (from->isSigned && to->isSigned) {
+  } else if (to->isSigned) {
     printf("  %s = sext %s %s to %s\n", res.val, v.type, v.val, res.type);
-  } else if (!from->isSigned && !to->isSigned) {
+  } else if (!to->isSigned) {
     printf("  %s = zext %s %s to %s\n", res.val, v.type, v.val, res.type);
   } else {
-    failEmit("Not supported!");
+    failEmit("Unsupported cast");
   }
 
   return res;
@@ -3150,8 +3134,8 @@ struct Value emitCond(struct EmitState *state, struct ExprAST *expr) {
   struct Value cond = emitExpr(state, expr->cond);
   cond = makeBool(state, cond);
 
-  const char *falseLabel = "false";
-  int idx = state->tmpCounter++;
+  const i8 *falseLabel = "false";
+  i32 idx = state->tmpCounter++;
   printf("  br i1 %s, label %%cond.true.%d, label %%cond.%s.%d\n", cond.val,
          idx, falseLabel, idx);
 
@@ -3249,7 +3233,7 @@ struct Value emitLocalVar(struct EmitState *state, struct DeclAST *decl) {
   struct Value val = getNextTemp(state);
   val.type = "ptr";
 
-  const char *type = convertType(decl->type);
+  const i8 *type = convertType(decl->type);
   printf("  %s = alloca %s\n", val.val, type);
 
   struct LocalVar *local = newLocal(decl->name, val);
@@ -3283,11 +3267,11 @@ void emitIf(struct EmitState *state, struct StmtAST *stmt) {
   struct Value cond = emitExpr(state, stmt->expr);
   cond = makeBool(state, cond);
 
-  const char *falseLabel = "false";
+  const i8 *falseLabel = "false";
   if (stmt->stmt == NULL) {
     falseLabel = "cont";
   }
-  int idx = state->tmpCounter++;
+  i32 idx = state->tmpCounter++;
   printf("  br i1 %s, label %%if.true.%d, label %%if.%s.%d\n", cond.val, idx,
          falseLabel, idx);
 
@@ -3305,7 +3289,7 @@ void emitIf(struct EmitState *state, struct StmtAST *stmt) {
 }
 
 void emitWhile(struct EmitState *state, struct StmtAST *stmt) {
-  int idx = state->tmpCounter++;
+  i32 idx = state->tmpCounter++;
 
   printf("  br label %%while.cond.%d\n", idx);
   printf("while.cond.%d:\n", idx);
@@ -3317,7 +3301,7 @@ void emitWhile(struct EmitState *state, struct StmtAST *stmt) {
   whileState.tmpCounter = state->tmpCounter;
   whileState.parent = state;
 
-  char *buf = malloc(32);
+  i8 *buf = malloc(32);
   sprintf(buf, "while.cont.%d", idx);
   whileState.curBreakLabel = buf;
 
@@ -3331,13 +3315,13 @@ void emitWhile(struct EmitState *state, struct StmtAST *stmt) {
 }
 
 void emitFor(struct EmitState *state, struct StmtAST *stmt) {
-  int idx = state->tmpCounter++;
+  i32 idx = state->tmpCounter++;
 
   struct EmitState forState = {0};
   forState.tmpCounter = state->tmpCounter;
   forState.parent = state;
 
-  char *buf = malloc(32);
+  i8 *buf = malloc(32);
   sprintf(buf, "for.cont.%d", idx);
   forState.curBreakLabel = buf;
 
@@ -3366,13 +3350,13 @@ void emitFor(struct EmitState *state, struct StmtAST *stmt) {
 }
 
 void emitSwitch(struct EmitState *state, struct StmtAST *stmt) {
-  int idx = state->tmpCounter++;
+  i32 idx = state->tmpCounter++;
 
   struct EmitState switchState = {0};
   switchState.tmpCounter = state->tmpCounter;
   switchState.parent = state;
 
-  char *buf = malloc(32);
+  i8 *buf = malloc(32);
   sprintf(buf, "cont.%d", idx);
   switchState.curBreakLabel = buf;
 
@@ -3402,7 +3386,7 @@ void emitSwitch(struct EmitState *state, struct StmtAST *stmt) {
 }
 
 void emitCase(struct EmitState *state, struct StmtAST *stmt) {
-  int index = state->tmpCounter++;
+  i32 index = state->tmpCounter++;
 
   // fallthrough.
   printf("  br label %%case.%d\n", index);
@@ -3463,7 +3447,7 @@ void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
     if (state->defaultLabel != NULL) {
       failEmit("Multiple default");
     }
-    int idx = state->tmpCounter++;
+    i32 idx = state->tmpCounter++;
     state->defaultLabel = malloc(32);
     sprintf(state->defaultLabel, "default.%d", idx);
     printf("  br label %%default.%d\n", idx);
@@ -3481,10 +3465,10 @@ void emitFunc(struct EmitState *state, struct DeclAST *decl) {
     return;
   }
 
-  const char *defOrDecl = decl->body == NULL ? "declare" : "define";
+  const i8 *defOrDecl = decl->body == NULL ? "declare" : "define";
   printf("%s %s %s(", defOrDecl, convertType(decl->type->result), val.val);
   for (struct DeclAST *arg = decl->fields; arg != NULL; arg = arg->next) {
-    int len = arg->name.end - arg->name.data;
+    i32 len = arg->name.end - arg->name.data;
     printf("%s %%%.*s", convertType(arg->type), len, arg->name.data);
     if (arg->next != NULL) {
       printf(", ");
@@ -3501,7 +3485,7 @@ void emitFunc(struct EmitState *state, struct DeclAST *decl) {
 
     for (struct DeclAST *arg = decl->fields; arg != NULL; arg = arg->next) {
       struct Value addr = emitLocalVar(&funcState, arg);
-      int len = arg->name.end - arg->name.data;
+      i32 len = arg->name.end - arg->name.data;
       printf("  store %s %%%.*s, ptr %s\n", convertType(arg->type), len,
              arg->name.data, addr.val);
     }
@@ -3544,7 +3528,7 @@ void emitStruct(struct EmitState *state, struct DeclAST *decl) {
 }
 
 void emitGlobalVar(struct EmitState *state, struct DeclAST *decl) {
-  const char *declSpec = decl->type->isConst ? "constant" : "global";
+  const i8 *declSpec = decl->type->isConst ? "constant" : "global";
 
   struct Value val = getGlobal(decl->name);
   val.type = convertType(decl->type);
@@ -3552,7 +3536,7 @@ void emitGlobalVar(struct EmitState *state, struct DeclAST *decl) {
     struct Value init = emitExpr(state, decl->init); // TODO: emit constant
     printf("%s = %s %s %s\n", val.val, declSpec, init.type, init.val);
   } else {
-    const char *init =
+    const i8 *init =
         decl->type->kind == STRUCT_TYPE ? "zeroinitializer" : "null";
     printf("%s = %s %s %s\n", val.val, declSpec, val.type, init);
   }
@@ -3587,18 +3571,18 @@ void emitTopLevel(struct EmitState *state, struct DeclAST *decl) {
   }
 }
 
-int main(int argc, char **argv) {
+i32 main(i32 argc, i8 **argv) {
   if (argc != 2) {
     puts("Usage: compile file.c");
     return -1;
   }
 
-  int fd = open(argv[1], 0); //  O_RDONLY
+  i32 fd = open(argv[1], 0); //  O_RDONLY
   if (fd == -1) {
     return -1;
   }
 
-  int size = lseek(fd, 0, 2); //  SEEK_END
+  i32 size = lseek(fd, 0, 2); //  SEEK_END
   if (size == -1) {
     return -1;
   }
@@ -3607,11 +3591,11 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  char *fileMem = malloc(size);
+  i8 *fileMem = malloc(size);
 
-  int off = 0;
+  i32 off = 0;
   while (off != size) {
-    int r = read(fd, fileMem + off, size - off);
+    i32 r = read(fd, fileMem + off, size - off);
     if (r == -1) {
       return -1;
     }
