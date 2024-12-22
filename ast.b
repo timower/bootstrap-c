@@ -1,10 +1,9 @@
 import libc;
 
-struct Token {
-  enum {
-    TOK_EOF,
+enum TokenKind {
+  TOK_EOF,
 
-    // clang-format off
+  // clang-format off
   // constants
   IDENTIFIER, CONSTANT, STRING_LITERAL, INT2,
 
@@ -20,8 +19,11 @@ struct Token {
   OPEN_PAREN, CLOSE_PAREN, OPEN_BRACKET, CLOSE_BRACKET, DOT, AND, BANG,
   TILDE, MINUS, PLUS, STAR, SLASH, PERCENT, LESS, GREATER, HAT, PIPE,
   QUESTION
-    // clang-format on
-  } kind;
+  // clang-format on
+};
+
+struct Token {
+  enum TokenKind kind;
 
   i8 *data;
   i8 *end;
@@ -42,32 +44,34 @@ const i8 *tokens[] = {
     "?",
 };
 
+enum ExprKind {
+  INT,      // value
+  STR,      // "identifier"
+  VARIABLE, // identifier
+
+  ARRAY, // {a, b, c}
+
+  CALL,  // lhs(rhs->lhs, rhs->rhs->lhs, ..)
+  INDEX, // lhs[rhs]
+
+  MEMBER, // lhs.identifier, lhs->identifier,
+  SCOPE,  // parent::identifier
+
+  UNARY,  // lhs++, lhs-- or --rhs ++rhs based on op
+  SIZEOF, // sizeof(rhs) or sizeof(sizeofArg)
+
+  CONDITIONAL, // cond ? lhs : rhs
+
+  ARG_LIST, // lhs, rhs
+
+  BINARY, // a + b, ...
+
+  CAST, // (type)lhs
+};
+
 // Represents an expression in the AST.
 struct ExprAST {
-  enum {
-    INT_EXPR,      // value
-    STR_EXPR,      // "identifier"
-    VARIABLE_EXPR, // identifier
-
-    ARRAY_EXPR, // {a, b, c}
-
-    CALL_EXPR,  // lhs(rhs->lhs, rhs->rhs->lhs, ..)
-    INDEX_EXPR, // lhs[rhs]
-
-    MEMBER_EXPR, // lhs.identifier, lhs->identifier,
-    SCOPE_EXPR,  // parent::identifier
-
-    UNARY_EXPR,  // lhs++, lhs-- or --rhs ++rhs based on op
-    SIZEOF_EXPR, // sizeof(rhs) or sizeof(sizeofArg)
-
-    CONDITIONAL_EXPR, // cond ? lhs : rhs
-
-    ARG_LIST, // lhs, rhs
-
-    BINARY_EXPR, // a + b, ...
-
-    CAST_EXPR, // (type)lhs
-  } kind;
+  enum ExprKind kind;
 
   struct Type *type;
 
@@ -90,16 +94,18 @@ struct ExprAST {
   struct Type *sizeofArg;
 };
 
+enum TypeKind {
+  VOID,
+  INT,
+  STRUCT,
+  POINTER,
+  ARRAY,
+  FUNC,
+  ENUM,
+};
+
 struct Type {
-  enum {
-    VOID_TYPE,
-    INT_TYPE2,
-    STRUCT_TYPE,
-    POINTER_TYPE,
-    ARRAY_TYPE,
-    FUNC_TYPE,
-    ENUM_TYPE,
-  } kind;
+  enum TypeKind kind;
 
   // For tagged structs / enums.
   struct Token tag;
@@ -125,15 +131,17 @@ struct Type {
   i32 isDecay;
 };
 
+enum DeclKind {
+  VAR,
+  STRUCT,
+  ENUM,
+  FUNC,
+  ENUM_FIELD,
+  IMPORT,
+};
+
 struct DeclAST {
-  enum {
-    VAR_DECL,
-    STRUCT_DECL,
-    ENUM_DECL,
-    FUNC_DECL,
-    ENUM_FIELD_DECL,
-    IMPORT_DECL,
-  } kind;
+  enum DeclKind kind;
 
   struct Type *type;
 
@@ -158,22 +166,24 @@ struct DeclAST {
   i32 hasDef;
 };
 
+enum StmtKind {
+  DECL,
+  COMPOUND,
+  EXPR,
+
+  FOR,    // for(init, cond, expr) stmt
+  IF,     // if (expr) init else stmt
+  WHILE,  // while(expr) stmt
+  SWITCH, // switch(expr) stmt
+
+  RETURN,
+  CASE,
+  BREAK,
+  DEFAULT,
+};
+
 struct StmtAST {
-  enum {
-    DECL_STMT,
-    COMPOUND_STMT,
-    EXPR_STMT,
-
-    FOR_STMT,    // for(init, cond, expr) stmt
-    IF_STMT,     // if (expr) init else stmt
-    WHILE_STMT,  // while(expr) stmt
-    SWITCH_STMT, // switch(expr) stmt
-
-    RETURN_STMT,
-    CASE_STMT,
-    BREAK_STMT,
-    DEFAULT_STMT,
-  } kind;
+  enum StmtKind kind;
 
   struct DeclAST *decl;
 
@@ -223,7 +233,7 @@ void printStr(i8 *start, i8 *end) {
 }
 
 void printToken(struct Token token) {
-  printf("%s", tokens[token.kind]);
+  printf("%s", tokens[token.kind as i32]);
   printf("(");
   printStr(token.data, token.end);
   printf(") ");
@@ -234,30 +244,30 @@ void printType(struct Type *type) {
     printf("const ");
   }
   switch (type->kind) {
-  case INT_TYPE2:
+  case TypeKind::INT:
     if (type->isSigned) {
       printf("i%d ", type->size);
     } else {
       printf("u%d ", type->size);
     }
     break;
-  case VOID_TYPE:
+  case TypeKind::VOID:
     printf("void ");
     break;
-  case POINTER_TYPE:
+  case TypeKind::POINTER:
     printType(type->arg);
     printf("* ");
     break;
-  case ARRAY_TYPE:
+  case TypeKind::ARRAY:
     printType(type->arg);
     printf("[%d] ", type->size);
     break;
-  case STRUCT_TYPE:
+  case TypeKind::STRUCT:
     printf("struct ");
     printStr(type->tag.data, type->tag.end);
     printf(" ");
     break;
-  case FUNC_TYPE:
+  case TypeKind::FUNC:
     printf("(");
     for (struct Type *arg = type->arg; arg != NULL; arg = arg->argNext) {
       printType(arg);
@@ -285,32 +295,32 @@ void printExpr(struct ExprAST *expr) {
   }
 
   switch (expr->kind) {
-  case VARIABLE_EXPR:
+  case ExprKind::VARIABLE:
     printToken(expr->identifier);
     break;
-  case INT_EXPR:
+  case ExprKind::INT:
     printf("INT(%d)", expr->value);
     break;
-  case STR_EXPR:
+  case ExprKind::STR:
     printf("STR(");
     printStr(expr->identifier.data, expr->identifier.end);
     printf(")");
     break;
-  case BINARY_EXPR:
-    printf("%s(", tokens[expr->op.kind]);
+  case ExprKind::BINARY:
+    printf("%s(", tokens[expr->op.kind as i32]);
     printExpr(expr->lhs);
     printf(" ");
     printExpr(expr->rhs);
     printf(")");
     break;
-  case INDEX_EXPR:
+  case ExprKind::INDEX:
     printf("INDEX(");
     printExpr(expr->lhs);
     printf(" ");
     printExpr(expr->rhs);
     printf(")");
     break;
-  case CALL_EXPR:
+  case ExprKind::CALL:
     printf("CALL(");
     printExpr(expr->lhs);
     for (struct ExprAST *cur = expr->rhs; cur != NULL; cur = cur->rhs) {
@@ -319,25 +329,25 @@ void printExpr(struct ExprAST *expr) {
     }
     printf(")");
     break;
-  case MEMBER_EXPR:
+  case ExprKind::MEMBER:
     printf("MEMBER(");
     printExpr(expr->lhs);
-    printf(" %s ", tokens[expr->op.kind]);
+    printf(" %s ", tokens[expr->op.kind as i32]);
     printStr(expr->identifier.data, expr->identifier.end);
     printf(")");
     break;
-  case UNARY_EXPR:
+  case ExprKind::UNARY:
     printf("UNARY(");
     if (expr->lhs != NULL) {
       printExpr(expr->lhs);
     }
-    printf("%s", tokens[expr->op.kind]);
+    printf("%s", tokens[expr->op.kind as i32]);
     if (expr->rhs != NULL) {
       printExpr(expr->rhs);
     }
     printf(")");
     break;
-  case SIZEOF_EXPR:
+  case ExprKind::SIZEOF:
     printf("SIZEOF(");
     if (expr->sizeofArg != NULL) {
       printType(expr->sizeofArg);
@@ -346,7 +356,7 @@ void printExpr(struct ExprAST *expr) {
     }
     printf(")");
     break;
-  case CONDITIONAL_EXPR:
+  case ExprKind::CONDITIONAL:
     printf("COND(");
     printExpr(expr->cond);
     printf(" ? ");
@@ -355,7 +365,7 @@ void printExpr(struct ExprAST *expr) {
     printExpr(expr->rhs);
     printf(")");
     break;
-  case ARRAY_EXPR:
+  case ExprKind::ARRAY:
     printf("ARRAY(");
     for (; expr != NULL; expr = expr->rhs) {
       printExpr(expr->lhs);
@@ -363,14 +373,14 @@ void printExpr(struct ExprAST *expr) {
     }
     printf(")");
     break;
-  case CAST_EXPR:
+  case ExprKind::CAST:
     printf("CAST(");
     printExpr(expr->lhs);
     printf(")");
     break;
-  case ARG_LIST:
+  case ExprKind::ARG_LIST:
     break;
-  case SCOPE_EXPR:
+  case ExprKind::SCOPE:
     printf("SCOPE(");
     printToken(expr->parent);
     printf("::");
@@ -386,21 +396,21 @@ void printDecl(struct DeclAST *decl);
 
 void printStmt(struct StmtAST *stmt) {
   switch (stmt->kind) {
-  case DECL_STMT:
+  case StmtKind::DECL:
     printDecl(stmt->decl);
     break;
-  case COMPOUND_STMT:
+  case StmtKind::COMPOUND:
     printf("{\n");
     for (struct StmtAST *cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       printStmt(cur);
     }
     printf("}\n");
     break;
-  case EXPR_STMT:
+  case StmtKind::EXPR:
     printExpr(stmt->expr);
     printf(";\n");
     break;
-  case FOR_STMT:
+  case StmtKind::FOR:
     printf("for(\n");
     printf("  ");
     printStmt(stmt->init);
@@ -411,7 +421,7 @@ void printStmt(struct StmtAST *stmt) {
     printf("\n):");
     printStmt(stmt->stmt);
     break;
-  case IF_STMT:
+  case StmtKind::IF:
     printf("if(");
     printExpr(stmt->expr);
     printf(")\n");
@@ -421,31 +431,31 @@ void printStmt(struct StmtAST *stmt) {
       printStmt(stmt->stmt);
     }
     break;
-  case RETURN_STMT:
+  case StmtKind::RETURN:
     printf("return ");
     if (stmt->expr != NULL) {
       printExpr(stmt->expr);
     }
     printf(";\n");
     break;
-  case SWITCH_STMT:
+  case StmtKind::SWITCH:
     printf("switch (");
     printExpr(stmt->expr);
     printf(")\n");
     printStmt(stmt->stmt);
     break;
-  case DEFAULT_STMT:
+  case StmtKind::DEFAULT:
     printf("default:\n");
     break;
-  case BREAK_STMT:
+  case StmtKind::BREAK:
     printf("break;\n");
     break;
-  case CASE_STMT:
+  case StmtKind::CASE:
     printf("case ");
     printExpr(stmt->expr);
     printf(":\n");
     break;
-  case WHILE_STMT:
+  case StmtKind::WHILE:
     printf("while (");
     printExpr(stmt->expr);
     printf(")\n");
@@ -456,7 +466,7 @@ void printStmt(struct StmtAST *stmt) {
 
 void printDecl(struct DeclAST *decl) {
   switch (decl->kind) {
-  case STRUCT_DECL:
+  case DeclKind::STRUCT:
     printType(decl->type);
     printf("{\n");
     for (struct DeclAST *field = decl->fields; field != NULL;
@@ -466,7 +476,7 @@ void printDecl(struct DeclAST *decl) {
     }
     printf("}");
     break;
-  case ENUM_DECL:
+  case DeclKind::ENUM:
     printType(decl->type);
     printf("{\n");
     for (struct DeclAST *field = decl->fields; field != NULL;
@@ -477,10 +487,10 @@ void printDecl(struct DeclAST *decl) {
     printf("} ");
     printToken(decl->name);
     break;
-  case ENUM_FIELD_DECL:
+  case DeclKind::ENUM_FIELD:
     printToken(decl->name);
     break;
-  case VAR_DECL:
+  case DeclKind::VAR:
     printType(decl->type);
     printToken(decl->name);
 
@@ -489,7 +499,7 @@ void printDecl(struct DeclAST *decl) {
       printExpr(decl->init);
     }
     break;
-  case FUNC_DECL:
+  case DeclKind::FUNC:
     printType(decl->type);
     printToken(decl->name);
     printf(":\n");
@@ -507,7 +517,7 @@ void printDecl(struct DeclAST *decl) {
   printf("\n");
 }
 
-struct ExprAST *newExpr(i32 kind) {
+struct ExprAST *newExpr(enum ExprKind kind) {
   struct ExprAST *result = calloc(1, sizeof(struct ExprAST));
   result->kind = kind;
   return result;
@@ -518,34 +528,34 @@ struct DeclAST *newDecl() {
   return decl;
 }
 
-struct StmtAST *newStmt(i32 kind) {
+struct StmtAST *newStmt(enum StmtKind kind) {
   struct StmtAST *stmt = calloc(1, sizeof(struct StmtAST));
   stmt->kind = kind;
   return stmt;
 }
 
-struct Type *newType(i32 kind) {
+struct Type *newType(enum TypeKind kind) {
   struct Type *type = calloc(1, sizeof(struct Type));
   type->kind = kind;
   return type;
 }
 
 struct Type *getInt32() {
-  struct Type *type = newType(INT_TYPE2);
+  struct Type *type = newType(TypeKind::INT);
   type->isSigned = 1;
   type->size = 32;
   return type;
 }
 
 struct Type *getIPtr() {
-  struct Type *type = newType(INT_TYPE2);
+  struct Type *type = newType(TypeKind::INT);
   type->isSigned = 1;
   type->size = 64; // TODO: target dependent
   return type;
 }
 
 struct Type *getUPtr() {
-  struct Type *type = newType(INT_TYPE2);
+  struct Type *type = newType(TypeKind::INT);
   type->isSigned = 0;
   type->size = 64; // TODO: target dependent
   return type;
@@ -553,17 +563,17 @@ struct Type *getUPtr() {
 
 i32 isAssign(struct Token tok) {
   switch (tok.kind) {
-  case EQ:
-  case MUL_ASSIGN:
-  case DIV_ASSIGN:
-  case MOD_ASSIGN:
-  case ADD_ASSIGN:
-  case SUB_ASSIGN:
-  case LEFT_ASSIGN:
-  case RIGHT_ASSIGN:
-  case AND_ASSIGN:
-  case XOR_ASSIGN:
-  case OR_ASSIGN:
+  case TokenKind::EQ:
+  case TokenKind::MUL_ASSIGN:
+  case TokenKind::DIV_ASSIGN:
+  case TokenKind::MOD_ASSIGN:
+  case TokenKind::ADD_ASSIGN:
+  case TokenKind::SUB_ASSIGN:
+  case TokenKind::LEFT_ASSIGN:
+  case TokenKind::RIGHT_ASSIGN:
+  case TokenKind::AND_ASSIGN:
+  case TokenKind::XOR_ASSIGN:
+  case TokenKind::OR_ASSIGN:
     return 1;
   default:
     return 0;
