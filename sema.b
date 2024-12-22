@@ -58,24 +58,24 @@ i32 typeEq(struct Type *one, struct Type *two) {
   }
 
   switch (one->kind) {
-  case VOID_TYPE:
+  case TypeKind::VOID:
     break;
 
-  case INT_TYPE2:
+  case TypeKind::INT:
     return one->isSigned == two->isSigned && one->size == two->size;
 
-  case ARRAY_TYPE:
+  case TypeKind::ARRAY:
     if (one->size != 0 && two->size != 0 && one->size != two->size) {
       return 0;
     }
-  case POINTER_TYPE:
+  case TypeKind::POINTER:
     return typeEq(one->arg, two->arg);
 
-  case STRUCT_TYPE:
-  case ENUM_TYPE:
+  case TypeKind::STRUCT:
+  case TypeKind::ENUM:
     return tokCmp(one->tag, two->tag);
 
-  case FUNC_TYPE:
+  case TypeKind::FUNC:
     failSema("TODO: type eq func");
     break;
 
@@ -94,8 +94,8 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
   }
 
   // Allow integer expression casting
-  if (to->kind == INT_TYPE2 && expr->kind == INT_EXPR) {
-    struct ExprAST *res = newExpr(INT_EXPR);
+  if (to->kind == TypeKind::INT && expr->kind == ExprKind::INT) {
+    struct ExprAST *res = newExpr(ExprKind::INT);
     res->value = expr->value;
     res->type = to;
     return res;
@@ -103,8 +103,8 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
 
   // TODO: Remove and use 'as' once the ': type' syntax is implemented.
   // void * can be converted from and to any other pointer..
-  if (from->kind == POINTER_TYPE && to->kind == POINTER_TYPE &&
-      (from->arg->kind == VOID_TYPE || to->arg->kind == VOID_TYPE)) {
+  if (from->kind == TypeKind::POINTER && to->kind == TypeKind::POINTER &&
+      (from->arg->kind == TypeKind::VOID || to->arg->kind == TypeKind::VOID)) {
     return expr;
   }
 
@@ -119,30 +119,30 @@ i32 canCast(struct ExprAST *expr, struct Type *to) {
   }
 
   // Sign change, no-op for now.
-  if (from->kind == INT_TYPE2 && to->kind == INT_TYPE2 &&
+  if (from->kind == TypeKind::INT && to->kind == TypeKind::INT &&
       from->size == to->size) {
     return 1;
   }
 
   // Same signedness but different type
-  if (from->kind == INT_TYPE2 && to->kind == INT_TYPE2 &&
+  if (from->kind == TypeKind::INT && to->kind == TypeKind::INT &&
       from->size != to->size) {
     return 1;
   }
 
   // void * can be converted from and to any other pointer..
-  if (from->kind == POINTER_TYPE && to->kind == POINTER_TYPE &&
-      (from->arg->kind == VOID_TYPE || to->arg->kind == VOID_TYPE)) {
+  if (from->kind == TypeKind::POINTER && to->kind == TypeKind::POINTER &&
+      (from->arg->kind == TypeKind::VOID || to->arg->kind == TypeKind::VOID)) {
     return 1;
   }
 
   // enums can be casted to integers
-  if (from->kind == ENUM_TYPE && to->kind == INT_TYPE2) {
+  if (from->kind == TypeKind::ENUM && to->kind == TypeKind::INT) {
     return 1;
   }
 
   // and vice versa
-  if (from->kind == INT_TYPE2 && to->kind == ENUM_TYPE) {
+  if (from->kind == TypeKind::INT && to->kind == TypeKind::ENUM) {
     return 1;
   }
 
@@ -150,7 +150,7 @@ i32 canCast(struct ExprAST *expr, struct Type *to) {
 }
 
 void checkBool(struct ExprAST *expr) {
-  if (expr->type->kind != INT_TYPE2) {
+  if (expr->type->kind != TypeKind::INT) {
     printExpr(expr);
     failSema(": Expected bool!");
   }
@@ -221,24 +221,24 @@ struct DeclAST *findField(struct DeclAST *structDecl, struct Token name,
 
 i32 getSize(struct SemaState *state, struct Type *type) {
   switch (type->kind) {
-  case VOID_TYPE:
+  case TypeKind::VOID:
     return 0;
 
     // default enum is i32 = 4 bytes.
-  case ENUM_TYPE:
+  case TypeKind::ENUM:
     return 4;
 
-  case INT_TYPE2:
+  case TypeKind::INT:
     return type->size / 8;
 
-  case POINTER_TYPE:
-  case FUNC_TYPE:
+  case TypeKind::POINTER:
+  case TypeKind::FUNC:
     return 8;
 
     // TODO: padding
-  case ARRAY_TYPE:
+  case TypeKind::ARRAY:
     return type->size * getSize(state, type->arg);
-  case STRUCT_TYPE: {
+  case TypeKind::STRUCT: {
     struct DeclAST *decl = lookupType(state, type->tag);
     i32 size = 0;
     for (struct DeclAST *field = decl->fields; field != NULL;
@@ -258,20 +258,20 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr);
 void semaExpr(struct SemaState *state, struct ExprAST *expr) {
   semaExprNoDecay(state, expr);
 
-  if (expr->kind == STR_EXPR) {
+  if (expr->kind == ExprKind::STR) {
     // Add a global variable for the string.
     struct SemaState *root = getRoot(state);
     struct DeclAST *decl = newDecl();
-    decl->kind = VAR_DECL;
+    decl->kind = DeclKind::VAR;
     decl->type = expr->type;
 
     i8 *name = malloc(32 as u64);
     i32 n = sprintf(name, "str.%d", root->strCount++);
-    decl->name.kind = IDENTIFIER;
+    decl->name.kind = TokenKind::IDENTIFIER;
     decl->name.data = name;
     decl->name.end = name + n;
 
-    decl->init = newExpr(STR_EXPR);
+    decl->init = newExpr(ExprKind::STR);
     decl->init->identifier = expr->identifier;
     decl->init->type = expr->type;
 
@@ -279,7 +279,7 @@ void semaExpr(struct SemaState *state, struct ExprAST *expr) {
     root->extraDecls = decl;
 
     // Transmute expr into a variable ref.
-    expr->kind = VARIABLE_EXPR;
+    expr->kind = ExprKind::VARIABLE;
     expr->identifier = decl->name;
 
     // This should trigger the decay below...
@@ -288,8 +288,8 @@ void semaExpr(struct SemaState *state, struct ExprAST *expr) {
 
   // Decay array to pointer
   // TODO: cast expr
-  if (expr->type->kind == ARRAY_TYPE) {
-    struct Type *decayType = newType(POINTER_TYPE);
+  if (expr->type->kind == TypeKind::ARRAY) {
+    struct Type *decayType = newType(TypeKind::POINTER);
     decayType->arg = expr->type->arg;
     decayType->isDecay = 1;
     expr->type = decayType;
@@ -301,17 +301,17 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
   semaExpr(state, expr->rhs);
 
   switch (expr->op.kind) {
-  case COMMA:
+  case TokenKind::COMMA:
     expr->type = expr->rhs->type;
     break;
 
     // comparision results in i32.
-  case LESS:
-  case GREATER:
-  case LE_OP:
-  case GE_OP:
-  case EQ_OP:
-  case NE_OP:
+  case TokenKind::LESS:
+  case TokenKind::GREATER:
+  case TokenKind::LE_OP:
+  case TokenKind::GE_OP:
+  case TokenKind::EQ_OP:
+  case TokenKind::NE_OP:
     if (!typeEq(expr->lhs->type, expr->rhs->type)) {
       struct ExprAST *lhsConv = doConvert(expr->lhs, expr->rhs->type);
 
@@ -329,13 +329,13 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
     expr->type = getInt32();
     return;
 
-  case MINUS:
-    if (expr->lhs->type->kind == POINTER_TYPE &&
-        expr->rhs->type->kind == POINTER_TYPE) {
+  case TokenKind::MINUS:
+    if (expr->lhs->type->kind == TypeKind::POINTER &&
+        expr->rhs->type->kind == TypeKind::POINTER) {
 
-      if (expr->lhs->type->arg->kind != INT_TYPE2 ||
+      if (expr->lhs->type->arg->kind != TypeKind::INT ||
           expr->lhs->type->arg->size != 8 ||
-          expr->rhs->type->arg->kind != INT_TYPE2 ||
+          expr->rhs->type->arg->kind != TypeKind::INT ||
           expr->rhs->type->arg->size != 8) {
         // TODO: emit (expr) / sizeof(type)
         failSema("Only char pointer subtract supported");
@@ -344,16 +344,17 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
       expr->type = getIPtr();
       break;
     }
-  case PLUS:
-    if (expr->op.kind != MINUS && expr->lhs->type->kind == INT_TYPE2 &&
-        expr->rhs->type->kind == POINTER_TYPE) {
+  case TokenKind::PLUS:
+    if (expr->op.kind != TokenKind::MINUS &&
+        expr->lhs->type->kind == TypeKind::INT &&
+        expr->rhs->type->kind == TypeKind::POINTER) {
       expr->type = expr->rhs->type;
       break;
     }
-  case ADD_ASSIGN:
-  case SUB_ASSIGN:
-    if (expr->lhs->type->kind == POINTER_TYPE &&
-        expr->rhs->type->kind == INT_TYPE2) {
+  case TokenKind::ADD_ASSIGN:
+  case TokenKind::SUB_ASSIGN:
+    if (expr->lhs->type->kind == TypeKind::POINTER &&
+        expr->rhs->type->kind == TypeKind::INT) {
       expr->type = expr->lhs->type;
       break;
     }
@@ -406,13 +407,13 @@ i32 getStringLength(struct Token tok) {
 
 void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
   switch (expr->kind) {
-  case ARG_LIST:
+  case ExprKind::ARG_LIST:
     failSema("TODO: sema all exprs");
     break;
 
-  case SCOPE_EXPR: {
+  case ExprKind::SCOPE: {
     struct DeclAST *decl = lookupType(state, expr->parent);
-    if (decl == NULL || decl->type->kind != ENUM_TYPE) {
+    if (decl == NULL || decl->type->kind != TypeKind::ENUM) {
       failSema("Expected enum type for scope expr");
     }
 
@@ -422,21 +423,21 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
       failSema(" Cannot find field");
     }
 
-    expr->type = newType(ENUM_TYPE);
+    expr->type = newType(TypeKind::ENUM);
     expr->type->tag = decl->type->tag;
   } break;
 
-  case MEMBER_EXPR:
+  case ExprKind::MEMBER:
     semaExpr(state, expr->lhs);
     struct DeclAST *structDecl = NULL;
-    if (expr->op.kind == PTR_OP) {
-      if (expr->lhs->type->kind != POINTER_TYPE ||
-          expr->lhs->type->arg->kind != STRUCT_TYPE) {
+    if (expr->op.kind == TokenKind::PTR_OP) {
+      if (expr->lhs->type->kind != TypeKind::POINTER ||
+          expr->lhs->type->arg->kind != TypeKind::STRUCT) {
         failSema("Expected pointer to struct type for -> expr");
       }
       structDecl = lookupType(state, expr->lhs->type->arg->tag);
-    } else if (expr->op.kind == DOT) {
-      if (expr->lhs->type->kind != STRUCT_TYPE) {
+    } else if (expr->op.kind == TokenKind::DOT) {
+      if (expr->lhs->type->kind != TypeKind::STRUCT) {
         failSema("Expected struct type for . expr");
       }
       structDecl = lookupType(state, expr->lhs->type->tag);
@@ -452,10 +453,10 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     expr->type = fieldDecl->type;
     break;
 
-  case CALL_EXPR:
+  case ExprKind::CALL:
     semaExpr(state, expr->lhs);
     // We don't support function pointers
-    if (expr->lhs->type->kind != FUNC_TYPE) {
+    if (expr->lhs->type->kind != TypeKind::FUNC) {
       failSema("Must call function type");
     }
     struct Type *curArgTy = expr->lhs->type->arg;
@@ -483,7 +484,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     expr->type = expr->lhs->type->result;
     break;
 
-  case CONDITIONAL_EXPR:
+  case ExprKind::CONDITIONAL:
     semaExpr(state, expr->cond);
     checkBool(expr->cond);
     semaExpr(state, expr->lhs);
@@ -494,8 +495,8 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     expr->type = expr->lhs->type;
     break;
 
-  case ARRAY_EXPR:
-    expr->type = newType(ARRAY_TYPE);
+  case ExprKind::ARRAY:
+    expr->type = newType(TypeKind::ARRAY);
     for (struct ExprAST *sub = expr; sub != NULL; sub = sub->rhs) {
       semaExpr(state, sub->lhs);
 
@@ -509,9 +510,9 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     }
     break;
 
-  case STR_EXPR:
-    expr->type = newType(ARRAY_TYPE);
-    expr->type->arg = newType(INT_TYPE2);
+  case ExprKind::STR:
+    expr->type = newType(TypeKind::ARRAY);
+    expr->type->arg = newType(TypeKind::INT);
     expr->type->arg->size = 8;
     expr->type->arg->isSigned = 1;
 
@@ -520,43 +521,43 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     expr->type->isConst = 1;
     break;
 
-  case VARIABLE_EXPR: {
+  case ExprKind::VARIABLE: {
     struct DeclAST *local = lookupLocal(state, expr->identifier);
 
     // enum value, transform this expr to an i32.
-    if (local->kind == ENUM_FIELD_DECL) {
-      expr->kind = INT_EXPR;
+    if (local->kind == DeclKind::ENUM_FIELD) {
+      expr->kind = ExprKind::INT;
       expr->value = local->enumValue;
     }
 
     expr->type = local->type;
   } break;
 
-  case INT_EXPR:
+  case ExprKind::INT:
     expr->type = getInt32();
     return;
 
-  case BINARY_EXPR:
+  case ExprKind::BINARY:
     semaBinExpr(state, expr);
     break;
 
-  case INDEX_EXPR:
+  case ExprKind::INDEX:
     semaExpr(state, expr->lhs);
-    if (expr->lhs->type->kind != POINTER_TYPE &&
-        expr->lhs->type->kind != ARRAY_TYPE) {
+    if (expr->lhs->type->kind != TypeKind::POINTER &&
+        expr->lhs->type->kind != TypeKind::ARRAY) {
       failSema("Can't index non array or pointer");
     }
     semaExpr(state, expr->rhs);
-    if (expr->rhs->type->kind != INT_TYPE2) {
+    if (expr->rhs->type->kind != TypeKind::INT) {
       failSemaExpr("Can't index with non integer", expr);
     }
     expr->type = expr->lhs->type->arg;
     break;
 
-  case UNARY_EXPR:
-    if (expr->op.kind == AND) {
+  case ExprKind::UNARY:
+    if (expr->op.kind == TokenKind::AND) {
       semaExprNoDecay(state, expr->rhs);
-      expr->type = newType(POINTER_TYPE);
+      expr->type = newType(TypeKind::POINTER);
       expr->type->arg = expr->rhs->type;
       return;
     }
@@ -570,32 +571,32 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     }
 
     // Handle the specials
-    if (expr->op.kind == STAR) {
-      if (expr->rhs->type->kind != POINTER_TYPE) {
+    if (expr->op.kind == TokenKind::STAR) {
+      if (expr->rhs->type->kind != TypeKind::POINTER) {
         failSema("Expected pointer type for *");
       }
       expr->type = expr->type->arg;
     }
 
     // TODO: correct?
-    if (expr->op.kind == BANG) {
+    if (expr->op.kind == TokenKind::BANG) {
       expr->type = getInt32();
     }
 
     break;
 
-  case SIZEOF_EXPR:
+  case ExprKind::SIZEOF:
     if (expr->rhs != NULL) {
       semaExprNoDecay(state, expr->rhs);
       expr->value = getSize(state, expr->rhs->type);
     } else {
       expr->value = getSize(state, expr->sizeofArg);
     }
-    expr->kind = INT_EXPR;
+    expr->kind = ExprKind::INT;
     expr->type = getUPtr();
     break;
 
-  case CAST_EXPR:
+  case ExprKind::CAST:
     semaExpr(state, expr->lhs);
     if (expr->type == NULL) {
       failSema("Cast without type?");
@@ -610,17 +611,17 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
 struct SemaState initState() {
   struct SemaState semaState = {0};
   struct Token nullTok;
-  nullTok.kind = IDENTIFIER;
+  nullTok.kind = TokenKind::IDENTIFIER;
   nullTok.data = "NULL";
   nullTok.end = nullTok.data + 4;
 
   // Add null as a nullptr
   struct DeclAST *nullDecl = newDecl();
-  nullDecl->kind = ENUM_FIELD_DECL;
+  nullDecl->kind = DeclKind::ENUM_FIELD;
   nullDecl->name = nullTok;
   nullDecl->enumValue = 0;
-  nullDecl->type = newType(POINTER_TYPE);
-  nullDecl->type->arg = newType(VOID_TYPE);
+  nullDecl->type = newType(TypeKind::POINTER);
+  nullDecl->type->arg = newType(TypeKind::VOID);
 
   semaState.locals = newDeclList(nullDecl);
   return semaState;
@@ -634,7 +635,7 @@ void addLocalDecl(struct SemaState *state, struct DeclAST *decl) {
   struct DeclAST *prev = findLocal(state->locals, decl->name);
   if (prev != NULL) {
     // Allow redef of functions, TODO: verify type match...
-    if (prev->kind == FUNC_DECL && prev->body == NULL) {
+    if (prev->kind == DeclKind::FUNC && prev->body == NULL) {
       prev->hasDef = 1;
     } else {
       printToken(decl->name);
@@ -649,11 +650,8 @@ void addLocalDecl(struct SemaState *state, struct DeclAST *decl) {
 
 void semaDecl(struct SemaState *state, struct DeclAST *decl) {
   switch (decl->kind) {
-  case ENUM_FIELD_DECL:
-    addLocalDecl(state, decl);
-    return;
 
-  case STRUCT_DECL:
+  case DeclKind::STRUCT:
     if (findType(state->types, decl->type->tag) != NULL) {
       failSema("Type redef");
     }
@@ -664,9 +662,9 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
     subState.types = state->types;
     for (struct DeclAST *field = decl->fields; field != NULL;
          field = field->next) {
-      if (field->kind == ENUM_DECL || field->kind == STRUCT_DECL) {
+      if (field->kind == DeclKind::ENUM || field->kind == DeclKind::STRUCT) {
         semaDecl(&subState, field);
-      } else if (field->kind != VAR_DECL) {
+      } else if (field->kind != DeclKind::VAR) {
         failSema("Field must be enum, struct or var.");
       }
     }
@@ -677,34 +675,17 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
     state->types = type;
     return;
 
-  case ENUM_DECL: {
-    // Type unsafe enum, TODO: remove
-    if (decl->name.kind == IDENTIFIER) {
-      addLocalDecl(state, decl);
-
-      // TODO: this is wrong..
-      struct SemaState *root = getRoot(state);
-
-      // add a global/root var for reach field.
-      for (struct DeclAST *field = decl->fields; field != NULL;
-           field = field->next) {
-        struct DeclList *newLocal = newDeclList(field);
-        newLocal->next = root->locals;
-        root->locals = newLocal;
-      }
-    } else {
-      if (findType(state->types, decl->type->tag) != NULL) {
-        failSema("Type redef");
-      }
-
-      struct DeclList *type = newDeclList(decl);
-      type->next = state->types;
-      state->types = type;
+  case DeclKind::ENUM: {
+    if (findType(state->types, decl->type->tag) != NULL) {
+      failSema("Type redef");
     }
 
+    struct DeclList *type = newDeclList(decl);
+    type->next = state->types;
+    state->types = type;
   } break;
 
-  case FUNC_DECL:
+  case DeclKind::FUNC:
     addLocalDecl(state, decl);
     if (decl->body != NULL) {
       struct SemaState funcState = {0};
@@ -722,18 +703,19 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
     }
     break;
 
-  case VAR_DECL:
+  case DeclKind::VAR:
     addLocalDecl(state, decl);
     if (decl->init != NULL) {
-      if (decl->type->kind == ARRAY_TYPE) {
+      if (decl->type->kind == TypeKind::ARRAY) {
         semaExprNoDecay(state, decl->init);
       } else {
         semaExpr(state, decl->init);
       }
 
-      if (decl->type->kind == STRUCT_TYPE && decl->init->kind == ARRAY_EXPR) {
+      if (decl->type->kind == TypeKind::STRUCT &&
+          decl->init->kind == ExprKind::ARRAY) {
         // TODO: verify match?
-        if (decl->init->rhs != NULL || decl->init->lhs->kind != INT_EXPR) {
+        if (decl->init->rhs != NULL || decl->init->lhs->kind != ExprKind::INT) {
           failSema("Currently only zero init supported");
         }
         decl->init->type = decl->type;
@@ -742,12 +724,12 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
         printDecl(decl);
         failSema(": Decl init type doesn't match");
       }
-      if (decl->type->kind == ARRAY_TYPE && decl->type->size == 0) {
+      if (decl->type->kind == TypeKind::ARRAY && decl->type->size == 0) {
         decl->type->size = decl->init->type->size;
       }
     }
     break;
-  case IMPORT_DECL: {
+  case DeclKind::IMPORT: {
     if (state->parent != NULL) {
       failSema("Import not allowed in local scope");
     }
@@ -779,6 +761,11 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
     state->extraDecls = extras;
 
   } break;
+
+  case DeclKind::ENUM_FIELD:
+    failSema("Shoudln't happen");
+    return;
+
   default:
     failSema("Unknown decl kind");
   }
@@ -794,19 +781,19 @@ struct SemaState newState(struct SemaState *parent) {
 
 void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
   switch (stmt->kind) {
-  case EXPR_STMT:
+  case StmtKind::EXPR:
     if (stmt->expr != NULL) {
       semaExpr(state, stmt->expr);
     }
     break;
-  case DECL_STMT:
-    if (stmt->decl->kind != VAR_DECL) {
+  case StmtKind::DECL:
+    if (stmt->decl->kind != DeclKind::VAR) {
       failSema("Only var decls allowed in local scope");
     }
     return semaDecl(state, stmt->decl);
 
-  case RETURN_STMT:
-    if (stmt->expr == NULL && state->result->kind != VOID_TYPE) {
+  case StmtKind::RETURN:
+    if (stmt->expr == NULL && state->result->kind != TypeKind::VOID) {
       failSema("Return type should be void");
     }
     if (stmt->expr != NULL) {
@@ -820,7 +807,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     }
     break;
 
-  case COMPOUND_STMT: {
+  case StmtKind::COMPOUND: {
     struct SemaState subState = newState(state);
 
     for (struct StmtAST *cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
@@ -828,7 +815,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     }
   } break;
 
-  case IF_STMT:
+  case StmtKind::IF:
     semaExpr(state, stmt->expr);
     checkBool(stmt->expr);
 
@@ -838,13 +825,13 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     }
     break;
 
-  case WHILE_STMT:
+  case StmtKind::WHILE:
     semaExpr(state, stmt->expr);
     checkBool(stmt->expr);
     semaStmt(state, stmt->stmt);
     break;
 
-  case FOR_STMT: {
+  case StmtKind::FOR: {
     struct SemaState subState = newState(state);
     semaStmt(&subState, stmt->init);
     // cond must be expr stmt.
@@ -855,14 +842,14 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     semaStmt(&subState, stmt->stmt);
   } break;
 
-  case SWITCH_STMT: {
+  case StmtKind::SWITCH: {
     struct SemaState subState = newState(state);
 
     semaExpr(&subState, stmt->expr);
     subState.switchType = stmt->expr->type;
 
-    if (stmt->expr->type->kind != INT_TYPE2 &&
-        stmt->expr->type->kind != ENUM_TYPE) {
+    if (stmt->expr->type->kind != TypeKind::INT &&
+        stmt->expr->type->kind != TypeKind::ENUM) {
       printType(stmt->expr->type);
       failSema("Switch expr must be integer or enum");
     }
@@ -870,7 +857,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     semaStmt(&subState, stmt->stmt);
   } break;
 
-  case CASE_STMT:
+  case StmtKind::CASE:
     semaExpr(state, stmt->expr);
     if (!typeEq(stmt->expr->type, state->switchType)) {
       printStmt(stmt);
@@ -879,8 +866,8 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     }
     break;
 
-  case BREAK_STMT:
-  case DEFAULT_STMT:
+  case StmtKind::BREAK:
+  case StmtKind::DEFAULT:
     break;
   }
 }

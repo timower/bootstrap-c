@@ -12,7 +12,7 @@ TODO
  - [x] Add `as` cast operator.
  - [x] Remove implicit casts.
  - [x] Support multiple file imports.
- - [ ] Type safe enums.
+ - [x] Type safe enums.
     * `enum Foo { A, B }; enum Foo x = Foo::A;`
  - [ ] Change type syntax to `let foo: type` and func to `func foo() -> type`.
     * `let x: i32 = 5;`

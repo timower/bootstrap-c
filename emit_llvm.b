@@ -45,29 +45,29 @@ void failEmit(const i8 *msg) {
 // Convert type to LLVM type.
 const i8 *convertType(struct Type *type) {
   switch (type->kind) {
-  case VOID_TYPE:
+  case TypeKind::VOID:
     return "void";
-  case INT_TYPE2: {
+  case TypeKind::INT: {
     i8 *buf = malloc(16);
     sprintf(buf, "i%d", type->size);
     return buf;
   }
-  case POINTER_TYPE:
+  case TypeKind::POINTER:
     return "ptr";
-  case STRUCT_TYPE: {
+  case TypeKind::STRUCT: {
     i64 len = type->tag.end - type->tag.data;
     i8 *buf = malloc((len + 10) as u64);
     sprintf(buf, "%%struct.%.*s", len, type->tag.data);
     return buf;
   }
 
-  case ARRAY_TYPE: {
+  case TypeKind::ARRAY: {
     i8 *buf = malloc(32);
     sprintf(buf, "[%d x %s]", type->size, convertType(type->arg));
     return buf;
   }
 
-  case FUNC_TYPE: {
+  case TypeKind::FUNC: {
     i8 *buf = malloc(128);
     i8 *cur = buf + sprintf(buf, "%s (", convertType(type->result));
     for (struct Type *arg = type->arg; arg != NULL; arg = arg->argNext) {
@@ -83,7 +83,7 @@ const i8 *convertType(struct Type *type) {
     return buf;
   }
 
-  case ENUM_TYPE:
+  case TypeKind::ENUM:
     return "i32";
   }
 
@@ -182,10 +182,10 @@ struct Value lookupVar(struct EmitState *state, struct Token tok) {
 
 struct Value emitAddr(struct EmitState *state, struct ExprAST *expr) {
   switch (expr->kind) {
-  case VARIABLE_EXPR:
+  case ExprKind::VARIABLE:
     return lookupVar(state, expr->identifier);
 
-  case INDEX_EXPR: {
+  case ExprKind::INDEX: {
     struct Value array = emitExpr(state, expr->lhs);
     struct Value index = emitExpr(state, expr->rhs);
 
@@ -197,11 +197,13 @@ struct Value emitAddr(struct EmitState *state, struct ExprAST *expr) {
     return gep;
   }
 
-  case MEMBER_EXPR: {
-    struct Value agg = expr->op.kind == DOT ? emitAddr(state, expr->lhs)
-                                            : emitExpr(state, expr->lhs);
-    struct Type *aggType =
-        expr->op.kind == DOT ? expr->lhs->type : expr->lhs->type->arg;
+  case ExprKind::MEMBER: {
+    struct Value agg = expr->op.kind == TokenKind::DOT
+                           ? emitAddr(state, expr->lhs)
+                           : emitExpr(state, expr->lhs);
+    struct Type *aggType = expr->op.kind == TokenKind::DOT
+                               ? expr->lhs->type
+                               : expr->lhs->type->arg;
 
     struct Value gep = getNextTemp(state);
     gep.type = "ptr";
@@ -210,19 +212,19 @@ struct Value emitAddr(struct EmitState *state, struct ExprAST *expr) {
     return gep;
   }
 
-  case UNARY_EXPR:
-    if (expr->op.kind == STAR) {
+  case ExprKind::UNARY:
+    if (expr->op.kind == TokenKind::STAR) {
       return emitExpr(state, expr->rhs);
     }
-  case INT_EXPR:
-  case BINARY_EXPR:
-  case CONDITIONAL_EXPR:
-  case SIZEOF_EXPR:
-  case STR_EXPR:
-  case ARRAY_EXPR:
-  case CALL_EXPR:
-  case ARG_LIST:
-  case CAST_EXPR:
+  case ExprKind::INT:
+  case ExprKind::BINARY:
+  case ExprKind::CONDITIONAL:
+  case ExprKind::SIZEOF:
+  case ExprKind::STR:
+  case ExprKind::ARRAY:
+  case ExprKind::CALL:
+  case ExprKind::ARG_LIST:
+  case ExprKind::CAST:
     printExpr(expr);
     failEmit(" Can't be use as lvalue");
     break;
@@ -246,13 +248,14 @@ struct Value emitLoad(struct EmitState *state, struct Value addr,
 }
 
 struct Value emitBinary(struct EmitState *state, struct Type *resType,
-                        i32 opKind, struct Value lhs, struct Type *lhsType,
-                        struct Value rhs, struct Type *rhsType) {
+                        enum TokenKind opKind, struct Value lhs,
+                        struct Type *lhsType, struct Value rhs,
+                        struct Type *rhsType) {
 
   // ptr - ptr -> i32
-  i32 lhsPointer = lhsType->kind == POINTER_TYPE;
-  i32 rhsPointer = rhsType->kind == POINTER_TYPE;
-  if (lhsPointer && rhsPointer && opKind == MINUS) {
+  i32 lhsPointer = lhsType->kind == TypeKind::POINTER;
+  i32 rhsPointer = rhsType->kind == TypeKind::POINTER;
+  if (lhsPointer && rhsPointer && opKind == TokenKind::MINUS) {
     failEmit("TODO");
   }
 
@@ -262,7 +265,7 @@ struct Value emitBinary(struct EmitState *state, struct Type *resType,
     struct Value intOp = lhsPointer ? rhs : lhs;
 
     // negate the i32 for minus op
-    if (opKind == MINUS) {
+    if (opKind == TokenKind::MINUS) {
       struct Value neg = getNextTemp(state);
       neg.type = intOp.type;
       printf("  %s = sub %s 0, %s\n", neg.val, neg.type, intOp.val);
@@ -287,61 +290,61 @@ struct Value emitBinary(struct EmitState *state, struct Type *resType,
   default:
     failEmit("Invalid binary op");
     break;
-  case PLUS:
+  case TokenKind::PLUS:
     instr = "add";
     break;
-  case MINUS:
+  case TokenKind::MINUS:
     instr = "sub";
     break;
-  case STAR:
+  case TokenKind::STAR:
     instr = "mul";
     break;
-  case SLASH:
+  case TokenKind::SLASH:
     instr = "sdiv";
     break;
-  case PERCENT:
+  case TokenKind::PERCENT:
     instr = "srem";
     break;
 
-  case LEFT_OP:
+  case TokenKind::LEFT_OP:
     instr = "shl";
     break;
-  case RIGHT_OP:
+  case TokenKind::RIGHT_OP:
     instr = "ashr";
     break;
 
-  case LESS:
+  case TokenKind::LESS:
     instr = "icmp slt";
     upcast = 1;
     break;
-  case GREATER:
+  case TokenKind::GREATER:
     instr = "icmp sgt";
     upcast = 1;
     break;
-  case LE_OP:
+  case TokenKind::LE_OP:
     instr = "icmp sle";
     upcast = 1;
     break;
-  case GE_OP:
+  case TokenKind::GE_OP:
     instr = "icmp sge";
     upcast = 1;
     break;
-  case EQ_OP:
+  case TokenKind::EQ_OP:
     instr = "icmp eq";
     upcast = 1;
     break;
-  case NE_OP:
+  case TokenKind::NE_OP:
     instr = "icmp ne";
     upcast = 1;
     break;
 
-  case AND:
+  case TokenKind::AND:
     instr = "and";
     break;
-  case HAT:
+  case TokenKind::HAT:
     instr = "xor";
     break;
-  case PIPE:
+  case TokenKind::PIPE:
     instr = "or";
     break;
   }
@@ -360,44 +363,44 @@ struct Value emitAssignment(struct EmitState *state, struct ExprAST *expr) {
   struct Value addr = emitAddr(state, expr->lhs);
   struct Value val = emitExpr(state, expr->rhs);
 
-  if (expr->op.kind == EQ) {
+  if (expr->op.kind == TokenKind::EQ) {
     emitStore(addr, val);
     return val;
   }
 
   struct Value lval = emitLoad(state, addr, convertType(expr->lhs->type));
 
-  i32 op = 0;
+  enum TokenKind op;
   switch (expr->op.kind) {
-  case ADD_ASSIGN:
-    op = PLUS;
+  case TokenKind::ADD_ASSIGN:
+    op = TokenKind::PLUS;
     break;
-  case SUB_ASSIGN:
-    op = MINUS;
+  case TokenKind::SUB_ASSIGN:
+    op = TokenKind::MINUS;
     break;
-  case MUL_ASSIGN:
-    op = STAR;
+  case TokenKind::MUL_ASSIGN:
+    op = TokenKind::STAR;
     break;
-  case DIV_ASSIGN:
-    op = SLASH;
+  case TokenKind::DIV_ASSIGN:
+    op = TokenKind::SLASH;
     break;
-  case MOD_ASSIGN:
-    op = PERCENT;
+  case TokenKind::MOD_ASSIGN:
+    op = TokenKind::PERCENT;
     break;
-  case LEFT_ASSIGN:
-    op = LEFT_OP;
+  case TokenKind::LEFT_ASSIGN:
+    op = TokenKind::LEFT_OP;
     break;
-  case RIGHT_ASSIGN:
-    op = RIGHT_OP;
+  case TokenKind::RIGHT_ASSIGN:
+    op = TokenKind::RIGHT_OP;
     break;
-  case AND_ASSIGN:
-    op = AND;
+  case TokenKind::AND_ASSIGN:
+    op = TokenKind::AND;
     break;
-  case XOR_ASSIGN:
-    op = HAT;
+  case TokenKind::XOR_ASSIGN:
+    op = TokenKind::HAT;
     break;
-  case OR_ASSIGN:
-    op = PIPE;
+  case TokenKind::OR_ASSIGN:
+    op = TokenKind::PIPE;
     break;
   default:
     failEmit("Invalid assign op");
@@ -416,7 +419,7 @@ struct Value emitLogicalBinOp(struct EmitState *state, struct ExprAST *expr) {
 
   const i8 *firstLabel = "true";
   const i8 *secondLabel = "false";
-  if (expr->op.kind == OR_OP) {
+  if (expr->op.kind == TokenKind::OR_OP) {
     firstLabel = "false";
     secondLabel = "true";
   }
@@ -446,8 +449,9 @@ struct Value emitLogicalBinOp(struct EmitState *state, struct ExprAST *expr) {
 }
 
 struct Value emitPtrBinOp(struct EmitState *state, struct ExprAST *expr) {
-  if (expr->lhs->type->kind == POINTER_TYPE &&
-      expr->rhs->type->kind == POINTER_TYPE && expr->op.kind == MINUS) {
+  if (expr->lhs->type->kind == TypeKind::POINTER &&
+      expr->rhs->type->kind == TypeKind::POINTER &&
+      expr->op.kind == TokenKind::MINUS) {
     struct Value lhs = emitExpr(state, expr->lhs);
     struct Value rhs = emitExpr(state, expr->rhs);
     // ptrtoint
@@ -470,15 +474,15 @@ struct Value emitPtrBinOp(struct EmitState *state, struct ExprAST *expr) {
   }
 
   struct ExprAST *ptrExpr =
-      expr->lhs->type->kind == POINTER_TYPE ? expr->lhs : expr->rhs;
+      expr->lhs->type->kind == TypeKind::POINTER ? expr->lhs : expr->rhs;
   struct ExprAST *intExpr =
-      expr->lhs->type->kind == POINTER_TYPE ? expr->rhs : expr->lhs;
+      expr->lhs->type->kind == TypeKind::POINTER ? expr->rhs : expr->lhs;
 
   struct Value ptr = emitExpr(state, ptrExpr);
   struct Value num = emitExpr(state, intExpr);
 
   // negate num
-  if (expr->op.kind == MINUS) {
+  if (expr->op.kind == TokenKind::MINUS) {
     struct Value neg = getNextTemp(state);
     neg.type = num.type;
     printf("  %s = sub %s 0, %s\n", neg.val, num.type, num.val);
@@ -496,21 +500,23 @@ struct Value emitBinOp(struct EmitState *state, struct ExprAST *expr) {
   if (isAssign(expr->op)) {
     return emitAssignment(state, expr);
   }
-  if (expr->op.kind == AND_OP || expr->op.kind == OR_OP) {
+  if (expr->op.kind == TokenKind::AND_OP || expr->op.kind == TokenKind::OR_OP) {
     return emitLogicalBinOp(state, expr);
   }
 
-  if ((expr->op.kind == PLUS || expr->op.kind == MINUS ||
-       expr->op.kind == ADD_ASSIGN || expr->op.kind == SUB_ASSIGN) &&
-      (expr->lhs->type->kind == POINTER_TYPE ||
-       expr->rhs->type->kind == POINTER_TYPE)) {
+  // TODO: not needed anymore?
+  if ((expr->op.kind == TokenKind::PLUS || expr->op.kind == TokenKind::MINUS ||
+       expr->op.kind == TokenKind::ADD_ASSIGN ||
+       expr->op.kind == TokenKind::SUB_ASSIGN) &&
+      (expr->lhs->type->kind == TypeKind::POINTER ||
+       expr->rhs->type->kind == TypeKind::POINTER)) {
     return emitPtrBinOp(state, expr);
   }
 
   struct Value lhs = emitExpr(state, expr->lhs);
   struct Value rhs = emitExpr(state, expr->rhs);
 
-  if (expr->op.kind == COMMA) {
+  if (expr->op.kind == TokenKind::COMMA) {
     return rhs;
   }
 
@@ -519,13 +525,14 @@ struct Value emitBinOp(struct EmitState *state, struct ExprAST *expr) {
 }
 
 struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
-  if (expr->op.kind == AND) {
+  if (expr->op.kind == TokenKind::AND) {
     struct Value res = emitAddr(state, expr->rhs);
     res.type = "ptr";
     return res;
   }
 
-  if (expr->op.kind == INC_OP || expr->op.kind == DEC_OP) {
+  if (expr->op.kind == TokenKind::INC_OP ||
+      expr->op.kind == TokenKind::DEC_OP) {
     struct ExprAST *opExpr = expr->lhs == NULL ? expr->rhs : expr->lhs;
     struct Value operand = emitAddr(state, opExpr);
 
@@ -533,10 +540,11 @@ struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
 
     // Use emitBinary to handle the inc/dec
     struct Type *type =
-        opExpr->type->kind == POINTER_TYPE ? getInt32() : opExpr->type;
-    struct Value one = intToVal(expr->op.kind == INC_OP ? 1 : -1, type);
-    struct Value res =
-        emitBinary(state, opExpr->type, PLUS, val, opExpr->type, one, type);
+        opExpr->type->kind == TypeKind::POINTER ? getInt32() : opExpr->type;
+    struct Value one =
+        intToVal(expr->op.kind == TokenKind::INC_OP ? 1 : -1, type);
+    struct Value res = emitBinary(state, opExpr->type, TokenKind::PLUS, val,
+                                  opExpr->type, one, type);
     emitStore(operand, res);
 
     if (expr->lhs != NULL) {
@@ -553,27 +561,27 @@ struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
   i32 upcast = 0;
   switch (expr->op.kind) {
   default:
-  case INC_OP:
-  case DEC_OP:
+  case TokenKind::INC_OP:
+  case TokenKind::DEC_OP:
     failEmit("Invalid unary");
     break;
 
-  case STAR:
+  case TokenKind::STAR:
     res.type = convertType(expr->type);
     printf("  %s = load %s, ptr %s\n", res.val, res.type, operand.val);
     return res;
 
-  case PLUS:
+  case TokenKind::PLUS:
     return operand;
-  case MINUS:
+  case TokenKind::MINUS:
     instr = "sub";
     constop = "0";
     break;
-  case TILDE:
+  case TokenKind::TILDE:
     instr = "xor";
     constop = "-1";
     break;
-  case BANG:
+  case TokenKind::BANG:
     instr = "icmp eq";
     constop = "0";
     upcast = 1;
@@ -595,8 +603,9 @@ struct Value emitVarRef(struct EmitState *state, struct ExprAST *expr) {
   struct Value addr = emitAddr(state, expr);
 
   // Funcs and arrays are implictly converted to pointers here.
-  if (expr->type->kind == FUNC_TYPE || expr->type->kind == ARRAY_TYPE ||
-      (expr->type->kind == POINTER_TYPE && expr->type->isDecay)) {
+  if (expr->type->kind == TypeKind::FUNC ||
+      expr->type->kind == TypeKind::ARRAY ||
+      (expr->type->kind == TypeKind::POINTER && expr->type->isDecay)) {
     addr.type = "ptr";
     return addr;
   }
@@ -635,7 +644,7 @@ struct Value emitStrRef(struct EmitState *state, struct ExprAST *expr) {
   struct Value strGlobal = getTempGlobal(state, "str.");
   strGlobal.type = "ptr";
 
-  struct Type *strType = newType(ARRAY_TYPE);
+  struct Type *strType = newType(TypeKind::ARRAY);
   strType->arg = expr->type->arg;
   strType->size = (expr->identifier.end - expr->identifier.data + 1) as i32;
   struct Value strConst = getStrConst(strType, expr->identifier);
@@ -648,7 +657,7 @@ struct Value emitStrRef(struct EmitState *state, struct ExprAST *expr) {
 struct Value emitArray(struct EmitState *state, struct ExprAST *expr) {
   struct Value res;
   res.type = convertType(expr->type);
-  if (expr->type->kind == STRUCT_TYPE) {
+  if (expr->type->kind == TypeKind::STRUCT) {
     res.val = "zeroinitializer";
     return res;
   }
@@ -689,7 +698,7 @@ struct Value emitCall(struct EmitState *state, struct ExprAST *expr) {
   struct Value fn = emitExpr(state, expr->lhs);
 
   struct Value res;
-  if (expr->type->kind != VOID_TYPE) {
+  if (expr->type->kind != TypeKind::VOID) {
     res = getNextTemp(state);
     printf("  %s = ", res.val);
   } else {
@@ -721,11 +730,11 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
 
   struct Type *from = expr->lhs->type;
   struct Type *to = expr->type;
-  if (from->kind == POINTER_TYPE && to->kind == POINTER_TYPE) {
+  if (from->kind == TypeKind::POINTER && to->kind == TypeKind::POINTER) {
     return v;
   }
 
-  if (from->kind == ENUM_TYPE && to->kind == INT_TYPE2) {
+  if (from->kind == TypeKind::ENUM && to->kind == TypeKind::INT) {
     // Enum is i32
     if (to->size == 4 && to->isSigned) {
       return v;
@@ -733,7 +742,7 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
     from = getInt32();
   }
 
-  if (from->kind == INT_TYPE2 && to->kind == ENUM_TYPE) {
+  if (from->kind == TypeKind::INT && to->kind == TypeKind::ENUM) {
     // Enum is i32
     if (from->size == 4 && from->isSigned) {
       return v;
@@ -741,7 +750,7 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
     to = getInt32();
   }
 
-  if (from->kind != INT_TYPE2 || to->kind != INT_TYPE2) {
+  if (from->kind != TypeKind::INT || to->kind != TypeKind::INT) {
     failEmit("Unsupported cast");
   }
 
@@ -797,8 +806,8 @@ struct Value emitCond(struct EmitState *state, struct ExprAST *expr) {
 // \returns The register name or value of the expr
 struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
   switch (expr->kind) {
-  case INT_EXPR:
-    if (expr->type->kind == POINTER_TYPE) {
+  case ExprKind::INT:
+    if (expr->type->kind == TypeKind::POINTER) {
       if (expr->value != 0) {
         failEmit("Only null ptr supported");
       }
@@ -807,41 +816,41 @@ struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
       v.val = "null";
       return v;
     }
-  case SCOPE_EXPR:
+  case ExprKind::SCOPE:
     return intToVal(expr->value, expr->type);
-  case BINARY_EXPR:
+  case ExprKind::BINARY:
     return emitBinOp(state, expr);
-  case UNARY_EXPR:
+  case ExprKind::UNARY:
     return emitUnary(state, expr);
-  case VARIABLE_EXPR:
+  case ExprKind::VARIABLE:
     return emitVarRef(state, expr);
 
-  case STR_EXPR:
-    if (expr->type->kind == ARRAY_TYPE) {
+  case ExprKind::STR:
+    if (expr->type->kind == TypeKind::ARRAY) {
       return getStrConst(expr->type, expr->identifier);
     }
     return emitStrRef(state, expr);
 
-  case ARRAY_EXPR:
+  case ExprKind::ARRAY:
     return emitArray(state, expr);
 
-  case CALL_EXPR:
+  case ExprKind::CALL:
     return emitCall(state, expr);
 
-  case INDEX_EXPR:
-  case MEMBER_EXPR:
+  case ExprKind::INDEX:
+  case ExprKind::MEMBER:
     return emitMemberOrIndex(state, expr);
 
-  case CAST_EXPR:
+  case ExprKind::CAST:
     return emitCast(state, expr);
 
-  case CONDITIONAL_EXPR:
+  case ExprKind::CONDITIONAL:
     return emitCond(state, expr);
 
-  case SIZEOF_EXPR:
+  case ExprKind::SIZEOF:
     printExpr(expr);
 
-  case ARG_LIST:
+  case ExprKind::ARG_LIST:
   default:
     failEmit("Unsupported expr");
   }
@@ -855,7 +864,7 @@ struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
 void emitReturn(struct EmitState *state, struct StmtAST *stmt) {
   if (stmt->expr != NULL) {
     struct Value v = emitExpr(state, stmt->expr);
-    if (stmt->expr->type->kind != VOID_TYPE) {
+    if (stmt->expr->type->kind != TypeKind::VOID) {
       printf("  ret %s %s\n", v.type, v.val);
       return;
     }
@@ -891,14 +900,14 @@ struct Value emitLocalVar(struct EmitState *state, struct DeclAST *decl) {
 
 void emitLocalDecl(struct EmitState *state, struct DeclAST *decl) {
   switch (decl->kind) {
-  case VAR_DECL:
+  case DeclKind::VAR:
     emitLocalVar(state, decl);
     break;
 
-  case ENUM_DECL:
-  case ENUM_FIELD_DECL:
-  case STRUCT_DECL:
-  case FUNC_DECL:
+  case DeclKind::ENUM:
+  case DeclKind::ENUM_FIELD:
+  case DeclKind::STRUCT:
+  case DeclKind::FUNC:
     failEmit("Local Unsupported");
   }
 }
@@ -1044,48 +1053,48 @@ void emitCase(struct EmitState *state, struct StmtAST *stmt) {
 
 void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
   switch (stmt->kind) {
-  case EXPR_STMT:
+  case StmtKind::EXPR:
     if (stmt->expr != NULL) {
       emitExpr(state, stmt->expr);
     }
     break;
-  case RETURN_STMT:
+  case StmtKind::RETURN:
     emitReturn(state, stmt);
     break;
 
-  case DECL_STMT:
+  case StmtKind::DECL:
     emitLocalDecl(state, stmt->decl);
     break;
 
-  case COMPOUND_STMT:
+  case StmtKind::COMPOUND:
     // TODO: new state?
     for (struct StmtAST *cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       emitStmt(state, cur);
     }
     break;
 
-  case IF_STMT:
+  case StmtKind::IF:
     return emitIf(state, stmt);
 
-  case WHILE_STMT:
+  case StmtKind::WHILE:
     return emitWhile(state, stmt);
-  case FOR_STMT:
+  case StmtKind::FOR:
     return emitFor(state, stmt);
 
-  case SWITCH_STMT:
+  case StmtKind::SWITCH:
     return emitSwitch(state, stmt);
 
-  case CASE_STMT:
+  case StmtKind::CASE:
     return emitCase(state, stmt);
 
-  case BREAK_STMT:
+  case StmtKind::BREAK:
     if (state->curBreakLabel == NULL) {
       failEmit("Break outside loop");
     }
     printf("  br label %%%s\n", state->curBreakLabel);
     break;
 
-  case DEFAULT_STMT:
+  case StmtKind::DEFAULT:
     if (state->defaultLabel != NULL) {
       failEmit("Multiple default");
     }
@@ -1134,7 +1143,7 @@ void emitFunc(struct EmitState *state, struct DeclAST *decl) {
     emitStmt(&funcState, decl->body);
 
     // Emit implict void return.
-    if (decl->type->result->kind == VOID_TYPE) {
+    if (decl->type->result->kind == TypeKind::VOID) {
       printf("  ret void\n");
     } else {
       printf("  ret %s undef\n", convertType(decl->type->result));
@@ -1150,7 +1159,7 @@ void emitStruct(struct EmitState *state, struct DeclAST *decl) {
   // emit nested structs
   for (struct DeclAST *field = decl->fields; field != NULL;
        field = field->next) {
-    if (field->kind == STRUCT_DECL) {
+    if (field->kind == DeclKind::STRUCT) {
       emitStruct(state, field);
     }
   }
@@ -1179,7 +1188,7 @@ void emitGlobalVar(struct EmitState *state, struct DeclAST *decl) {
     printf("%s = %s %s %s\n", val.val, declSpec, init.type, init.val);
   } else {
     const i8 *init =
-        decl->type->kind == STRUCT_TYPE ? "zeroinitializer" : "null";
+        decl->type->kind == TypeKind::STRUCT ? "zeroinitializer" : "null";
     printf("%s = %s %s %s\n", val.val, declSpec, val.type, init);
   }
 
@@ -1188,21 +1197,21 @@ void emitGlobalVar(struct EmitState *state, struct DeclAST *decl) {
 
 void emitGlobalDecl(struct EmitState *state, struct DeclAST *decl) {
   switch (decl->kind) {
-  case ENUM_DECL:
+  case DeclKind::ENUM:
     // Enum type declarations are not emitted.
-    if (decl->type->kind != INT_TYPE2) {
+    if (decl->type->kind != TypeKind::INT) {
       return;
     }
-  case VAR_DECL:
+  case DeclKind::VAR:
     emitGlobalVar(state, decl);
     break;
-  case STRUCT_DECL:
+  case DeclKind::STRUCT:
     emitStruct(state, decl);
     break;
-  case FUNC_DECL:
+  case DeclKind::FUNC:
     emitFunc(state, decl);
     break;
-  case ENUM_FIELD_DECL:
+  case DeclKind::ENUM_FIELD:
     failEmit("Unsupported");
     break;
   }
