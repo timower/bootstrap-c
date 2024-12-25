@@ -9,10 +9,10 @@ enum TokenKind {
 
   // keywords
   CONTINUE, DEFAULT, SIZEOF, STRUCT, SWITCH, RETURN, IMPORT, CONST,
-  WHILE,    BREAK,   VOID,   ENUM,   CASE,   ELSE,
+  WHILE,    BREAK,   VOID,   ENUM,   CASE,   ELSE, FUNC,
 
   // operators
-  LEFT_ASSIGN, RIGHT_ASSIGN, ELLIPSIS,  FOR, SCOPE,  PTR_OP, INC_OP, DEC_OP,
+  LEFT_ASSIGN, RIGHT_ASSIGN, ELLIPSIS,  FOR, LET, SCOPE,  PTR_OP, INC_OP, DEC_OP,
   LEFT_OP, RIGHT_OP, LE_OP, GE_OP, EQ_OP, NE_OP, AND_OP, OR_OP, MUL_ASSIGN,
   DIV_ASSIGN, MOD_ASSIGN, ADD_ASSIGN, SUB_ASSIGN, AND_ASSIGN, XOR_ASSIGN,
   OR_ASSIGN, IF, AS, SEMICOLON, OPEN_BRACE, CLOSE_BRACE, COMMA, COLON, EQ,
@@ -34,14 +34,14 @@ const i8 *tokens[] = {
 
     "continue", "default", "sizeof", "struct", "switch", "return", "import",
     "const",    "while",   "break",  "void",   "enum",   "case",   "else",
-    "<<=",      ">>=",     "...",    "for",    "::",     "->",     "++",
-    "--",       "<<",      ">>",     "<=",     ">=",     "==",     "!=",
-    "&&",       "||",      "*=",     "/=",     "%=",     "+=",     "-=",
-    "&=",       "^=",      "|=",     "if",     "as",     ";",      "{",
-    "}",        ",",       ":",      "=",      "(",      ")",      "[",
-    "]",        ".",       "&",      "!",      "~",      "-",      "+",
-    "*",        "/",       "%",      "<",      ">",      "^",      "|",
-    "?",
+    "func",     "<<=",     ">>=",    "...",    "for",    "let",    "::",
+    "->",       "++",      "--",     "<<",     ">>",     "<=",     ">=",
+    "==",       "!=",      "&&",     "||",     "*=",     "/=",     "%=",
+    "+=",       "-=",      "&=",     "^=",     "|=",     "if",     "as",
+    ";",        "{",       "}",      ",",      ":",      "=",      "(",
+    ")",        "[",       "]",      ".",      "&",      "!",      "~",
+    "-",        "+",       "*",      "/",      "%",      "<",      ">",
+    "^",        "|",       "?",
 };
 
 enum ExprKind {
@@ -102,6 +102,8 @@ enum TypeKind {
   ARRAY,
   FUNC,
   ENUM,
+
+  TAG, // For tagged structs / enums resolved in sema.
 };
 
 struct Type {
@@ -280,6 +282,11 @@ void printType(struct Type *type) {
     }
     printf(") -> ");
     printType(type->result);
+    break;
+  case TypeKind::TAG:
+    printf("tag ");
+    printStr(type->tag.data, type->tag.end);
+    printf(" ");
     break;
   }
 }

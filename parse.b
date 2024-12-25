@@ -404,11 +404,16 @@ struct ExprAST *parsePostfix(struct ParseState *state) {
 i32 isDecl(struct Token tok) {
   // We don't support typedef, so this is easy
   switch (tok.kind) {
-  case TokenKind::CONST:
   case TokenKind::STRUCT:
   case TokenKind::ENUM:
+  case TokenKind::LET:
+  case TokenKind::FUNC:
+
+    // TODO: remove:
+  case TokenKind::CONST:
   case TokenKind::VOID:
   case TokenKind::INT2:
+
     return 1;
   default:
     return 0;
@@ -461,7 +466,8 @@ struct ExprAST *parseUnary(struct ParseState *state) {
     expect(state, TokenKind::OPEN_PAREN);
     getNextToken(state);
 
-    if (isDecl(state->curToken)) {
+    // TODO: fix...
+    if (isDecl(state->curToken) && !match(state, TokenKind::LET)) {
       struct DeclAST *dummy = newDecl();
       parseDeclSpecifier(state, dummy);
       expr->sizeofArg = dummy->type;
@@ -630,249 +636,6 @@ struct ExprAST *parseExpression(struct ParseState *state) {
 
     expr = new;
   }
-  return expr;
-}
-
-struct DeclAST *parseNoInitDecl(struct ParseState *state);
-
-// struct := 'struct' identifier '{' decl* '}'
-//         | 'struct' identifier
-void parseStruct(struct ParseState *state, struct DeclAST *decl) {
-  getNextToken(state); // eat struct
-  decl->type = newType(TypeKind::STRUCT);
-
-  // (non)optional tag
-  expect(state, TokenKind::IDENTIFIER);
-
-  decl->type->tag = getNextToken(state);
-
-  // Just a 'struct Foo' ref.
-  if (!match(state, TokenKind::OPEN_BRACE)) {
-    return;
-  }
-  getNextToken(state); // eat {
-
-  decl->kind = DeclKind::STRUCT;
-
-  // parse the fields
-  struct DeclAST *fields = decl;
-  while (!match(state, TokenKind::CLOSE_BRACE)) {
-    fields->next = parseNoInitDecl(state);
-    expect(state, TokenKind::SEMICOLON);
-    getNextToken(state); // eat ;
-    fields = fields->next;
-  }
-  getNextToken(state); // eat }
-
-  fields->next = NULL;
-  decl->fields = decl->next;
-  decl->next = NULL;
-}
-
-// enum := 'enum' identifier '{' identifier  (',' identifier )* ','? '}'
-//       | 'enum' identifier
-void parseEnum(struct ParseState *state, struct DeclAST *decl) {
-  getNextToken(state);
-
-  decl->type = newType(TypeKind::ENUM);
-
-  expect(state, TokenKind::IDENTIFIER);
-  decl->type->tag = getNextToken(state);
-
-  if (!match(state, TokenKind::OPEN_BRACE)) {
-    return;
-  }
-  getNextToken(state);
-
-  decl->kind = DeclKind::ENUM;
-
-  // parse constants
-  struct DeclAST *fields = decl;
-  i32 idx = 0;
-  while (!match(state, TokenKind::CLOSE_BRACE)) {
-    expect(state, TokenKind::IDENTIFIER);
-
-    struct DeclAST *field = newDecl();
-    field->kind = DeclKind::ENUM_FIELD;
-    field->type = getInt32();
-
-    field->name = getNextToken(state);
-    field->enumValue = idx++;
-
-    fields->next = field;
-    fields = field;
-
-    if (match(state, TokenKind::CLOSE_BRACE)) {
-      break;
-    }
-
-    expect(state, TokenKind::COMMA);
-    getNextToken(state);
-  }
-  getNextToken(state); // eat }
-
-  fields->next = NULL;
-  decl->fields = decl->next;
-  decl->next = NULL;
-}
-
-// decl_specifier := ['const'] ( struct | enum | int | 'void' )
-void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
-  i32 isConst = 0;
-  if (match(state, TokenKind::CONST)) {
-    getNextToken(state);
-    isConst = 1;
-  }
-
-  // struct type ref or decl.
-  if (match(state, TokenKind::STRUCT)) {
-    parseStruct(state, decl);
-  } else if (match(state, TokenKind::ENUM)) {
-    parseEnum(state, decl);
-  } else if (match(state, TokenKind::INT2)) {
-    decl->type = newType(TypeKind::INT);
-    decl->type->isSigned = *state->curToken.data == 'i';
-    i8 *end = state->curToken.end;
-    decl->type->size = strtol(state->curToken.data + 1, &end, 10) as i32;
-
-    getNextToken(state);
-  } else if (match(state, TokenKind::VOID)) {
-    getNextToken(state);
-    decl->type = newType(TypeKind::VOID);
-  } else {
-    failParse(state, "Unknown type!");
-  }
-  decl->type->isConst = isConst;
-}
-
-// func_decl := '(' [decl (',' decl)*] ')'
-void parseFuncDecl(struct ParseState *state, struct DeclAST *decl) {
-  getNextToken(state); // eat (
-  decl->kind = DeclKind::FUNC;
-
-  struct Type *funcType = newType(TypeKind::FUNC);
-  funcType->result = decl->type;
-  decl->type = funcType;
-
-  if (match(state, TokenKind::CLOSE_PAREN)) {
-    getNextToken(state);
-    return;
-  }
-
-  // Parse args
-  struct Type *curType = funcType;
-  struct DeclAST *curDecl = decl;
-  while (1) {
-    if (match(state, TokenKind::ELLIPSIS)) {
-      getNextToken(state);
-
-      funcType->isVarargs = 1;
-
-      expect(state, TokenKind::CLOSE_PAREN);
-      getNextToken(state);
-      break;
-    }
-
-    struct DeclAST *param = parseNoInitDecl(state);
-    curDecl->next = param;
-    curDecl = param;
-    curType->argNext = param->type;
-    curType = param->type;
-
-    if (match(state, TokenKind::CLOSE_PAREN)) {
-      getNextToken(state); // eat )
-      break;
-    }
-
-    expect(state, TokenKind::COMMA);
-    getNextToken(state); // eat ,
-  }
-
-  decl->fields = decl->next;
-  decl->next = NULL;
-  funcType->arg = funcType->argNext;
-  funcType->argNext = NULL;
-}
-
-// declarator := star* identifier ('[' ']' | func_decl )
-void parseDeclarator(struct ParseState *state, struct DeclAST *decl) {
-  //  Parse pointers
-  while (match(state, TokenKind::STAR)) {
-    getNextToken(state);
-    struct Type *ptrType = newType(TypeKind::POINTER);
-    ptrType->arg = decl->type;
-    decl->type = ptrType;
-  }
-
-  expect(state, TokenKind::IDENTIFIER);
-  decl->name = getNextToken(state);
-
-  // (1D) arrays
-  if (match(state, TokenKind::OPEN_BRACKET)) {
-    getNextToken(state);
-
-    // size not supported
-    expect(state, TokenKind::CLOSE_BRACKET);
-    getNextToken(state);
-
-    struct Type *arrayType = newType(TypeKind::ARRAY);
-    arrayType->arg = decl->type;
-    decl->type = arrayType;
-  } else if (match(state, TokenKind::OPEN_PAREN)) {
-    parseFuncDecl(state, decl);
-  }
-}
-
-// no_init_decl := decl_specifier declarator
-struct DeclAST *parseNoInitDecl(struct ParseState *state) {
-  struct DeclAST *decl = newDecl();
-  decl->kind = DeclKind::VAR;
-
-  // specifiers
-  parseDeclSpecifier(state, decl);
-
-  // We don't support taging and creating a struct or enum in the same decl.
-  if (decl->kind == DeclKind::STRUCT || decl->kind == DeclKind::ENUM) {
-    expect(state, TokenKind::SEMICOLON);
-    return decl;
-  }
-
-  parseDeclarator(state, decl);
-  return decl;
-}
-
-// initializer := assignment | '{' assignment (',' assignment)* ','? '}'
-struct ExprAST *parseInitializer(struct ParseState *state) {
-  if (!match(state, TokenKind::OPEN_BRACE)) {
-    return parseAssignment(state);
-  }
-  getNextToken(state);
-
-  struct ExprAST *expr = newExpr(ExprKind::ARRAY);
-  struct ExprAST *cur = expr;
-  while (1) {
-    // Should be parseInitializer(state), but let's not support nested inits.
-    cur->lhs = parseAssignment(state);
-
-    // close without trailing comma
-    if (match(state, TokenKind::CLOSE_BRACE)) {
-      break;
-    }
-
-    expect(state, TokenKind::COMMA);
-    getNextToken(state); // eat ,
-
-    // close with trailing comma
-    if (match(state, TokenKind::CLOSE_BRACE)) {
-      break;
-    }
-
-    cur->rhs = newExpr(ExprKind::ARRAY);
-    cur = cur->rhs;
-  }
-  getNextToken(state); // eat }
-  cur->rhs = NULL;
-
   return expr;
 }
 
@@ -1059,8 +822,423 @@ struct StmtAST *parseStmt(struct ParseState *state) {
 
   return parseExprStmt(state);
 }
+struct DeclAST *parseNoInitDecl(struct ParseState *state);
+
+struct Type *parseType(struct ParseState *state) {
+  struct Type *type = newType(TypeKind::INT);
+
+  if (match(state, TokenKind::CONST)) {
+    getNextToken(state);
+    type->isConst = 1;
+  }
+
+  if (match(state, TokenKind::INT2)) {
+    type->kind = TypeKind::INT;
+    type->isSigned = *state->curToken.data == 'i';
+    i8 *end = state->curToken.end;
+    type->size = strtol(state->curToken.data + 1, &end, 10) as i32;
+    getNextToken(state);
+  } else if (match(state, TokenKind::VOID)) {
+    getNextToken(state);
+    type->kind = TypeKind::VOID;
+  } else if (match(state, TokenKind::IDENTIFIER)) {
+    struct Token name = getNextToken(state);
+    type->kind = TypeKind::TAG;
+    type->tag = name;
+  } else {
+    failParse(state, "Unknown type");
+    return NULL;
+  }
+
+  //  Parse pointers
+  while (match(state, TokenKind::STAR)) {
+    getNextToken(state);
+    struct Type *ptrType = newType(TypeKind::POINTER);
+    ptrType->arg = type;
+    type = ptrType;
+  }
+
+  // (1D) arrays
+  if (match(state, TokenKind::OPEN_BRACKET)) {
+    getNextToken(state);
+
+    // size not supported
+    expect(state, TokenKind::CLOSE_BRACKET);
+    getNextToken(state);
+
+    struct Type *arrayType = newType(TypeKind::ARRAY);
+    arrayType->arg = type;
+    type = arrayType;
+  }
+
+  return type;
+}
+
+// initializer := assignment | '{' assignment (',' assignment)* ','? '}'
+struct ExprAST *parseInitializer(struct ParseState *state) {
+  if (!match(state, TokenKind::OPEN_BRACE)) {
+    return parseAssignment(state);
+  }
+  getNextToken(state);
+
+  struct ExprAST *expr = newExpr(ExprKind::ARRAY);
+  struct ExprAST *cur = expr;
+  while (1) {
+    // Should be parseInitializer(state), but let's not support nested inits.
+    cur->lhs = parseAssignment(state);
+
+    // close without trailing comma
+    if (match(state, TokenKind::CLOSE_BRACE)) {
+      break;
+    }
+
+    expect(state, TokenKind::COMMA);
+    getNextToken(state); // eat ,
+
+    // close with trailing comma
+    if (match(state, TokenKind::CLOSE_BRACE)) {
+      break;
+    }
+
+    cur->rhs = newExpr(ExprKind::ARRAY);
+    cur = cur->rhs;
+  }
+  getNextToken(state); // eat }
+  cur->rhs = NULL;
+
+  return expr;
+}
+
+// type_name_pair := identifier ':' type
+struct DeclAST *parseNameTypePair(struct ParseState *state) {
+  struct DeclAST *decl = newDecl();
+  decl->kind = DeclKind::VAR;
+
+  expect(state, TokenKind::IDENTIFIER);
+  decl->name = getNextToken(state);
+
+  expect(state, TokenKind::COLON);
+  getNextToken(state);
+
+  decl->type = parseType(state);
+
+  return decl;
+}
+
+// let_decl := 'let' identifier [':' type] ['=' initializer] ';'
+struct DeclAST *parseLetDecl(struct ParseState *state) {
+  getNextToken(state); // eat let
+
+  struct DeclAST *decl = newDecl();
+  decl->kind = DeclKind::VAR;
+
+  decl->name = getNextToken(state);
+
+  if (match(state, TokenKind::COLON)) {
+    getNextToken(state);
+    decl->type = parseType(state);
+  } else {
+    // Without type we need an init.
+    expect(state, TokenKind::EQ);
+  }
+
+  if (match(state, TokenKind::EQ)) {
+    getNextToken(state);
+    decl->init = parseInitializer(state);
+  }
+
+  expect(state, TokenKind::SEMICOLON);
+  getNextToken(state);
+
+  return decl;
+}
+
+// struct := 'struct' identifier '{' decl* '}'
+//         | 'struct' identifier
+void parseStruct(struct ParseState *state, struct DeclAST *decl) {
+  getNextToken(state); // eat struct
+  decl->type = newType(TypeKind::STRUCT);
+
+  // (non)optional tag
+  expect(state, TokenKind::IDENTIFIER);
+
+  decl->type->tag = getNextToken(state);
+
+  // Just a 'struct Foo' ref.
+  if (!match(state, TokenKind::OPEN_BRACE)) {
+    return;
+  }
+  getNextToken(state); // eat {
+
+  decl->kind = DeclKind::STRUCT;
+
+  // parse the fields
+  struct DeclAST *fields = decl;
+  while (!match(state, TokenKind::CLOSE_BRACE)) {
+
+    if (isDecl(state->curToken)) {
+      fields->next = parseNoInitDecl(state);
+    } else {
+      fields->next = parseNameTypePair(state);
+    }
+
+    expect(state, TokenKind::SEMICOLON);
+    getNextToken(state); // eat ;
+    fields = fields->next;
+  }
+  getNextToken(state); // eat }
+
+  fields->next = NULL;
+  decl->fields = decl->next;
+  decl->next = NULL;
+}
+
+// enum := 'enum' identifier '{' identifier  (',' identifier )* ','? '}'
+//       | 'enum' identifier
+void parseEnum(struct ParseState *state, struct DeclAST *decl) {
+  getNextToken(state);
+
+  decl->type = newType(TypeKind::ENUM);
+
+  expect(state, TokenKind::IDENTIFIER);
+  decl->type->tag = getNextToken(state);
+
+  if (!match(state, TokenKind::OPEN_BRACE)) {
+    return;
+  }
+  getNextToken(state);
+
+  decl->kind = DeclKind::ENUM;
+
+  // parse constants
+  struct DeclAST *fields = decl;
+  i32 idx = 0;
+  while (!match(state, TokenKind::CLOSE_BRACE)) {
+    expect(state, TokenKind::IDENTIFIER);
+
+    struct DeclAST *field = newDecl();
+    field->kind = DeclKind::ENUM_FIELD;
+    field->type = getInt32();
+
+    field->name = getNextToken(state);
+    field->enumValue = idx++;
+
+    fields->next = field;
+    fields = field;
+
+    if (match(state, TokenKind::CLOSE_BRACE)) {
+      break;
+    }
+
+    expect(state, TokenKind::COMMA);
+    getNextToken(state);
+  }
+  getNextToken(state); // eat }
+
+  fields->next = NULL;
+  decl->fields = decl->next;
+  decl->next = NULL;
+}
+
+// decl_specifier := ['const'] ( struct | enum | int | 'void' )
+void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
+  i32 isConst = 0;
+  if (match(state, TokenKind::CONST)) {
+    getNextToken(state);
+    isConst = 1;
+  }
+
+  // struct type ref or decl.
+  if (match(state, TokenKind::STRUCT)) {
+    parseStruct(state, decl);
+  } else if (match(state, TokenKind::ENUM)) {
+    parseEnum(state, decl);
+  } else if (match(state, TokenKind::INT2)) {
+    decl->type = newType(TypeKind::INT);
+    decl->type->isSigned = *state->curToken.data == 'i';
+    i8 *end = state->curToken.end;
+    decl->type->size = strtol(state->curToken.data + 1, &end, 10) as i32;
+
+    getNextToken(state);
+  } else if (match(state, TokenKind::VOID)) {
+    getNextToken(state);
+    decl->type = newType(TypeKind::VOID);
+  } else {
+    failParse(state, "Unknown type!");
+  }
+  decl->type->isConst = isConst;
+}
+
+// func_decl :=
+//  'func' identifier [ '->' type ] '(' [decl (',' decl)*] ')' compound_stmt?
+struct DeclAST *parseFuncDecl2(struct ParseState *state) {
+  getNextToken(state); // eat func
+
+  struct DeclAST *decl = newDecl();
+  decl->kind = DeclKind::FUNC;
+
+  expect(state, TokenKind::IDENTIFIER);
+  decl->name = getNextToken(state);
+
+  struct Type *funcType = newType(TypeKind::FUNC);
+  decl->type = funcType;
+
+  expect(state, TokenKind::OPEN_PAREN);
+  getNextToken(state); // eat (
+
+  struct Type *curType = funcType;
+  struct DeclAST *curDecl = decl;
+  while (!match(state, TokenKind::CLOSE_PAREN)) {
+    if (match(state, TokenKind::ELLIPSIS)) {
+      getNextToken(state);
+      funcType->isVarargs = 1;
+
+      expect(state, TokenKind::CLOSE_PAREN);
+      break;
+    }
+
+    struct DeclAST *param = parseNameTypePair(state);
+    curDecl->next = param;
+    curDecl = param;
+    curType->argNext = param->type;
+    curType = param->type;
+
+    if (match(state, TokenKind::CLOSE_PAREN)) {
+      break;
+    }
+
+    expect(state, TokenKind::COMMA);
+    getNextToken(state); // eat ,
+  }
+  getNextToken(state); // eat )
+
+  decl->fields = decl->next;
+  decl->next = NULL;
+  funcType->arg = funcType->argNext;
+  funcType->argNext = NULL;
+
+  if (match(state, TokenKind::PTR_OP)) {
+    getNextToken(state); // eat ->
+    decl->type->result = parseType(state);
+  } else {
+    decl->type->result = newType(TypeKind::VOID);
+  }
+
+  if (match(state, TokenKind::OPEN_BRACE)) {
+    decl->body = parseCompoundStmt(state);
+  } else {
+    expect(state, TokenKind::SEMICOLON);
+    getNextToken(state); // eat ;
+  }
+
+  return decl;
+}
+
+// func_decl := '(' [decl (',' decl)*] ')'
+void parseFuncDecl(struct ParseState *state, struct DeclAST *decl) {
+  getNextToken(state); // eat (
+  decl->kind = DeclKind::FUNC;
+
+  struct Type *funcType = newType(TypeKind::FUNC);
+  funcType->result = decl->type;
+  decl->type = funcType;
+
+  if (match(state, TokenKind::CLOSE_PAREN)) {
+    getNextToken(state);
+    return;
+  }
+
+  // Parse args
+  struct Type *curType = funcType;
+  struct DeclAST *curDecl = decl;
+  while (1) {
+    if (match(state, TokenKind::ELLIPSIS)) {
+      getNextToken(state);
+
+      funcType->isVarargs = 1;
+
+      expect(state, TokenKind::CLOSE_PAREN);
+      getNextToken(state);
+      break;
+    }
+
+    struct DeclAST *param = parseNoInitDecl(state);
+    curDecl->next = param;
+    curDecl = param;
+    curType->argNext = param->type;
+    curType = param->type;
+
+    if (match(state, TokenKind::CLOSE_PAREN)) {
+      getNextToken(state); // eat )
+      break;
+    }
+
+    expect(state, TokenKind::COMMA);
+    getNextToken(state); // eat ,
+  }
+
+  decl->fields = decl->next;
+  decl->next = NULL;
+  funcType->arg = funcType->argNext;
+  funcType->argNext = NULL;
+}
+
+// declarator := star* identifier ('[' ']' | func_decl )
+void parseDeclarator(struct ParseState *state, struct DeclAST *decl) {
+  //  Parse pointers
+  while (match(state, TokenKind::STAR)) {
+    getNextToken(state);
+    struct Type *ptrType = newType(TypeKind::POINTER);
+    ptrType->arg = decl->type;
+    decl->type = ptrType;
+  }
+
+  expect(state, TokenKind::IDENTIFIER);
+  decl->name = getNextToken(state);
+
+  // (1D) arrays
+  if (match(state, TokenKind::OPEN_BRACKET)) {
+    getNextToken(state);
+
+    // size not supported
+    expect(state, TokenKind::CLOSE_BRACKET);
+    getNextToken(state);
+
+    struct Type *arrayType = newType(TypeKind::ARRAY);
+    arrayType->arg = decl->type;
+    decl->type = arrayType;
+  } else if (match(state, TokenKind::OPEN_PAREN)) {
+    parseFuncDecl(state, decl);
+  }
+}
+
+// no_init_decl := decl_specifier declarator
+struct DeclAST *parseNoInitDecl(struct ParseState *state) {
+  struct DeclAST *decl = newDecl();
+  decl->kind = DeclKind::VAR;
+
+  // specifiers
+  parseDeclSpecifier(state, decl);
+
+  // We don't support taging and creating a struct or enum in the same decl.
+  if (decl->kind == DeclKind::STRUCT || decl->kind == DeclKind::ENUM) {
+    expect(state, TokenKind::SEMICOLON);
+    return decl;
+  }
+
+  parseDeclarator(state, decl);
+  return decl;
+}
 
 struct DeclAST *parseDeclarationOrFunction(struct ParseState *state) {
+  if (match(state, TokenKind::LET)) {
+    return parseLetDecl(state);
+  }
+
+  if (match(state, TokenKind::FUNC)) {
+    return parseFuncDecl2(state);
+  }
+
   struct DeclAST *decl = parseNoInitDecl(state);
 
   if (decl->kind == DeclKind::FUNC && match(state, TokenKind::OPEN_BRACE)) {

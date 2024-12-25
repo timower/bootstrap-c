@@ -1,23 +1,20 @@
 import libc;
 
-enum Foo {
-  Bar,
-  Baz,
+struct foo {
+  x : i32;
+  next : bar *;
 };
 
-struct S {
-  i32 x;
+struct bar {
+  y : i32;
+  next : foo *;
 };
 
-u16 test() {
-  enum Foo x = Foo::Bar;
+func main() -> i32 {
+  let f : foo = {0};
+  let b : bar = {0};
+  f.next = &b;
+  b.next = &f;
 
-  switch (x) {
-  case Foo::Bar:
-    return 1;
-  case Foo::Baz:
-    return 2;
-  }
-
-  return x as u16;
+  return b.next->x;
 }
