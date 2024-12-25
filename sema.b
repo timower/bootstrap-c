@@ -433,7 +433,8 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     if (expr->op.kind == TokenKind::PTR_OP) {
       if (expr->lhs->type->kind != TypeKind::POINTER ||
           expr->lhs->type->arg->kind != TypeKind::STRUCT) {
-        failSema("Expected pointer to struct type for -> expr");
+        printExpr(expr);
+        failSema(": Expected pointer to struct type for -> expr");
       }
       structDecl = lookupType(state, expr->lhs->type->arg->tag);
     } else if (expr->op.kind == TokenKind::DOT) {
@@ -602,7 +603,10 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
       failSema("Cast without type?");
     }
     if (!canCast(expr->lhs, expr->type)) {
-      failSema("Can't cast");
+      printType(expr->lhs->type);
+      printf(" -> ");
+      printType(expr->type);
+      failSema(" Can't cast");
     }
     break;
   }
@@ -648,42 +652,39 @@ void addLocalDecl(struct SemaState *state, struct DeclAST *decl) {
   state->locals = newLocal;
 }
 
+void resolveTypeTags(struct SemaState *state, struct Type *type) {
+  if (type == NULL) {
+    return;
+  }
+
+  if (type->kind == TypeKind::TAG) {
+    struct DeclAST *typeDecl = lookupType(state, type->tag);
+    type->kind = typeDecl->type->kind;
+  }
+
+  resolveTypeTags(state, type->result);
+  resolveTypeTags(state, type->arg);
+  resolveTypeTags(state, type->argNext);
+}
+
 void semaDecl(struct SemaState *state, struct DeclAST *decl) {
+  resolveTypeTags(state, decl->type);
+
   switch (decl->kind) {
-
   case DeclKind::STRUCT:
-    if (findType(state->types, decl->type->tag) != NULL) {
-      failSema("Type redef");
-    }
-
-    // Add sub-types to state, but ignore field var decls.
-    struct SemaState subState = {0};
-    subState.parent = state;
-    subState.types = state->types;
+    // Resolve tags in fields.
     for (struct DeclAST *field = decl->fields; field != NULL;
          field = field->next) {
-      if (field->kind == DeclKind::ENUM || field->kind == DeclKind::STRUCT) {
-        semaDecl(&subState, field);
-      } else if (field->kind != DeclKind::VAR) {
-        failSema("Field must be enum, struct or var.");
+      if (field->kind != DeclKind::VAR) {
+        failSema("Only var decls allowed in struct");
       }
+
+      resolveTypeTags(state, field->type);
     }
-    state->types = subState.types;
+    break;
 
-    struct DeclList *type = newDeclList(decl);
-    type->next = state->types;
-    state->types = type;
-    return;
-
-  case DeclKind::ENUM: {
-    if (findType(state->types, decl->type->tag) != NULL) {
-      failSema("Type redef");
-    }
-
-    struct DeclList *type = newDeclList(decl);
-    type->next = state->types;
-    state->types = type;
-  } break;
+  case DeclKind::ENUM:
+    break;
 
   case DeclKind::FUNC:
     addLocalDecl(state, decl);
@@ -695,9 +696,8 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
       // Generate a local for each arg.
       for (struct DeclAST *field = decl->fields; field != NULL;
            field = field->next) {
-        struct DeclList *newType = newDeclList(field);
-        newType->next = funcState.locals;
-        funcState.locals = newType;
+        resolveTypeTags(state, field->type);
+        addLocalDecl(&funcState, field);
       }
       semaStmt(&funcState, decl->body);
     }
@@ -706,14 +706,16 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
   case DeclKind::VAR:
     addLocalDecl(state, decl);
     if (decl->init != NULL) {
-      if (decl->type->kind == TypeKind::ARRAY) {
+      if (decl->type != NULL && decl->type->kind == TypeKind::ARRAY) {
         semaExprNoDecay(state, decl->init);
       } else {
         semaExpr(state, decl->init);
       }
 
-      if (decl->type->kind == TypeKind::STRUCT &&
-          decl->init->kind == ExprKind::ARRAY) {
+      if (decl->type == NULL) {
+        decl->type = decl->init->type;
+      } else if (decl->type->kind == TypeKind::STRUCT &&
+                 decl->init->kind == ExprKind::ARRAY) {
         // TODO: verify match?
         if (decl->init->rhs != NULL || decl->init->lhs->kind != ExprKind::INT) {
           failSema("Currently only zero init supported");
@@ -724,6 +726,7 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
         printDecl(decl);
         failSema(": Decl init type doesn't match");
       }
+
       if (decl->type->kind == TypeKind::ARRAY && decl->type->size == 0) {
         decl->type->size = decl->init->type->size;
       }
@@ -872,7 +875,29 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
   }
 }
 
+void addTaggedType(struct SemaState *state, struct DeclAST *decl) {
+  switch (decl->kind) {
+  case DeclKind::STRUCT:
+  case DeclKind::ENUM:
+    if (findType(state->types, decl->type->tag) != NULL) {
+      printDecl(decl);
+      failSema(": Type redef");
+    }
+
+    // Add the struct to the types.
+    struct DeclList *type = newDeclList(decl);
+    type->next = state->types;
+    state->types = type;
+    break;
+  }
+}
+
 struct DeclAST *semaTopLevel(struct SemaState *state, struct DeclAST *decl) {
+  // Discover tagged types.
+  for (struct DeclAST *cur = decl; cur != NULL; cur = cur->next) {
+    addTaggedType(state, cur);
+  }
+
   for (struct DeclAST *cur = decl; cur != NULL; cur = cur->next) {
     semaDecl(state, cur);
   }
