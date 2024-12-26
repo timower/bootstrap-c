@@ -3,27 +3,27 @@ import util;
 
 struct ParseState {
   // [start, end[ contains the current data buffer.
-  i8 *start;
-  i8 *end;
+  start : i8 *;
+  end : i8 *;
 
   // Pointer in [start, end[ where we're currently parsing.
-  i8 *current;
+  current : i8 *;
 
   // Currently parsed token.
-  struct Token curToken;
+  curToken : Token;
 };
 
 // 1. parse
-const i8 *intTypes[] = {
-    "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
+let intTypes : const i8 *[] = {
+                   "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
 };
 
-i32 iseol(i32 c) { return c == '\n' || c == '\r'; }
+func iseol(c : i32) -> i32 { return c == '\n' || c == '\r'; }
 
-void failParseArg(struct ParseState *state, const i8 *msg, const i8 *arg) {
-  i32 line = 1;
-  i32 column = 0;
-  for (const i8 *c = state->start; c < state->current && c < state->end; c++) {
+func failParseArg(state : ParseState *, msg : const i8 *, arg : const i8 *) {
+  let line = 1;
+  let column = 0;
+  for (let c = state->start; c < state->current && c < state->end; c++) {
     if (iseol(*c as i32)) {
       line++;
       column = 0;
@@ -40,23 +40,23 @@ void failParseArg(struct ParseState *state, const i8 *msg, const i8 *arg) {
   exit(1);
 }
 
-void failParse(struct ParseState *state, const i8 *msg) {
+func failParse(state : ParseState *, msg : const i8 *) {
   failParseArg(state, msg, "");
 }
 
 // Returns the current character and advances the current pointer.
-i32 nextChar(struct ParseState *state) {
+func nextChar(state : ParseState *) -> i32 {
   if (state->current >= state->end) {
     return -1;
   }
 
-  i32 result = *state->current as i32;
+  let result = *state->current as i32;
   state->current++;
   return result;
 }
 
 // Returns the current character without advancing
-i32 peekChar(struct ParseState *state) {
+func peekChar(state : ParseState *) -> i32 {
   if (state->current >= state->end) {
     return -1;
   }
@@ -64,19 +64,24 @@ i32 peekChar(struct ParseState *state) {
 }
 
 /// True if the current character is an EOL character
-i32 is_space(i32 c) { return iseol(c) || c == ' ' || c == '\t'; }
-i32 is_alpha(i32 c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
-i32 is_digit(i32 c) { return c >= '0' && c <= '9'; }
-i32 is_alnum(i32 c) { return is_digit(c) || is_alpha(c); }
+func is_space(c : i32) -> i32 { return iseol(c) || c == ' ' || c == '\t'; }
+func is_alpha(c : i32) -> i32 {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+func is_digit(c : i32) -> i32 { return c >= '0' && c <= '9'; }
+func is_alnum(c : i32) -> i32 { return is_digit(c) || is_alpha(c); }
 
-struct Token getToken(struct ParseState *state) {
-  i8 *tokenStart = state->current;
-  i32 lastChar = nextChar(state);
-  struct Token token;
+func getToken(state : ParseState *) -> Token {
+  let tokenStart = state->current;
+  let lastChar = nextChar(state);
+
+  let token : Token;
 
   // TODO: const expressions and make these global
-  const i32 tokenSize = (sizeof(tokens) / sizeof(tokens[0])) as i32;
-  const i32 intTypeSize = (sizeof(intTypes) / sizeof(intTypes[0])) as i32;
+  // TODO: typeof(array[0])
+  // TODO: array size
+  let tokenSize = (sizeof(tokens) / sizeof(tokens[0])) as i32;
+  let intTypeSize = (sizeof(intTypes) / sizeof(intTypes[0])) as i32;
 
   // Eat whitespace
   while (is_space(lastChar)) {
@@ -99,7 +104,7 @@ struct Token getToken(struct ParseState *state) {
     token.end = state->current; // one past the end!
 
     // Check if it's a keyword.
-    for (i32 i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
+    for (let i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
       if (tokCmpStr(token, tokens[i])) {
         token.kind = i as enum TokenKind;
         return token;
@@ -107,7 +112,7 @@ struct Token getToken(struct ParseState *state) {
     }
 
     // i32 types [iu](8|16|32|64)
-    for (i32 i = 0; i < intTypeSize; i++) {
+    for (let i = 0; i < intTypeSize; i++) {
       if (tokCmpStr(token, intTypes[i])) {
         token.kind = TokenKind::INT2;
         return token;
@@ -120,7 +125,7 @@ struct Token getToken(struct ParseState *state) {
 
   if (lastChar == '\'') {
     while (peekChar(state) != '\'') {
-      i32 next = nextChar(state);
+      let next = nextChar(state);
       if (next == '\\') {
         nextChar(state);
       }
@@ -134,7 +139,7 @@ struct Token getToken(struct ParseState *state) {
 
   if (lastChar == '"') {
     while (peekChar(state) != '"') {
-      i32 next = nextChar(state);
+      let next = nextChar(state);
       if (next == '\\') {
         nextChar(state);
       }
@@ -174,9 +179,9 @@ struct Token getToken(struct ParseState *state) {
   }
 
   // Asume operator
-  for (i32 i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
-    i64 len = strlen(tokens[i]) as i64;
-    i64 remaining = state->end - tokenStart;
+  for (let i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
+    let len = strlen(tokens[i]) as i64;
+    let remaining = state->end - tokenStart;
     if (len < remaining && memcmp(tokenStart, tokens[i], len as u64) == 0) {
       token.kind = i as enum TokenKind;
       token.data = tokenStart;
@@ -194,27 +199,27 @@ struct Token getToken(struct ParseState *state) {
   return token;
 }
 
-i32 match(struct ParseState *state, enum TokenKind tok) {
+func match(state : ParseState *, tok : TokenKind) -> i32 {
   return state->curToken.kind == tok;
 }
 
-void expect(struct ParseState *state, enum TokenKind tok) {
+func expect(state : ParseState *, tok : TokenKind) {
   if (!match(state, tok)) {
     failParseArg(state, "Expected: ", tokens[tok as i32]);
   }
 }
 
-struct Token getNextToken(struct ParseState *state) {
-  struct Token result = state->curToken;
+func getNextToken(state : ParseState *) -> Token {
+  let result = state->curToken;
   state->curToken = getToken(state);
   return result;
 }
 
 // number := [0-9]+ | '[\n\t\r\\'"]' | '.'
-struct ExprAST *parseNumber(struct ParseState *state) {
-  struct ExprAST *result = newExpr(ExprKind::INT);
+func parseNumber(state : ParseState *) -> ExprAST * {
+  let result = newExpr(ExprKind::INT);
 
-  i8 *start = state->curToken.data;
+  let start = state->curToken.data;
   if (*start == '\'') {
     if (start[1] == '\\') {
       result->value = getEscaped(start[2]) as i32;
@@ -222,8 +227,8 @@ struct ExprAST *parseNumber(struct ParseState *state) {
       result->value = start[1] as i32;
     }
   } else {
-    i8 *endp = state->curToken.end;
-    i32 num = strtol(start, &endp, 10) as i32;
+    let endp = state->curToken.end;
+    let num = strtol(start, &endp, 10) as i32;
     result->value = num;
   }
 
@@ -232,19 +237,19 @@ struct ExprAST *parseNumber(struct ParseState *state) {
 }
 
 // string := '"' [^"]* '"'
-struct ExprAST *parseString(struct ParseState *state) {
-  struct ExprAST *result = newExpr(ExprKind::STR);
+func parseString(state : ParseState *) -> ExprAST * {
+  let result = newExpr(ExprKind::STR);
   result->identifier = state->curToken;
   getNextToken(state);
   return result;
 }
 
 // ident_or_scope := identifier | identifier '::' identifier
-struct ExprAST *parseIdentifierOrScope(struct ParseState *state) {
-  struct Token ident = getNextToken(state);
+func parseIdentifierOrScope(state : ParseState *) -> ExprAST * {
+  let ident = getNextToken(state);
 
   if (!match(state, TokenKind::SCOPE)) {
-    struct ExprAST *result = newExpr(ExprKind::VARIABLE);
+    let result = newExpr(ExprKind::VARIABLE);
     result->identifier = ident;
     return result;
   }
@@ -252,19 +257,19 @@ struct ExprAST *parseIdentifierOrScope(struct ParseState *state) {
   getNextToken(state); // eat ::
   expect(state, TokenKind::IDENTIFIER);
 
-  struct ExprAST *result = newExpr(ExprKind::SCOPE);
+  let result = newExpr(ExprKind::SCOPE);
   result->parent = ident;
   result->identifier = getNextToken(state);
   return result;
 }
 
-struct ExprAST *parseExpression(struct ParseState *state);
+func parseExpression(state : ParseState *) -> ExprAST *;
 
 // paren := '(' expression ')'
-struct ExprAST *parseParen(struct ParseState *state) {
+func parseParen(state : ParseState *) -> ExprAST * {
   getNextToken(state); // eat (
 
-  struct ExprAST *expr = parseExpression(state);
+  let expr = parseExpression(state);
 
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state); // eat )
@@ -276,7 +281,7 @@ struct ExprAST *parseParen(struct ParseState *state) {
 //          | number
 //          | string
 //          | paren
-struct ExprAST *parsePrimary(struct ParseState *state) {
+func parsePrimary(state : ParseState *) -> ExprAST * {
   switch (state->curToken.kind) {
   case TokenKind::IDENTIFIER:
     return parseIdentifierOrScope(state);
@@ -293,10 +298,10 @@ struct ExprAST *parsePrimary(struct ParseState *state) {
 }
 
 // index := lhs '[' expression ']'
-struct ExprAST *parseIndex(struct ParseState *state, struct ExprAST *lhs) {
+func parseIndex(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
   getNextToken(state); // eat [
 
-  struct ExprAST *expr = newExpr(ExprKind::INDEX);
+  let expr = newExpr(ExprKind::INDEX);
   expr->lhs = lhs;
 
   expr->rhs = parseExpression(state);
@@ -307,13 +312,13 @@ struct ExprAST *parseIndex(struct ParseState *state, struct ExprAST *lhs) {
   return expr;
 }
 
-struct ExprAST *parseAssignment(struct ParseState *state);
+func parseAssignment(state : ParseState *) -> ExprAST *;
 
 // call := lhs '(' [assignment (',' assigment)*] ')'
-struct ExprAST *parseCall(struct ParseState *state, struct ExprAST *lhs) {
+func parseCall(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
   getNextToken(state); // eat (
 
-  struct ExprAST *expr = newExpr(ExprKind::CALL);
+  let expr = newExpr(ExprKind::CALL);
 
   expr->lhs = lhs;
   expr->rhs = NULL;
@@ -323,7 +328,7 @@ struct ExprAST *parseCall(struct ParseState *state, struct ExprAST *lhs) {
     return expr;
   }
 
-  struct ExprAST *cur = expr;
+  let cur = expr;
   while (1) {
     cur->rhs = newExpr(ExprKind::ARG_LIST);
     cur = cur->rhs;
@@ -344,8 +349,8 @@ struct ExprAST *parseCall(struct ParseState *state, struct ExprAST *lhs) {
 }
 
 // member := lhs ['.' | '->'] identifier
-struct ExprAST *parseMember(struct ParseState *state, struct ExprAST *lhs) {
-  struct ExprAST *expr = newExpr(ExprKind::MEMBER);
+func parseMember(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
+  let expr = newExpr(ExprKind::MEMBER);
   expr->lhs = lhs;
 
   expr->op = state->curToken;
@@ -358,9 +363,8 @@ struct ExprAST *parseMember(struct ParseState *state, struct ExprAST *lhs) {
 }
 
 // unary_postfix := lhs '++' | lhs '--'
-struct ExprAST *parseUnaryPostfix(struct ParseState *state,
-                                  struct ExprAST *lhs) {
-  struct ExprAST *expr = newExpr(ExprKind::UNARY);
+func parseUnaryPostfix(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
+  let expr = newExpr(ExprKind::UNARY);
   expr->lhs = lhs;
   expr->rhs = NULL;
 
@@ -371,8 +375,8 @@ struct ExprAST *parseUnaryPostfix(struct ParseState *state,
 }
 
 // postfix := primary ( [index | call | member | unary_postfix] )*
-struct ExprAST *parsePostfix(struct ParseState *state) {
-  struct ExprAST *expr = parsePrimary(state);
+func parsePostfix(state : ParseState *) -> ExprAST * {
+  let expr = parsePrimary(state);
 
   while (1) {
     if (expr == NULL) {
@@ -401,7 +405,7 @@ struct ExprAST *parsePostfix(struct ParseState *state) {
   return expr;
 }
 
-i32 isDecl(struct Token tok) {
+func isDecl(tok : Token) -> i32 {
   // We don't support typedef, so this is easy
   switch (tok.kind) {
   case TokenKind::STRUCT:
@@ -420,7 +424,7 @@ i32 isDecl(struct Token tok) {
   }
 }
 
-i32 isUnary(struct Token tok) {
+func isUnary(tok : Token) -> i32 {
   switch (tok.kind) {
   case TokenKind::INC_OP:
   case TokenKind::DEC_OP:
@@ -436,7 +440,64 @@ i32 isUnary(struct Token tok) {
   }
 }
 
-void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl);
+func parseType(state : ParseState *) -> Type * {
+  let type = newType(TypeKind::INT);
+
+  if (match(state, TokenKind::CONST)) {
+    getNextToken(state);
+    type->isConst = 1;
+  }
+
+  if (match(state, TokenKind::INT2)) {
+    type->kind = TypeKind::INT;
+    type->isSigned = *state->curToken.data == 'i';
+    let end = state->curToken.end;
+    type->size = strtol(state->curToken.data + 1, &end, 10) as i32;
+    getNextToken(state);
+  } else if (match(state, TokenKind::VOID)) {
+    getNextToken(state);
+    type->kind = TypeKind::VOID;
+  } else if (match(state, TokenKind::STRUCT)) {
+    getNextToken(state);
+    type->kind = TypeKind::STRUCT;
+    expect(state, TokenKind::IDENTIFIER);
+    type->tag = getNextToken(state);
+  } else if (match(state, TokenKind::ENUM)) {
+    getNextToken(state);
+    type->kind = TypeKind::ENUM;
+    expect(state, TokenKind::IDENTIFIER);
+    type->tag = getNextToken(state);
+  } else if (match(state, TokenKind::IDENTIFIER)) {
+    type->kind = TypeKind::TAG;
+    type->tag = getNextToken(state);
+  } else {
+    failParse(state, "Unknown type");
+    return NULL;
+  }
+
+  //  Parse pointers
+  while (match(state, TokenKind::STAR)) {
+    getNextToken(state);
+    let ptrType = newType(TypeKind::POINTER);
+    ptrType->arg = type;
+    type = ptrType;
+  }
+
+  // (1D) arrays
+  if (match(state, TokenKind::OPEN_BRACKET)) {
+    getNextToken(state);
+
+    // size not supported
+    expect(state, TokenKind::CLOSE_BRACKET);
+    getNextToken(state);
+
+    let arrayType = newType(TypeKind::ARRAY);
+    arrayType->arg = type;
+    type = arrayType;
+  }
+
+  return type;
+}
 
 // unary := postfix
 //        | '++' unary
@@ -449,9 +510,9 @@ void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl);
 //        | '!' unary
 //        | sizeof '(' unary ')'
 //        | sizeof '(' decl ')'
-struct ExprAST *parseUnary(struct ParseState *state) {
+func parseUnary(state : ParseState *) -> ExprAST * {
   if (isUnary(state->curToken)) {
-    struct ExprAST *expr = newExpr(ExprKind::UNARY);
+    let expr = newExpr(ExprKind::UNARY);
     expr->op = state->curToken;
     getNextToken(state);
     expr->lhs = NULL;
@@ -461,17 +522,16 @@ struct ExprAST *parseUnary(struct ParseState *state) {
 
   if (match(state, TokenKind::SIZEOF)) {
     getNextToken(state);
-    struct ExprAST *expr = newExpr(ExprKind::SIZEOF);
+    let expr = newExpr(ExprKind::SIZEOF);
 
     expect(state, TokenKind::OPEN_PAREN);
     getNextToken(state);
 
     // TODO: fix...
     if (isDecl(state->curToken) && !match(state, TokenKind::LET)) {
-      struct DeclAST *dummy = newDecl();
-      parseDeclSpecifier(state, dummy);
-      expr->sizeofArg = dummy->type;
+      expr->sizeofArg = parseType(state);
     } else {
+
       expr->lhs = NULL;
       expr->rhs = parseUnary(state);
     }
@@ -486,24 +546,21 @@ struct ExprAST *parseUnary(struct ParseState *state) {
 }
 
 // cast := unary | unary 'as' decl
-struct ExprAST *parseCast(struct ParseState *state) {
-  struct ExprAST *lhs = parseUnary(state);
+func parseCast(state : ParseState *) -> ExprAST * {
+  let lhs = parseUnary(state);
 
   if (!match(state, TokenKind::AS)) {
     return lhs;
   }
   getNextToken(state);
 
-  struct DeclAST *dummy = newDecl();
-  parseDeclSpecifier(state, dummy);
-
-  struct ExprAST *expr = newExpr(ExprKind::CAST);
+  let expr = newExpr(ExprKind::CAST);
   expr->lhs = lhs;
-  expr->type = dummy->type;
+  expr->type = parseType(state);
   return expr;
 }
 
-i32 getPrecedence(struct Token tok) {
+func getPrecedence(tok : Token) -> i32 {
   switch (tok.kind) {
   case TokenKind::STAR:
   case TokenKind::SLASH:
@@ -546,25 +603,25 @@ i32 getPrecedence(struct Token tok) {
 }
 
 // binary_rhs := lhs ( op cast )*
-struct ExprAST *parseBinOpRhs(struct ParseState *state, i32 prec,
-                              struct ExprAST *lhs) {
+func parseBinOpRhs(state : ParseState *, prec : i32, lhs : ExprAST *)
+    -> ExprAST * {
   while (1) {
-    i32 curPred = getPrecedence(state->curToken);
+    let curPred = getPrecedence(state->curToken);
     if (curPred < prec) {
       return lhs;
     }
 
-    struct Token op = state->curToken;
+    let op = state->curToken;
     getNextToken(state);
 
-    struct ExprAST *rhs = parseCast(state);
+    let rhs = parseCast(state);
 
-    i32 nextPred = getPrecedence(state->curToken);
+    let nextPred = getPrecedence(state->curToken);
     if (curPred < nextPred) {
       rhs = parseBinOpRhs(state, curPred + 1, rhs);
     }
 
-    struct ExprAST *newLhs = newExpr(ExprKind::BINARY);
+    let newLhs = newExpr(ExprKind::BINARY);
     newLhs->op = op;
     newLhs->lhs = lhs;
     newLhs->rhs = rhs;
@@ -574,26 +631,26 @@ struct ExprAST *parseBinOpRhs(struct ParseState *state, i32 prec,
 }
 
 // binary := cast (op cast)*
-struct ExprAST *parseBinOp(struct ParseState *state) {
-  struct ExprAST *lhs = parseCast(state);
+func parseBinOp(state : ParseState *) -> ExprAST * {
+  let lhs = parseCast(state);
   return parseBinOpRhs(state, 0, lhs);
 }
 
 // conditional := binary
 //              | binary '?' expression ':' conditional
-struct ExprAST *parseConditional(struct ParseState *state) {
-  struct ExprAST *cond = parseBinOp(state);
+func parseConditional(state : ParseState *) -> ExprAST * {
+  let cond = parseBinOp(state);
   if (!match(state, TokenKind::QUESTION)) {
     return cond;
   }
   getNextToken(state);
 
-  struct ExprAST *trueBranch = parseExpression(state);
+  let trueBranch = parseExpression(state);
   expect(state, TokenKind::COLON);
   getNextToken(state);
-  struct ExprAST *falseBranch = parseConditional(state);
+  let falseBranch = parseConditional(state);
 
-  struct ExprAST *expr = newExpr(ExprKind::CONDITIONAL);
+  let expr = newExpr(ExprKind::CONDITIONAL);
   expr->cond = cond;
   expr->lhs = trueBranch;
   expr->rhs = falseBranch;
@@ -601,15 +658,15 @@ struct ExprAST *parseConditional(struct ParseState *state) {
 }
 
 // assignment := conditional | conditional '=' assignment
-struct ExprAST *parseAssignment(struct ParseState *state) {
-  struct ExprAST *lhs = parseConditional(state);
+func parseAssignment(state : ParseState *) -> ExprAST * {
+  let lhs = parseConditional(state);
   if (!isAssign(state->curToken)) {
     return lhs;
   }
 
-  struct Token op = getNextToken(state);
-  struct ExprAST *rhs = parseAssignment(state);
-  struct ExprAST *expr = newExpr(ExprKind::BINARY);
+  let op = getNextToken(state);
+  let rhs = parseAssignment(state);
+  let expr = newExpr(ExprKind::BINARY);
   expr->op = op;
   expr->lhs = lhs;
   expr->rhs = rhs;
@@ -617,19 +674,19 @@ struct ExprAST *parseAssignment(struct ParseState *state) {
 }
 
 // expression := assignment (',' assignment)*
-struct ExprAST *parseExpression(struct ParseState *state) {
-  struct ExprAST *expr = parseAssignment(state);
+func parseExpression(state : ParseState *) -> ExprAST * {
+  let expr = parseAssignment(state);
   if (expr == NULL) {
     return expr;
   }
   while (match(state, TokenKind::COMMA)) {
-    struct Token op = getNextToken(state);
-    struct ExprAST *rhs = parseAssignment(state);
+    let op = getNextToken(state);
+    let rhs = parseAssignment(state);
     if (rhs == NULL) {
       return expr;
     }
 
-    struct ExprAST *new = newExpr(ExprKind::BINARY);
+    let new = newExpr(ExprKind::BINARY);
     new->lhs = expr;
     new->op = op;
     new->rhs = rhs;
@@ -639,14 +696,14 @@ struct ExprAST *parseExpression(struct ParseState *state) {
   return expr;
 }
 
-struct StmtAST *parseStmt(struct ParseState *state);
+func parseStmt(state : ParseState *) -> StmtAST *;
 
-struct StmtAST *parseCompoundStmt(struct ParseState *state) {
+func parseCompoundStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state); // eat {
 
-  struct StmtAST *stmt = newStmt(StmtKind::COMPOUND);
+  let stmt = newStmt(StmtKind::COMPOUND);
 
-  struct StmtAST *cur = stmt;
+  let cur = stmt;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
     cur->nextStmt = parseStmt(state);
     cur = cur->nextStmt;
@@ -658,8 +715,8 @@ struct StmtAST *parseCompoundStmt(struct ParseState *state) {
   return stmt;
 }
 
-struct StmtAST *parseExprStmt(struct ParseState *state) {
-  struct StmtAST *stmt = newStmt(StmtKind::EXPR);
+func parseExprStmt(state : ParseState *) -> StmtAST * {
+  let stmt = newStmt(StmtKind::EXPR);
 
   if (!match(state, TokenKind::SEMICOLON)) {
     stmt->expr = parseExpression(state);
@@ -671,17 +728,17 @@ struct StmtAST *parseExprStmt(struct ParseState *state) {
   return stmt;
 }
 
-struct DeclAST *parseDeclarationOrFunction(struct ParseState *state);
+func parseDeclarationOrFunction(state : ParseState *) -> DeclAST *;
 
-struct StmtAST *parseDeclStmt(struct ParseState *state) {
-  struct StmtAST *stmt = newStmt(StmtKind::DECL);
+func parseDeclStmt(state : ParseState *) -> StmtAST * {
+  let stmt = newStmt(StmtKind::DECL);
   stmt->decl = parseDeclarationOrFunction(state);
   return stmt;
 }
 
-struct StmtAST *parseForStmt(struct ParseState *state) {
+func parseForStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state); // eat for
-  struct StmtAST *stmt = newStmt(StmtKind::FOR);
+  let stmt = newStmt(StmtKind::FOR);
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
@@ -702,13 +759,13 @@ struct StmtAST *parseForStmt(struct ParseState *state) {
   return stmt;
 }
 
-struct StmtAST *parseIfStmt(struct ParseState *state) {
+func parseIfStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state); // eat if
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  struct StmtAST *stmt = newStmt(StmtKind::IF);
+  let stmt = newStmt(StmtKind::IF);
 
   stmt->expr = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
@@ -724,10 +781,10 @@ struct StmtAST *parseIfStmt(struct ParseState *state) {
   return stmt;
 }
 
-struct StmtAST *parseReturnStmt(struct ParseState *state) {
+func parseReturnStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state);
 
-  struct StmtAST *stmt = newStmt(StmtKind::RETURN);
+  let stmt = newStmt(StmtKind::RETURN);
   // parse value
   if (!match(state, TokenKind::SEMICOLON)) {
     stmt->expr = parseExpression(state);
@@ -738,10 +795,10 @@ struct StmtAST *parseReturnStmt(struct ParseState *state) {
   return stmt;
 }
 
-struct StmtAST *parseCaseStmt(struct ParseState *state) {
+func parseCaseStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state);
 
-  struct StmtAST *stmt = newStmt(StmtKind::CASE);
+  let stmt = newStmt(StmtKind::CASE);
 
   stmt->expr = parseConditional(state);
 
@@ -750,14 +807,14 @@ struct StmtAST *parseCaseStmt(struct ParseState *state) {
   return stmt;
 }
 
-struct StmtAST *parseSwitchOrWhileStmt(struct ParseState *state,
-                                       enum StmtKind kind) {
+func parseSwitchOrWhileStmt(state : ParseState *, kind : StmtKind)
+    -> StmtAST * {
   getNextToken(state);
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  struct StmtAST *stmt = newStmt(kind);
+  let stmt = newStmt(kind);
 
   stmt->expr = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
@@ -768,7 +825,7 @@ struct StmtAST *parseSwitchOrWhileStmt(struct ParseState *state,
   return stmt;
 }
 
-struct StmtAST *parseStmt(struct ParseState *state) {
+func parseStmt(state : ParseState *) -> StmtAST * {
   if (isDecl(state->curToken)) {
     return parseDeclStmt(state);
   }
@@ -802,7 +859,7 @@ struct StmtAST *parseStmt(struct ParseState *state) {
 
   if (match(state, TokenKind::BREAK)) {
     getNextToken(state);
-    struct StmtAST *stmt = newStmt(StmtKind::BREAK);
+    let stmt = newStmt(StmtKind::BREAK);
 
     expect(state, TokenKind::SEMICOLON);
     getNextToken(state);
@@ -812,7 +869,7 @@ struct StmtAST *parseStmt(struct ParseState *state) {
 
   if (match(state, TokenKind::DEFAULT)) {
     getNextToken(state);
-    struct StmtAST *stmt = newStmt(StmtKind::DEFAULT);
+    let stmt = newStmt(StmtKind::DEFAULT);
 
     expect(state, TokenKind::COLON);
     getNextToken(state);
@@ -822,67 +879,18 @@ struct StmtAST *parseStmt(struct ParseState *state) {
 
   return parseExprStmt(state);
 }
-struct DeclAST *parseNoInitDecl(struct ParseState *state);
 
-struct Type *parseType(struct ParseState *state) {
-  struct Type *type = newType(TypeKind::INT);
-
-  if (match(state, TokenKind::CONST)) {
-    getNextToken(state);
-    type->isConst = 1;
-  }
-
-  if (match(state, TokenKind::INT2)) {
-    type->kind = TypeKind::INT;
-    type->isSigned = *state->curToken.data == 'i';
-    i8 *end = state->curToken.end;
-    type->size = strtol(state->curToken.data + 1, &end, 10) as i32;
-    getNextToken(state);
-  } else if (match(state, TokenKind::VOID)) {
-    getNextToken(state);
-    type->kind = TypeKind::VOID;
-  } else if (match(state, TokenKind::IDENTIFIER)) {
-    struct Token name = getNextToken(state);
-    type->kind = TypeKind::TAG;
-    type->tag = name;
-  } else {
-    failParse(state, "Unknown type");
-    return NULL;
-  }
-
-  //  Parse pointers
-  while (match(state, TokenKind::STAR)) {
-    getNextToken(state);
-    struct Type *ptrType = newType(TypeKind::POINTER);
-    ptrType->arg = type;
-    type = ptrType;
-  }
-
-  // (1D) arrays
-  if (match(state, TokenKind::OPEN_BRACKET)) {
-    getNextToken(state);
-
-    // size not supported
-    expect(state, TokenKind::CLOSE_BRACKET);
-    getNextToken(state);
-
-    struct Type *arrayType = newType(TypeKind::ARRAY);
-    arrayType->arg = type;
-    type = arrayType;
-  }
-
-  return type;
-}
+// struct DeclAST *parseNoInitDecl(state: ParseState*);
 
 // initializer := assignment | '{' assignment (',' assignment)* ','? '}'
-struct ExprAST *parseInitializer(struct ParseState *state) {
+func parseInitializer(state : ParseState *) -> ExprAST * {
   if (!match(state, TokenKind::OPEN_BRACE)) {
     return parseAssignment(state);
   }
   getNextToken(state);
 
-  struct ExprAST *expr = newExpr(ExprKind::ARRAY);
-  struct ExprAST *cur = expr;
+  let expr = newExpr(ExprKind::ARRAY);
+  let cur = expr;
   while (1) {
     // Should be parseInitializer(state), but let's not support nested inits.
     cur->lhs = parseAssignment(state);
@@ -910,8 +918,8 @@ struct ExprAST *parseInitializer(struct ParseState *state) {
 }
 
 // type_name_pair := identifier ':' type
-struct DeclAST *parseNameTypePair(struct ParseState *state) {
-  struct DeclAST *decl = newDecl();
+func parseNameTypePair(state : ParseState *) -> DeclAST * {
+  let decl = newDecl();
   decl->kind = DeclKind::VAR;
 
   expect(state, TokenKind::IDENTIFIER);
@@ -926,10 +934,10 @@ struct DeclAST *parseNameTypePair(struct ParseState *state) {
 }
 
 // let_decl := 'let' identifier [':' type] ['=' initializer] ';'
-struct DeclAST *parseLetDecl(struct ParseState *state) {
+func parseLetDecl(state : ParseState *) -> DeclAST * {
   getNextToken(state); // eat let
 
-  struct DeclAST *decl = newDecl();
+  let decl = newDecl();
   decl->kind = DeclKind::VAR;
 
   decl->name = getNextToken(state);
@@ -955,7 +963,7 @@ struct DeclAST *parseLetDecl(struct ParseState *state) {
 
 // struct := 'struct' identifier '{' decl* '}'
 //         | 'struct' identifier
-void parseStruct(struct ParseState *state, struct DeclAST *decl) {
+func parseStruct(state : ParseState *, decl : DeclAST *) {
   getNextToken(state); // eat struct
   decl->type = newType(TypeKind::STRUCT);
 
@@ -973,14 +981,10 @@ void parseStruct(struct ParseState *state, struct DeclAST *decl) {
   decl->kind = DeclKind::STRUCT;
 
   // parse the fields
-  struct DeclAST *fields = decl;
+  let fields = decl;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
 
-    if (isDecl(state->curToken)) {
-      fields->next = parseNoInitDecl(state);
-    } else {
-      fields->next = parseNameTypePair(state);
-    }
+    fields->next = parseNameTypePair(state);
 
     expect(state, TokenKind::SEMICOLON);
     getNextToken(state); // eat ;
@@ -995,7 +999,7 @@ void parseStruct(struct ParseState *state, struct DeclAST *decl) {
 
 // enum := 'enum' identifier '{' identifier  (',' identifier )* ','? '}'
 //       | 'enum' identifier
-void parseEnum(struct ParseState *state, struct DeclAST *decl) {
+func parseEnum(state : ParseState *, decl : DeclAST *) {
   getNextToken(state);
 
   decl->type = newType(TypeKind::ENUM);
@@ -1011,12 +1015,12 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   decl->kind = DeclKind::ENUM;
 
   // parse constants
-  struct DeclAST *fields = decl;
-  i32 idx = 0;
+  let fields = decl;
+  let idx = 0;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
     expect(state, TokenKind::IDENTIFIER);
 
-    struct DeclAST *field = newDecl();
+    let field = newDecl();
     field->kind = DeclKind::ENUM_FIELD;
     field->type = getInt32();
 
@@ -1040,54 +1044,25 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   decl->next = NULL;
 }
 
-// decl_specifier := ['const'] ( struct | enum | int | 'void' )
-void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
-  i32 isConst = 0;
-  if (match(state, TokenKind::CONST)) {
-    getNextToken(state);
-    isConst = 1;
-  }
-
-  // struct type ref or decl.
-  if (match(state, TokenKind::STRUCT)) {
-    parseStruct(state, decl);
-  } else if (match(state, TokenKind::ENUM)) {
-    parseEnum(state, decl);
-  } else if (match(state, TokenKind::INT2)) {
-    decl->type = newType(TypeKind::INT);
-    decl->type->isSigned = *state->curToken.data == 'i';
-    i8 *end = state->curToken.end;
-    decl->type->size = strtol(state->curToken.data + 1, &end, 10) as i32;
-
-    getNextToken(state);
-  } else if (match(state, TokenKind::VOID)) {
-    getNextToken(state);
-    decl->type = newType(TypeKind::VOID);
-  } else {
-    failParse(state, "Unknown type!");
-  }
-  decl->type->isConst = isConst;
-}
-
 // func_decl :=
 //  'func' identifier [ '->' type ] '(' [decl (',' decl)*] ')' compound_stmt?
-struct DeclAST *parseFuncDecl2(struct ParseState *state) {
+func parseFuncDecl(state : ParseState *) -> DeclAST * {
   getNextToken(state); // eat func
 
-  struct DeclAST *decl = newDecl();
+  let decl = newDecl();
   decl->kind = DeclKind::FUNC;
 
   expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
 
-  struct Type *funcType = newType(TypeKind::FUNC);
+  let funcType = newType(TypeKind::FUNC);
   decl->type = funcType;
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state); // eat (
 
-  struct Type *curType = funcType;
-  struct DeclAST *curDecl = decl;
+  let curType = funcType;
+  let curDecl = decl;
   while (!match(state, TokenKind::CLOSE_PAREN)) {
     if (match(state, TokenKind::ELLIPSIS)) {
       getNextToken(state);
@@ -1097,7 +1072,7 @@ struct DeclAST *parseFuncDecl2(struct ParseState *state) {
       break;
     }
 
-    struct DeclAST *param = parseNameTypePair(state);
+    let param = parseNameTypePair(state);
     curDecl->next = param;
     curDecl = param;
     curType->argNext = param->type;
@@ -1134,161 +1109,69 @@ struct DeclAST *parseFuncDecl2(struct ParseState *state) {
   return decl;
 }
 
-// func_decl := '(' [decl (',' decl)*] ')'
-void parseFuncDecl(struct ParseState *state, struct DeclAST *decl) {
-  getNextToken(state); // eat (
-  decl->kind = DeclKind::FUNC;
-
-  struct Type *funcType = newType(TypeKind::FUNC);
-  funcType->result = decl->type;
-  decl->type = funcType;
-
-  if (match(state, TokenKind::CLOSE_PAREN)) {
-    getNextToken(state);
-    return;
-  }
-
-  // Parse args
-  struct Type *curType = funcType;
-  struct DeclAST *curDecl = decl;
-  while (1) {
-    if (match(state, TokenKind::ELLIPSIS)) {
-      getNextToken(state);
-
-      funcType->isVarargs = 1;
-
-      expect(state, TokenKind::CLOSE_PAREN);
-      getNextToken(state);
-      break;
-    }
-
-    struct DeclAST *param = parseNoInitDecl(state);
-    curDecl->next = param;
-    curDecl = param;
-    curType->argNext = param->type;
-    curType = param->type;
-
-    if (match(state, TokenKind::CLOSE_PAREN)) {
-      getNextToken(state); // eat )
-      break;
-    }
-
-    expect(state, TokenKind::COMMA);
-    getNextToken(state); // eat ,
-  }
-
-  decl->fields = decl->next;
-  decl->next = NULL;
-  funcType->arg = funcType->argNext;
-  funcType->argNext = NULL;
-}
-
-// declarator := star* identifier ('[' ']' | func_decl )
-void parseDeclarator(struct ParseState *state, struct DeclAST *decl) {
-  //  Parse pointers
-  while (match(state, TokenKind::STAR)) {
-    getNextToken(state);
-    struct Type *ptrType = newType(TypeKind::POINTER);
-    ptrType->arg = decl->type;
-    decl->type = ptrType;
-  }
-
-  expect(state, TokenKind::IDENTIFIER);
-  decl->name = getNextToken(state);
-
-  // (1D) arrays
-  if (match(state, TokenKind::OPEN_BRACKET)) {
-    getNextToken(state);
-
-    // size not supported
-    expect(state, TokenKind::CLOSE_BRACKET);
-    getNextToken(state);
-
-    struct Type *arrayType = newType(TypeKind::ARRAY);
-    arrayType->arg = decl->type;
-    decl->type = arrayType;
-  } else if (match(state, TokenKind::OPEN_PAREN)) {
-    parseFuncDecl(state, decl);
-  }
-}
-
-// no_init_decl := decl_specifier declarator
-struct DeclAST *parseNoInitDecl(struct ParseState *state) {
-  struct DeclAST *decl = newDecl();
-  decl->kind = DeclKind::VAR;
-
-  // specifiers
-  parseDeclSpecifier(state, decl);
-
-  // We don't support taging and creating a struct or enum in the same decl.
-  if (decl->kind == DeclKind::STRUCT || decl->kind == DeclKind::ENUM) {
-    expect(state, TokenKind::SEMICOLON);
-    return decl;
-  }
-
-  parseDeclarator(state, decl);
-  return decl;
-}
-
-struct DeclAST *parseDeclarationOrFunction(struct ParseState *state) {
+func parseDeclarationOrFunction(state : ParseState *) -> DeclAST * {
   if (match(state, TokenKind::LET)) {
     return parseLetDecl(state);
   }
 
   if (match(state, TokenKind::FUNC)) {
-    return parseFuncDecl2(state);
+    return parseFuncDecl(state);
   }
 
-  struct DeclAST *decl = parseNoInitDecl(state);
+  if (match(state, TokenKind::STRUCT)) {
+    let decl = newDecl();
+    parseStruct(state, decl);
 
-  if (decl->kind == DeclKind::FUNC && match(state, TokenKind::OPEN_BRACE)) {
-    decl->body = parseCompoundStmt(state);
+    expect(state, TokenKind::SEMICOLON);
+    getNextToken(state);
+
     return decl;
   }
 
-  // init (optional)
-  if (match(state, TokenKind::EQ)) {
+  if (match(state, TokenKind::ENUM)) {
+    let decl = newDecl();
+    parseEnum(state, decl);
+
+    expect(state, TokenKind::SEMICOLON);
     getNextToken(state);
 
-    decl->init = parseInitializer(state);
+    return decl;
   }
 
-  expect(state, TokenKind::SEMICOLON);
-  getNextToken(state);
-
-  return decl;
+  failParse(state, "Unknown declaration");
+  return NULL;
 }
 
-struct DeclAST *parseImportDecl(struct ParseState *state) {
+func parseImportDecl(state : ParseState *) -> DeclAST * {
   getNextToken(state); // eat import
 
   expect(state, TokenKind::IDENTIFIER);
-  struct Token name = getNextToken(state);
+  let name = getNextToken(state);
 
   expect(state, TokenKind::SEMICOLON);
   getNextToken(state);
 
-  struct DeclAST *decl = newDecl();
+  let decl = newDecl();
   decl->kind = DeclKind::IMPORT;
   decl->name = name;
   return decl;
 }
 
-struct DeclAST *parseTopLevelDecl(struct ParseState *state) {
+func parseTopLevelDecl(state : ParseState *) -> DeclAST * {
   if (match(state, TokenKind::IMPORT)) {
     return parseImportDecl(state);
   }
   return parseDeclarationOrFunction(state);
 }
 
-struct DeclAST *parseTopLevel(struct ParseState *state) {
+func parseTopLevel(state : ParseState *) -> DeclAST * {
   getNextToken(state); // Prep token parser
 
-  struct DeclAST *lastDecl = NULL;
-  struct DeclAST *firstDecl = NULL;
+  let lastDecl : DeclAST * = NULL;
+  let firstDecl : DeclAST * = NULL;
 
   while (state->curToken.kind != TokenKind::TOK_EOF) {
-    struct DeclAST *decl = parseTopLevelDecl(state);
+    let decl = parseTopLevelDecl(state);
 
     if (lastDecl == NULL) {
       firstDecl = decl;

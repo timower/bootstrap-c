@@ -23,25 +23,65 @@ enum TokenKind {
 };
 
 struct Token {
-  enum TokenKind kind;
+  kind : TokenKind;
 
-  i8 *data;
-  i8 *end;
+  data : i8 *;
+  end : i8 *;
 };
 
-const i8 *tokens[] = {
-    "EOF",      "IDENT",   "CONST",  "STR",    "INT",
+let tokens : const i8 *[] = {
+                 "EOF",      "IDENT",   "CONST",  "STR",    "INT",
 
-    "continue", "default", "sizeof", "struct", "switch", "return", "import",
-    "const",    "while",   "break",  "void",   "enum",   "case",   "else",
-    "func",     "<<=",     ">>=",    "...",    "for",    "let",    "::",
-    "->",       "++",      "--",     "<<",     ">>",     "<=",     ">=",
-    "==",       "!=",      "&&",     "||",     "*=",     "/=",     "%=",
-    "+=",       "-=",      "&=",     "^=",     "|=",     "if",     "as",
-    ";",        "{",       "}",      ",",      ":",      "=",      "(",
-    ")",        "[",       "]",      ".",      "&",      "!",      "~",
-    "-",        "+",       "*",      "/",      "%",      "<",      ">",
-    "^",        "|",       "?",
+                 "continue", "default", "sizeof", "struct", "switch", "return",
+                 "import",   "const",   "while",  "break",  "void",   "enum",
+                 "case",     "else",    "func",   "<<=",    ">>=",    "...",
+                 "for",      "let",     "::",     "->",     "++",     "--",
+                 "<<",       ">>",      "<=",     ">=",     "==",     "!=",
+                 "&&",       "||",      "*=",     "/=",     "%=",     "+=",
+                 "-=",       "&=",      "^=",     "|=",     "if",     "as",
+                 ";",        "{",       "}",      ",",      ":",      "=",
+                 "(",        ")",       "[",      "]",      ".",      "&",
+                 "!",        "~",       "-",      "+",      "*",      "/",
+                 "%",        "<",       ">",      "^",      "|",      "?",
+};
+
+enum TypeKind {
+  VOID,
+  INT,
+  STRUCT,
+  POINTER,
+  ARRAY,
+  FUNC,
+  ENUM,
+
+  TAG, // For tagged structs / enums resolved in sema.
+};
+
+struct Type {
+  kind : TypeKind;
+
+  // For tagged structs / enums.
+  tag : Token;
+
+  result : Type *;
+
+  // For pointers / arrays, the contained type
+  // For functions, linked list of arg types.
+  arg : Type *;
+  argNext : Type *;
+
+  isConst : i32;
+
+  // For array or integer types
+  size : i32;
+
+  isSigned : i32;
+
+  // For funcs
+  isVarargs : i32;
+
+  // TODO: remove, now that we have cast expr.
+  isDecay : i32;
 };
 
 enum ExprKind {
@@ -71,66 +111,27 @@ enum ExprKind {
 
 // Represents an expression in the AST.
 struct ExprAST {
-  enum ExprKind kind;
+  kind : ExprKind;
 
-  struct Type *type;
+  type : Type *;
 
   // primary_expr
   // \{
   // int
-  i32 value;
+  value : i32;
   // \}
 
   // binary
-  struct Token op;
-  struct ExprAST *lhs;
-  struct ExprAST *rhs;
+  op : Token;
+  lhs : ExprAST *;
+  rhs : ExprAST *;
 
-  struct Token parent;
-  struct Token identifier;
+  parent : Token;
+  identifier : Token;
 
-  struct ExprAST *cond;
+  cond : ExprAST *;
 
-  struct Type *sizeofArg;
-};
-
-enum TypeKind {
-  VOID,
-  INT,
-  STRUCT,
-  POINTER,
-  ARRAY,
-  FUNC,
-  ENUM,
-
-  TAG, // For tagged structs / enums resolved in sema.
-};
-
-struct Type {
-  enum TypeKind kind;
-
-  // For tagged structs / enums.
-  struct Token tag;
-
-  struct Type *result;
-
-  // For pointers / arrays, the contained type
-  // For functions, linked list of arg types.
-  struct Type *arg;
-  struct Type *argNext;
-
-  i32 isConst;
-
-  // For array or integer types
-  i32 size;
-
-  i32 isSigned;
-
-  // For funcs
-  i32 isVarargs;
-
-  // TODO: remove, now that we have cast expr.
-  i32 isDecay;
+  sizeofArg : Type *;
 };
 
 enum DeclKind {
@@ -143,29 +144,29 @@ enum DeclKind {
 };
 
 struct DeclAST {
-  enum DeclKind kind;
+  kind : DeclKind;
 
-  struct Type *type;
+  type : Type *;
 
-  struct Token name;
+  name : Token;
 
   // For var decl.
-  struct ExprAST *init;
+  init : ExprAST *;
 
-  // For struct decls, linked list of fields.
+  // For  decls, linked list of fields.
   // For funcs, linked list of args
   // For top level decls, linked list of decls.
-  struct DeclAST *fields;
-  struct DeclAST *next;
+  fields : DeclAST *;
+  next : DeclAST *;
 
   // For function defs
-  struct StmtAST *body;
+  body : StmtAST *;
 
   // For enum values
-  i32 enumValue;
+  enumValue : i32;
 
   // For function declarations that do have defs
-  i32 hasDef;
+  hasDef : i32;
 };
 
 enum StmtKind {
@@ -185,32 +186,32 @@ enum StmtKind {
 };
 
 struct StmtAST {
-  enum StmtKind kind;
+  kind : StmtKind;
 
-  struct DeclAST *decl;
+  decl : DeclAST *;
 
   // For for
-  struct StmtAST *init;
-  struct StmtAST *cond;
+  init : StmtAST *;
+  cond : StmtAST *;
 
   // For expr stmts
-  struct ExprAST *expr;
+  expr : ExprAST *;
 
   // For compound stmts
-  struct StmtAST *stmt;
+  stmt : StmtAST *;
 
-  // To form linked list of compound stmts;
-  struct StmtAST *nextStmt;
+  // To form linked list of compound stmts
+  nextStmt : StmtAST *;
 };
 
 // utils
-i32 tokCmp(struct Token one, struct Token two) {
+func tokCmp(one : Token, two : Token) -> i32 {
   if (one.kind != two.kind) {
     return 0;
   }
 
-  i64 len1 = one.end - one.data;
-  i64 len2 = two.end - two.data;
+  let len1 = one.end - one.data;
+  let len2 = two.end - two.data;
   if (len1 != len2) {
     return 0;
   }
@@ -218,9 +219,9 @@ i32 tokCmp(struct Token one, struct Token two) {
   return memcmp(one.data, two.data, len1 as u64) == 0;
 }
 
-i32 tokCmpStr(struct Token one, const i8 *str) {
-  i64 len1 = one.end - one.data;
-  i64 len2 = strlen(str) as i64;
+func tokCmpStr(one : Token, str : const i8 *) -> i32 {
+  let len1 = one.end - one.data;
+  let len2 = strlen(str) as i64;
   if (len1 != len2) {
     return 0;
   }
@@ -228,20 +229,20 @@ i32 tokCmpStr(struct Token one, const i8 *str) {
   return memcmp(one.data, str, len1 as u64) == 0;
 }
 
-void printStr(i8 *start, i8 *end) {
-  for (i8 *c = start; c != end; c++) {
+func printStr(start : i8 *, end : i8 *) {
+  for (let c = start; c != end; c++) {
     putchar(*c as i32);
   }
 }
 
-void printToken(struct Token token) {
-  printf("%s", tokens[token.kind as i32]);
-  printf("(");
+func printToken(token : Token) {
+  if (token.kind != TokenKind::IDENTIFIER) {
+    printf("%s", tokens[token.kind as i32]);
+  }
   printStr(token.data, token.end);
-  printf(") ");
 }
 
-void printType(struct Type *type) {
+func printType(type : Type *) {
   if (type->isConst) {
     printf("const ");
   }
@@ -271,7 +272,7 @@ void printType(struct Type *type) {
     break;
   case TypeKind::FUNC:
     printf("(");
-    for (struct Type *arg = type->arg; arg != NULL; arg = arg->argNext) {
+    for (let arg : Type * = type->arg; arg != NULL; arg = arg->argNext) {
       printType(arg);
       if (arg->argNext != NULL) {
         printf(",");
@@ -291,7 +292,7 @@ void printType(struct Type *type) {
   }
 }
 
-void printExpr(struct ExprAST *expr) {
+func printExpr(expr : ExprAST *) {
   if (expr == NULL) {
     puts("ERROR! null expr");
     return;
@@ -330,7 +331,7 @@ void printExpr(struct ExprAST *expr) {
   case ExprKind::CALL:
     printf("CALL(");
     printExpr(expr->lhs);
-    for (struct ExprAST *cur = expr->rhs; cur != NULL; cur = cur->rhs) {
+    for (let cur : ExprAST * = expr->rhs; cur != NULL; cur = cur->rhs) {
       printf(" ");
       printExpr(cur->lhs);
     }
@@ -399,16 +400,16 @@ void printExpr(struct ExprAST *expr) {
   }
 }
 
-void printDecl(struct DeclAST *decl);
+func printDecl(decl : DeclAST *);
 
-void printStmt(struct StmtAST *stmt) {
+func printStmt(stmt : StmtAST *) {
   switch (stmt->kind) {
   case StmtKind::DECL:
     printDecl(stmt->decl);
     break;
   case StmtKind::COMPOUND:
     printf("{\n");
-    for (struct StmtAST *cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
+    for (let cur : StmtAST * = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       printStmt(cur);
     }
     printf("}\n");
@@ -471,12 +472,12 @@ void printStmt(struct StmtAST *stmt) {
   }
 }
 
-void printDecl(struct DeclAST *decl) {
+func printDecl(decl : DeclAST *) {
   switch (decl->kind) {
   case DeclKind::STRUCT:
     printType(decl->type);
     printf("{\n");
-    for (struct DeclAST *field = decl->fields; field != NULL;
+    for (let field : DeclAST * = decl->fields; field != NULL;
          field = field->next) {
       printf("  ");
       printDecl(field);
@@ -486,7 +487,7 @@ void printDecl(struct DeclAST *decl) {
   case DeclKind::ENUM:
     printType(decl->type);
     printf("{\n");
-    for (struct DeclAST *field = decl->fields; field != NULL;
+    for (let field : DeclAST * = decl->fields; field != NULL;
          field = field->next) {
       printf("  ");
       printDecl(field);
@@ -498,8 +499,10 @@ void printDecl(struct DeclAST *decl) {
     printToken(decl->name);
     break;
   case DeclKind::VAR:
-    printType(decl->type);
+    printf("let ");
     printToken(decl->name);
+    printf(" : ");
+    printType(decl->type);
 
     if (decl->init != NULL) {
       printf(" = ");
@@ -507,14 +510,19 @@ void printDecl(struct DeclAST *decl) {
     }
     break;
   case DeclKind::FUNC:
-    printType(decl->type);
+    printf("func ");
     printToken(decl->name);
-    printf(":\n");
-    for (struct DeclAST *field = decl->fields; field != NULL;
+    printf("(");
+    for (let field : DeclAST * = decl->fields; field != NULL;
          field = field->next) {
       printf("  ");
       printDecl(field);
+      if (field->next != NULL) {
+        printf(",");
+      }
     }
+    printf(") -> ");
+    printType(decl->type);
 
     if (decl->body != NULL) {
       printStmt(decl->body);
@@ -524,51 +532,51 @@ void printDecl(struct DeclAST *decl) {
   printf("\n");
 }
 
-struct ExprAST *newExpr(enum ExprKind kind) {
-  struct ExprAST *result = calloc(1, sizeof(struct ExprAST));
+func newExpr(kind : ExprKind) -> ExprAST * {
+  let result : ExprAST * = calloc(1, sizeof(struct ExprAST));
   result->kind = kind;
   return result;
 }
 
-struct DeclAST *newDecl() {
-  struct DeclAST *decl = calloc(1, sizeof(struct DeclAST));
+func newDecl() -> DeclAST * {
+  let decl : DeclAST * = calloc(1, sizeof(struct DeclAST));
   return decl;
 }
 
-struct StmtAST *newStmt(enum StmtKind kind) {
-  struct StmtAST *stmt = calloc(1, sizeof(struct StmtAST));
+func newStmt(kind : StmtKind) -> StmtAST * {
+  let stmt : StmtAST * = calloc(1, sizeof(struct StmtAST));
   stmt->kind = kind;
   return stmt;
 }
 
-struct Type *newType(enum TypeKind kind) {
-  struct Type *type = calloc(1, sizeof(struct Type));
+func newType(kind : TypeKind) -> Type * {
+  let type : Type * = calloc(1, sizeof(struct Type));
   type->kind = kind;
   return type;
 }
 
-struct Type *getInt32() {
-  struct Type *type = newType(TypeKind::INT);
+func getInt32() -> Type * {
+  let type : Type * = newType(TypeKind::INT);
   type->isSigned = 1;
   type->size = 32;
   return type;
 }
 
-struct Type *getIPtr() {
-  struct Type *type = newType(TypeKind::INT);
+func getIPtr() -> Type * {
+  let type : Type * = newType(TypeKind::INT);
   type->isSigned = 1;
   type->size = 64; // TODO: target dependent
   return type;
 }
 
-struct Type *getUPtr() {
-  struct Type *type = newType(TypeKind::INT);
+func getUPtr() -> Type * {
+  let type : Type * = newType(TypeKind::INT);
   type->isSigned = 0;
   type->size = 64; // TODO: target dependent
   return type;
 }
 
-i32 isAssign(struct Token tok) {
+func isAssign(tok : Token) -> i32 {
   switch (tok.kind) {
   case TokenKind::EQ:
   case TokenKind::MUL_ASSIGN:
@@ -589,4 +597,4 @@ i32 isAssign(struct Token tok) {
 
 // Implemented in bootstrap.c needed in sema for imports.
 // TODO: can parse parse the import?
-struct DeclAST *parseFile(const i8 *name);
+func parseFile(name : const i8 *) -> DeclAST *;
