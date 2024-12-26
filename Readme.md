@@ -14,9 +14,10 @@ TODO
  - [x] Support multiple file imports.
  - [x] Type safe enums.
     * `enum Foo { A, B }; enum Foo x = Foo::A;`
- - [ ] Change type syntax to `let foo: type` and func to `func foo() -> type`.
+ - [x] Change type syntax to `let foo: type` and func to `func foo() -> type`.
     * `let x: i32 = 5;`
     * `func foo() -> i32 { return 5; }`
+ - [ ] Fix static arrays, and decay from array to pointer.
  - [ ] Switch statements that make sense.
  - [ ] Type safe unions.
  - [ ] Require extern for external functions.

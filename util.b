@@ -1,4 +1,4 @@
-i8 getEscaped(i8 c) {
+func getEscaped(c : i8) -> i8 {
   switch (c as i32) {
   case 'n':
     return '\n' as i8;

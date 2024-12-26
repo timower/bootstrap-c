@@ -4,73 +4,73 @@ import ast;
 import util;
 
 struct EmitState {
-  i32 tmpCounter;
-  struct LocalVar *vars;
+  tmpCounter : i32;
+  vars : LocalVar *;
 
-  i8 *curBreakLabel;
-  i8 *defaultLabel;
-  struct Case *cases;
+  curBreakLabel : i8 *;
+  defaultLabel : i8 *;
+  cases : Case *;
 
-  struct EmitState *parent;
+  parent : EmitState *;
 };
 
 // LLVM IR Value
 struct Value {
-  const i8 *type;
+  type : const i8 *;
 
   // reg name or just the value
-  const i8 *val;
+  val : const i8 *;
 };
 
 struct LocalVar {
-  struct Token name;
-  struct Value value;
+  name : Token;
+  value : Value;
 
-  struct LocalVar *next;
+  next : LocalVar *;
 };
 
 struct Case {
-  struct Value val;
-  i32 n;
+  val : Value;
+  n : i32;
 
-  struct Case *next;
+  next : Case *;
 };
 
 // 3. emit
-void failEmit(const i8 *msg) {
+func failEmit(msg : const i8 *) {
   puts(msg);
   exit(1);
 }
 
 // Convert type to LLVM type.
-const i8 *convertType(struct Type *type) {
+func convertType(type : Type *) -> const i8 * {
   switch (type->kind) {
   case TypeKind::VOID:
     return "void";
   case TypeKind::INT: {
-    i8 *buf = malloc(16);
+    let buf : i8 * = malloc(16);
     sprintf(buf, "i%d", type->size);
     return buf;
   }
   case TypeKind::POINTER:
     return "ptr";
   case TypeKind::STRUCT: {
-    i64 len = type->tag.end - type->tag.data;
-    i8 *buf = malloc((len + 10) as u64);
+    let len = type->tag.end - type->tag.data;
+    let buf : i8 * = malloc((len + 10) as u64);
     sprintf(buf, "%%struct.%.*s", len, type->tag.data);
     return buf;
   }
 
   case TypeKind::ARRAY: {
-    i8 *buf = malloc(32);
+    let buf : i8 * = malloc(32);
     sprintf(buf, "[%d x %s]", type->size, convertType(type->arg));
     return buf;
   }
 
   case TypeKind::FUNC: {
-    i8 *buf = malloc(128);
-    i8 *cur = buf + sprintf(buf, "%s (", convertType(type->result));
-    for (struct Type *arg = type->arg; arg != NULL; arg = arg->argNext) {
+    let buf : i8 * = malloc(128);
+    let cur = buf + sprintf(buf, "%s (", convertType(type->result));
+    for (let arg = type->arg; arg != NULL; arg = arg->argNext) {
       cur += sprintf(cur, "%s", convertType(arg));
       if (arg->argNext != NULL) {
         cur += sprintf(cur, ", ");
@@ -91,60 +91,60 @@ const i8 *convertType(struct Type *type) {
   return NULL;
 }
 
-struct LocalVar *newLocal(struct Token name, struct Value val) {
-  struct LocalVar *local = calloc(1, sizeof(struct LocalVar));
+func newLocal(name : Token, val : Value) -> LocalVar * {
+  let local : LocalVar * = calloc(1, sizeof(struct LocalVar));
   local->name = name;
   local->value = val;
   return local;
 }
 
-struct Value intToVal(i32 num, struct Type *type) {
-  struct Value val;
+func intToVal(num : i32, type : Type *) -> Value {
+  let val : Value;
   val.type = convertType(type);
 
-  i8 *buf = malloc(16);
+  let buf : i8 * = malloc(16);
   sprintf(buf, "%d", num);
   val.val = buf;
 
   return val;
 }
 
-struct Value getNextTemp(struct EmitState *state) {
-  struct Value val;
+func getNextTemp(state : EmitState *) -> Value {
+  let val : Value;
 
-  i8 *buf = malloc(16);
+  let buf : i8 * = malloc(16);
   sprintf(buf, "%%tmp%d", state->tmpCounter++);
   val.val = buf;
 
   return val;
 }
 
-struct Value getGlobal(struct Token ident) {
-  struct Value val;
+func getGlobal(ident : Token) -> Value {
+  let val : Value;
 
-  i64 len = ident.end - ident.data;
-  i8 *buf = malloc((len + 2) as u64);
+  let len = ident.end - ident.data;
+  let buf : i8 * = malloc((len + 2) as u64);
   sprintf(buf, "@%.*s", len, ident.data);
   val.val = buf;
 
   return val;
 }
 
-struct Value getTempGlobal(struct EmitState *state, const i8 *prefix) {
-  struct Value val;
+func getTempGlobal(state : EmitState *, prefix : const i8 *) -> Value {
+  let val : Value;
 
-  i8 *buf = malloc(64);
+  let buf : i8 * = malloc(64);
   sprintf(buf, "@%s%d", prefix, state->tmpCounter++);
   val.val = buf;
 
   return val;
 }
 
-struct Value emitExpr(struct EmitState *state, struct ExprAST *expr);
+func emitExpr(state : EmitState *, expr : ExprAST *) -> Value;
 
 // Turns an i1 into an i32
-struct Value upcasti1(struct EmitState *state, struct Value val) {
-  struct Value up = getNextTemp(state);
+func upcasti1(state : EmitState *, val : Value) -> Value {
+  let up = getNextTemp(state);
   up.type = val.type;
   if (strcmp(up.type, "ptr") == 0) {
     failEmit("bool to pointer?");
@@ -154,16 +154,15 @@ struct Value upcasti1(struct EmitState *state, struct Value val) {
 }
 
 // Turns an i32 into an i1
-struct Value makeBool(struct EmitState *state, struct Value val) {
-  struct Value up = getNextTemp(state);
+func makeBool(state : EmitState *, val : Value) -> Value {
+  let up = getNextTemp(state);
   up.type = val.type;
   printf("  %s = icmp ne %s %s, 0\n", up.val, val.type, val.val);
   return up;
 }
 
-struct Value lookupVar(struct EmitState *state, struct Token tok) {
-  for (struct LocalVar *local = state->vars; local != NULL;
-       local = local->next) {
+func lookupVar(state : EmitState *, tok : Token) -> Value {
+  for (let local = state->vars; local != NULL; local = local->next) {
     if (tokCmp(tok, local->name)) {
       return local->value;
     }
@@ -175,21 +174,21 @@ struct Value lookupVar(struct EmitState *state, struct Token tok) {
 
   printToken(tok);
   failEmit("Unkown variable!");
-  struct Value v;
+  let v : Value;
   v.val = "undef";
   return v;
 }
 
-struct Value emitAddr(struct EmitState *state, struct ExprAST *expr) {
+func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
   switch (expr->kind) {
   case ExprKind::VARIABLE:
     return lookupVar(state, expr->identifier);
 
   case ExprKind::INDEX: {
-    struct Value array = emitExpr(state, expr->lhs);
-    struct Value index = emitExpr(state, expr->rhs);
+    let array = emitExpr(state, expr->lhs);
+    let index = emitExpr(state, expr->rhs);
 
-    struct Value gep = getNextTemp(state);
+    let gep = getNextTemp(state);
     gep.type = "ptr";
 
     printf("  %s = getelementptr inbounds %s, ptr %s, %s %s\n", gep.val,
@@ -198,14 +197,12 @@ struct Value emitAddr(struct EmitState *state, struct ExprAST *expr) {
   }
 
   case ExprKind::MEMBER: {
-    struct Value agg = expr->op.kind == TokenKind::DOT
-                           ? emitAddr(state, expr->lhs)
-                           : emitExpr(state, expr->lhs);
-    struct Type *aggType = expr->op.kind == TokenKind::DOT
-                               ? expr->lhs->type
-                               : expr->lhs->type->arg;
+    let agg = expr->op.kind == TokenKind::DOT ? emitAddr(state, expr->lhs)
+                                              : emitExpr(state, expr->lhs);
+    let aggType = expr->op.kind == TokenKind::DOT ? expr->lhs->type
+                                                  : expr->lhs->type->arg;
 
-    struct Value gep = getNextTemp(state);
+    let gep = getNextTemp(state);
     gep.type = "ptr";
     printf("  %s = getelementptr inbounds %s, ptr %s, i32 0, i32 %d\n", gep.val,
            convertType(aggType), agg.val, expr->value);
@@ -230,49 +227,47 @@ struct Value emitAddr(struct EmitState *state, struct ExprAST *expr) {
     break;
   }
 
-  struct Value v;
+  let v : Value;
   v.val = "undef";
   return v;
 }
 
-void emitStore(struct Value addr, struct Value val) {
+func emitStore(addr : Value, val : Value) {
   printf("  store %s %s, ptr %s\n", val.type, val.val, addr.val);
 }
 
-struct Value emitLoad(struct EmitState *state, struct Value addr,
-                      const i8 *type) {
-  struct Value val = getNextTemp(state);
+func emitLoad(state : EmitState *, addr : Value, type : const i8 *) -> Value {
+  let val = getNextTemp(state);
   val.type = type;
   printf("  %s = load %s, ptr %s\n", val.val, val.type, addr.val);
   return val;
 }
 
-struct Value emitBinary(struct EmitState *state, struct Type *resType,
-                        enum TokenKind opKind, struct Value lhs,
-                        struct Type *lhsType, struct Value rhs,
-                        struct Type *rhsType) {
+func emitBinary(state : EmitState *, resType : Type *, opKind : TokenKind,
+                lhs : Value, lhsType : Type *, rhs : Value, rhsType : Type *)
+    -> Value {
 
   // ptr - ptr -> i32
-  i32 lhsPointer = lhsType->kind == TypeKind::POINTER;
-  i32 rhsPointer = rhsType->kind == TypeKind::POINTER;
+  let lhsPointer = lhsType->kind == TypeKind::POINTER;
+  let rhsPointer = rhsType->kind == TypeKind::POINTER;
   if (lhsPointer && rhsPointer && opKind == TokenKind::MINUS) {
     failEmit("TODO");
   }
 
   if (lhsPointer != rhsPointer) {
-    struct Type *ptrType = lhsPointer ? lhsType : rhsType;
-    struct Value ptrOp = lhsPointer ? lhs : rhs;
-    struct Value intOp = lhsPointer ? rhs : lhs;
+    let ptrType = lhsPointer ? lhsType : rhsType;
+    let ptrOp = lhsPointer ? lhs : rhs;
+    let intOp = lhsPointer ? rhs : lhs;
 
     // negate the i32 for minus op
     if (opKind == TokenKind::MINUS) {
-      struct Value neg = getNextTemp(state);
+      let neg = getNextTemp(state);
       neg.type = intOp.type;
       printf("  %s = sub %s 0, %s\n", neg.val, neg.type, intOp.val);
       intOp = neg;
     }
 
-    struct Value res = getNextTemp(state);
+    let res = getNextTemp(state);
     res.type = convertType(resType);
     printf("  %s = getelementptr inbounds %s, ptr %s, %s %s\n", res.val,
            convertType(ptrType->arg), ptrOp.val, intOp.type, intOp.val);
@@ -284,8 +279,8 @@ struct Value emitBinary(struct EmitState *state, struct Type *resType,
     failEmit("Lhs and rhs don't have same type!");
   }
 
-  const i8 *instr;
-  i32 upcast = 0;
+  let instr : const i8 *;
+  let upcast = 0;
   switch (opKind) {
   default:
     failEmit("Invalid binary op");
@@ -348,7 +343,7 @@ struct Value emitBinary(struct EmitState *state, struct Type *resType,
     instr = "or";
     break;
   }
-  struct Value res = getNextTemp(state);
+  let res = getNextTemp(state);
   res.type = convertType(resType);
   printf("  %s = %s %s %s, %s\n", res.val, instr, lhs.type, lhs.val, rhs.val);
 
@@ -359,18 +354,18 @@ struct Value emitBinary(struct EmitState *state, struct Type *resType,
   return res;
 }
 
-struct Value emitAssignment(struct EmitState *state, struct ExprAST *expr) {
-  struct Value addr = emitAddr(state, expr->lhs);
-  struct Value val = emitExpr(state, expr->rhs);
+func emitAssignment(state : EmitState *, expr : ExprAST *) -> Value {
+  let addr = emitAddr(state, expr->lhs);
+  let val = emitExpr(state, expr->rhs);
 
   if (expr->op.kind == TokenKind::EQ) {
     emitStore(addr, val);
     return val;
   }
 
-  struct Value lval = emitLoad(state, addr, convertType(expr->lhs->type));
+  let lval = emitLoad(state, addr, convertType(expr->lhs->type));
 
-  enum TokenKind op;
+  let op : TokenKind;
   switch (expr->op.kind) {
   case TokenKind::ADD_ASSIGN:
     op = TokenKind::PLUS;
@@ -406,25 +401,25 @@ struct Value emitAssignment(struct EmitState *state, struct ExprAST *expr) {
     failEmit("Invalid assign op");
   }
 
-  struct Value res = emitBinary(state, expr->type, op, lval, expr->lhs->type,
-                                val, expr->rhs->type);
+  let res = emitBinary(state, expr->type, op, lval, expr->lhs->type, val,
+                       expr->rhs->type);
 
   emitStore(addr, res);
   return res;
 }
 
-struct Value emitLogicalBinOp(struct EmitState *state, struct ExprAST *expr) {
-  struct Value lhs = emitExpr(state, expr->lhs);
-  i32 idx = state->tmpCounter++;
+func emitLogicalBinOp(state : EmitState *, expr : ExprAST *) -> Value {
+  let lhs = emitExpr(state, expr->lhs);
+  let idx = state->tmpCounter++;
 
-  const i8 *firstLabel = "true";
-  const i8 *secondLabel = "false";
+  let firstLabel : i8 * = "true";
+  let secondLabel : i8 * = "false";
   if (expr->op.kind == TokenKind::OR_OP) {
     firstLabel = "false";
     secondLabel = "true";
   }
 
-  struct Value firstCmp = getNextTemp(state);
+  let firstCmp = getNextTemp(state);
   printf("  br label %%entry.%d\n", idx);
   printf("entry.%d:\n", idx);
   printf("  %s = icmp ne %s %s, 0\n", firstCmp.val, lhs.type, lhs.val);
@@ -432,15 +427,15 @@ struct Value emitLogicalBinOp(struct EmitState *state, struct ExprAST *expr) {
          idx, secondLabel, idx);
 
   printf("true.%d:\n", idx);
-  struct Value rhs = emitExpr(state, expr->rhs);
-  struct Value secondCmp = getNextTemp(state);
+  let rhs = emitExpr(state, expr->rhs);
+  let secondCmp = getNextTemp(state);
   printf("  br label %%true.cont.%d\n", idx);
   printf("true.cont.%d:\n", idx);
   printf("  %s = icmp ne %s %s, 0\n", secondCmp.val, rhs.type, rhs.val);
   printf("  br label %%false.%d\n", idx);
 
   printf("false.%d:\n", idx);
-  struct Value res = getNextTemp(state);
+  let res = getNextTemp(state);
   res.type = convertType(expr->type);
   printf("  %s = phi i1 [ %s, %%entry.%d ], [ %s, %%true.cont.%d ]\n", res.val,
          secondLabel, idx, secondCmp.val, idx);
@@ -448,55 +443,55 @@ struct Value emitLogicalBinOp(struct EmitState *state, struct ExprAST *expr) {
   return upcasti1(state, res);
 }
 
-struct Value emitPtrBinOp(struct EmitState *state, struct ExprAST *expr) {
+func emitPtrBinOp(state : EmitState *, expr : ExprAST *) -> Value {
   if (expr->lhs->type->kind == TypeKind::POINTER &&
       expr->rhs->type->kind == TypeKind::POINTER &&
       expr->op.kind == TokenKind::MINUS) {
-    struct Value lhs = emitExpr(state, expr->lhs);
-    struct Value rhs = emitExpr(state, expr->rhs);
+    let lhs = emitExpr(state, expr->lhs);
+    let rhs = emitExpr(state, expr->rhs);
     // ptrtoint
-    struct Value lhsInt = getNextTemp(state);
+    let lhsInt = getNextTemp(state);
     lhsInt.type = convertType(expr->type);
     printf("  %s = ptrtoint %s %s to %s\n", lhsInt.val, lhs.type, lhs.val,
            lhsInt.type);
     // ptrtoint
-    struct Value rhsInt = getNextTemp(state);
+    let rhsInt = getNextTemp(state);
     rhsInt.type = lhsInt.type;
     printf("  %s = ptrtoint %s %s to %s\n", rhsInt.val, rhs.type, rhs.val,
            rhsInt.type);
 
     // sub
-    struct Value res = getNextTemp(state);
+    let res = getNextTemp(state);
     res.type = lhsInt.type;
     printf("  %s = sub %s %s, %s\n", res.val, res.type, lhsInt.val, rhsInt.val);
 
     return res;
   }
 
-  struct ExprAST *ptrExpr =
+  let ptrExpr =
       expr->lhs->type->kind == TypeKind::POINTER ? expr->lhs : expr->rhs;
-  struct ExprAST *intExpr =
+  let intExpr =
       expr->lhs->type->kind == TypeKind::POINTER ? expr->rhs : expr->lhs;
 
-  struct Value ptr = emitExpr(state, ptrExpr);
-  struct Value num = emitExpr(state, intExpr);
+  let ptr = emitExpr(state, ptrExpr);
+  let num = emitExpr(state, intExpr);
 
   // negate num
   if (expr->op.kind == TokenKind::MINUS) {
-    struct Value neg = getNextTemp(state);
+    let neg = getNextTemp(state);
     neg.type = num.type;
     printf("  %s = sub %s 0, %s\n", neg.val, num.type, num.val);
     num = neg;
   }
 
-  struct Value res = getNextTemp(state);
+  let res = getNextTemp(state);
   res.type = "ptr";
   printf("  %s = getelementptr inbounds %s, %s %s, %s %s\n", res.val,
          convertType(ptrExpr->type->arg), ptr.type, ptr.val, num.type, num.val);
   return res;
 }
 
-struct Value emitBinOp(struct EmitState *state, struct ExprAST *expr) {
+func emitBinOp(state : EmitState *, expr : ExprAST *) -> Value {
   if (isAssign(expr->op)) {
     return emitAssignment(state, expr);
   }
@@ -513,8 +508,8 @@ struct Value emitBinOp(struct EmitState *state, struct ExprAST *expr) {
     return emitPtrBinOp(state, expr);
   }
 
-  struct Value lhs = emitExpr(state, expr->lhs);
-  struct Value rhs = emitExpr(state, expr->rhs);
+  let lhs = emitExpr(state, expr->lhs);
+  let rhs = emitExpr(state, expr->rhs);
 
   if (expr->op.kind == TokenKind::COMMA) {
     return rhs;
@@ -524,27 +519,26 @@ struct Value emitBinOp(struct EmitState *state, struct ExprAST *expr) {
                     expr->rhs->type);
 }
 
-struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
+func emitUnary(state : EmitState *, expr : ExprAST *) -> Value {
   if (expr->op.kind == TokenKind::AND) {
-    struct Value res = emitAddr(state, expr->rhs);
+    let res = emitAddr(state, expr->rhs);
     res.type = "ptr";
     return res;
   }
 
   if (expr->op.kind == TokenKind::INC_OP ||
       expr->op.kind == TokenKind::DEC_OP) {
-    struct ExprAST *opExpr = expr->lhs == NULL ? expr->rhs : expr->lhs;
-    struct Value operand = emitAddr(state, opExpr);
+    let opExpr = expr->lhs == NULL ? expr->rhs : expr->lhs;
+    let operand = emitAddr(state, opExpr);
 
-    struct Value val = emitLoad(state, operand, convertType(opExpr->type));
+    let val = emitLoad(state, operand, convertType(opExpr->type));
 
     // Use emitBinary to handle the inc/dec
-    struct Type *type =
+    let type =
         opExpr->type->kind == TypeKind::POINTER ? getInt32() : opExpr->type;
-    struct Value one =
-        intToVal(expr->op.kind == TokenKind::INC_OP ? 1 : -1, type);
-    struct Value res = emitBinary(state, opExpr->type, TokenKind::PLUS, val,
-                                  opExpr->type, one, type);
+    let one = intToVal(expr->op.kind == TokenKind::INC_OP ? 1 : -1, type);
+    let res = emitBinary(state, opExpr->type, TokenKind::PLUS, val,
+                         opExpr->type, one, type);
     emitStore(operand, res);
 
     if (expr->lhs != NULL) {
@@ -553,12 +547,12 @@ struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
     return res;
   }
 
-  struct Value operand = emitExpr(state, expr->rhs);
-  struct Value res = getNextTemp(state);
+  let operand = emitExpr(state, expr->rhs);
+  let res = getNextTemp(state);
 
-  const i8 *instr;
-  const i8 *constop;
-  i32 upcast = 0;
+  let instr : const i8 *;
+  let constop : const i8 *;
+  let upcast = 0;
   switch (expr->op.kind) {
   default:
   case TokenKind::INC_OP:
@@ -599,8 +593,8 @@ struct Value emitUnary(struct EmitState *state, struct ExprAST *expr) {
   return res;
 }
 
-struct Value emitVarRef(struct EmitState *state, struct ExprAST *expr) {
-  struct Value addr = emitAddr(state, expr);
+func emitVarRef(state : EmitState *, expr : ExprAST *) -> Value {
+  let addr = emitAddr(state, expr);
 
   // Funcs and arrays are implictly converted to pointers here.
   if (expr->type->kind == TypeKind::FUNC ||
@@ -610,22 +604,22 @@ struct Value emitVarRef(struct EmitState *state, struct ExprAST *expr) {
     return addr;
   }
 
-  struct Value val = getNextTemp(state);
+  let val = getNextTemp(state);
   val.type = convertType(expr->type);
   printf("  %s = load %s, ptr %s\n", val.val, val.type, addr.val);
   return val;
 }
 
-struct Value getStrConst(struct Type *type, struct Token tok) {
-  i64 len = tok.end - tok.data;
-  i8 *val = malloc((len + 16) as u64);
+func getStrConst(type : Type *, tok : Token) -> Value {
+  let len = tok.end - tok.data;
+  let val : i8 * = malloc((len + 16) as u64);
 
-  i8 *cur = val;
+  let cur = val;
   cur += sprintf(val, "c\""); // %.*s\\00\"", len, tok.data);
 
-  for (i64 i = 0; i < len; i++) {
+  for (let i : i64 = 0; i < len; i++) {
     if (tok.data[i] == '\\') {
-      i8 c = getEscaped(tok.data[++i]);
+      let c = getEscaped(tok.data[++i]);
       cur += sprintf(cur, "\\%02x", c);
     } else {
       *cur++ = tok.data[i];
@@ -633,42 +627,42 @@ struct Value getStrConst(struct Type *type, struct Token tok) {
   }
   cur += sprintf(cur, "\\00\"");
 
-  struct Value res;
+  let res : Value;
   res.type = convertType(type);
   res.val = val;
   return res;
 }
 
-struct Value emitStrRef(struct EmitState *state, struct ExprAST *expr) {
+func emitStrRef(state : EmitState *, expr : ExprAST *) -> Value {
 
-  struct Value strGlobal = getTempGlobal(state, "str.");
+  let strGlobal = getTempGlobal(state, "str.");
   strGlobal.type = "ptr";
 
-  struct Type *strType = newType(TypeKind::ARRAY);
+  let strType = newType(TypeKind::ARRAY);
   strType->arg = expr->type->arg;
   strType->size = (expr->identifier.end - expr->identifier.data + 1) as i32;
-  struct Value strConst = getStrConst(strType, expr->identifier);
+  let strConst = getStrConst(strType, expr->identifier);
 
   printf("%s = constant %s %s\n", strGlobal.val, strConst.type, strConst.val);
 
   return strGlobal;
 }
 
-struct Value emitArray(struct EmitState *state, struct ExprAST *expr) {
-  struct Value res;
+func emitArray(state : EmitState *, expr : ExprAST *) -> Value {
+  let res : Value;
   res.type = convertType(expr->type);
   if (expr->type->kind == TypeKind::STRUCT) {
     res.val = "zeroinitializer";
     return res;
   }
 
-  i8 *buf = malloc(64 * expr->type->size as u64);
+  let buf : i8 * = malloc(64 * expr->type->size as u64);
   res.val = buf;
 
   buf += sprintf(buf, "[ ");
 
-  for (struct ExprAST *field = expr; field != NULL; field = field->rhs) {
-    struct Value elem = emitExpr(state, field->lhs);
+  for (let field = expr; field != NULL; field = field->rhs) {
+    let elem = emitExpr(state, field->lhs);
     buf += sprintf(buf, "%s %s", elem.type, elem.val);
     if (field->rhs != NULL) {
       buf += sprintf(buf, ", ");
@@ -679,15 +673,15 @@ struct Value emitArray(struct EmitState *state, struct ExprAST *expr) {
   return res;
 }
 
-struct Value emitCall(struct EmitState *state, struct ExprAST *expr) {
-  struct LocalVar *args = NULL;
-  struct LocalVar *argsTail = NULL;
+func emitCall(state : EmitState *, expr : ExprAST *) -> Value {
+  let args : LocalVar * = NULL;
+  let argsTail : LocalVar * = NULL;
 
-  for (struct ExprAST *arg = expr->rhs; arg != NULL; arg = arg->rhs) {
-    struct Token eof;
-    struct Value argVal = emitExpr(state, arg->lhs);
+  for (let arg = expr->rhs; arg != NULL; arg = arg->rhs) {
+    let eof : Token;
+    let argVal = emitExpr(state, arg->lhs);
 
-    struct LocalVar *nextArg = newLocal(eof, argVal);
+    let nextArg = newLocal(eof, argVal);
     if (args == NULL) {
       args = nextArg;
     } else {
@@ -695,9 +689,9 @@ struct Value emitCall(struct EmitState *state, struct ExprAST *expr) {
     }
     argsTail = nextArg;
   }
-  struct Value fn = emitExpr(state, expr->lhs);
+  let fn = emitExpr(state, expr->lhs);
 
-  struct Value res;
+  let res : Value;
   if (expr->type->kind != TypeKind::VOID) {
     res = getNextTemp(state);
     printf("  %s = ", res.val);
@@ -720,16 +714,16 @@ struct Value emitCall(struct EmitState *state, struct ExprAST *expr) {
   return res;
 }
 
-struct Value emitMemberOrIndex(struct EmitState *state, struct ExprAST *expr) {
-  struct Value addr = emitAddr(state, expr);
+func emitMemberOrIndex(state : EmitState *, expr : ExprAST *) -> Value {
+  let addr = emitAddr(state, expr);
   return emitLoad(state, addr, convertType(expr->type));
 }
 
-struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
-  struct Value v = emitExpr(state, expr->lhs);
+func emitCast(state : EmitState *, expr : ExprAST *) -> Value {
+  let v = emitExpr(state, expr->lhs);
 
-  struct Type *from = expr->lhs->type;
-  struct Type *to = expr->type;
+  let from = expr->lhs->type;
+  let to = expr->type;
   if (from->kind == TypeKind::POINTER && to->kind == TypeKind::POINTER) {
     return v;
   }
@@ -759,7 +753,7 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
     return v;
   }
 
-  struct Value res = getNextTemp(state);
+  let res = getNextTemp(state);
   res.type = convertType(to);
 
   if (from->size > to->size) {
@@ -778,40 +772,40 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
   return res;
 }
 
-struct Value emitCond(struct EmitState *state, struct ExprAST *expr) {
-  struct Value cond = emitExpr(state, expr->cond);
+func emitCond(state : EmitState *, expr : ExprAST *) -> Value {
+  let cond = emitExpr(state, expr->cond);
   cond = makeBool(state, cond);
 
-  const i8 *falseLabel = "false";
-  i32 idx = state->tmpCounter++;
+  let falseLabel : i8 * = "false";
+  let idx = state->tmpCounter++;
   printf("  br i1 %s, label %%cond.true.%d, label %%cond.%s.%d\n", cond.val,
          idx, falseLabel, idx);
 
   printf("cond.true.%d:\n", idx);
-  struct Value trueVal = emitExpr(state, expr->lhs);
+  let trueVal = emitExpr(state, expr->lhs);
   printf("  br label %%cond.cont.%d\n", idx);
 
   printf("cond.false.%d:\n", idx);
-  struct Value falseVal = emitExpr(state, expr->rhs);
+  let falseVal = emitExpr(state, expr->rhs);
   printf("  br label %%cond.cont.%d\n", idx);
 
   printf("cond.cont.%d:\n", idx);
 
-  struct Value res = getNextTemp(state);
+  let res = getNextTemp(state);
   res.type = trueVal.type;
   printf("  %s = phi %s [ %s, %%cond.true.%d ], [ %s, %%cond.false.%d ]\n",
          res.val, res.type, trueVal.val, idx, falseVal.val, idx);
   return res;
 }
 // \returns The register name or value of the expr
-struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
+func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
   switch (expr->kind) {
   case ExprKind::INT:
     if (expr->type->kind == TypeKind::POINTER) {
       if (expr->value != 0) {
         failEmit("Only null ptr supported");
       }
-      struct Value v;
+      let v : Value;
       v.type = "ptr";
       v.val = "null";
       return v;
@@ -855,15 +849,15 @@ struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
     failEmit("Unsupported expr");
   }
 
-  struct Value v;
+  let v : Value;
   v.type = "i32";
   v.val = "undef";
   return v;
 }
 
-void emitReturn(struct EmitState *state, struct StmtAST *stmt) {
+func emitReturn(state : EmitState *, stmt : StmtAST *) {
   if (stmt->expr != NULL) {
-    struct Value v = emitExpr(state, stmt->expr);
+    let v = emitExpr(state, stmt->expr);
     if (stmt->expr->type->kind != TypeKind::VOID) {
       printf("  ret %s %s\n", v.type, v.val);
       return;
@@ -873,32 +867,32 @@ void emitReturn(struct EmitState *state, struct StmtAST *stmt) {
   printf("  ret void\n");
 }
 
-void addLocal(struct EmitState *state, struct Token name, struct Value val) {
-  struct LocalVar *local = newLocal(name, val);
+func addLocal(state : EmitState *, name : Token, val : Value) {
+  let local = newLocal(name, val);
   local->next = state->vars;
   state->vars = local;
 }
 
-struct Value emitLocalVar(struct EmitState *state, struct DeclAST *decl) {
-  struct Value val = getNextTemp(state);
+func emitLocalVar(state : EmitState *, decl : DeclAST *) -> Value {
+  let val = getNextTemp(state);
   val.type = "ptr";
 
-  const i8 *type = convertType(decl->type);
+  let type = convertType(decl->type);
   printf("  %s = alloca %s\n", val.val, type);
 
-  struct LocalVar *local = newLocal(decl->name, val);
+  let local = newLocal(decl->name, val);
   local->next = state->vars;
   state->vars = local;
 
   if (decl->init != NULL) {
-    struct Value init = emitExpr(state, decl->init);
+    let init = emitExpr(state, decl->init);
     emitStore(val, init);
   }
 
   return val;
 }
 
-void emitLocalDecl(struct EmitState *state, struct DeclAST *decl) {
+func emitLocalDecl(state : EmitState *, decl : DeclAST *) {
   switch (decl->kind) {
   case DeclKind::VAR:
     emitLocalVar(state, decl);
@@ -912,17 +906,17 @@ void emitLocalDecl(struct EmitState *state, struct DeclAST *decl) {
   }
 }
 
-void emitStmt(struct EmitState *state, struct StmtAST *stmt);
+func emitStmt(state : EmitState *, stmt : StmtAST *);
 
-void emitIf(struct EmitState *state, struct StmtAST *stmt) {
-  struct Value cond = emitExpr(state, stmt->expr);
+func emitIf(state : EmitState *, stmt : StmtAST *) {
+  let cond = emitExpr(state, stmt->expr);
   cond = makeBool(state, cond);
 
-  const i8 *falseLabel = "false";
+  let falseLabel : i8 * = "false";
   if (stmt->stmt == NULL) {
     falseLabel = "cont";
   }
-  i32 idx = state->tmpCounter++;
+  let idx = state->tmpCounter++;
   printf("  br i1 %s, label %%if.true.%d, label %%if.%s.%d\n", cond.val, idx,
          falseLabel, idx);
 
@@ -939,20 +933,20 @@ void emitIf(struct EmitState *state, struct StmtAST *stmt) {
   printf("if.cont.%d:\n", idx);
 }
 
-void emitWhile(struct EmitState *state, struct StmtAST *stmt) {
-  i32 idx = state->tmpCounter++;
+func emitWhile(state : EmitState *, stmt : StmtAST *) {
+  let idx = state->tmpCounter++;
 
   printf("  br label %%while.cond.%d\n", idx);
   printf("while.cond.%d:\n", idx);
-  struct Value cond = makeBool(state, emitExpr(state, stmt->expr));
+  let cond = makeBool(state, emitExpr(state, stmt->expr));
   printf("  br i1 %s, label %%while.body.%d, label %%while.cont.%d\n", cond.val,
          idx, idx);
 
-  struct EmitState whileState = {0};
+  let whileState : EmitState = {0};
   whileState.tmpCounter = state->tmpCounter;
   whileState.parent = state;
 
-  i8 *buf = malloc(32);
+  let buf : i8 * = malloc(32);
   sprintf(buf, "while.cont.%d", idx);
   whileState.curBreakLabel = buf;
 
@@ -965,14 +959,14 @@ void emitWhile(struct EmitState *state, struct StmtAST *stmt) {
   state->tmpCounter = whileState.tmpCounter;
 }
 
-void emitFor(struct EmitState *state, struct StmtAST *stmt) {
-  i32 idx = state->tmpCounter++;
+func emitFor(state : EmitState *, stmt : StmtAST *) {
+  let idx = state->tmpCounter++;
 
-  struct EmitState forState = {0};
+  let forState : EmitState = {0};
   forState.tmpCounter = state->tmpCounter;
   forState.parent = state;
 
-  i8 *buf = malloc(32);
+  let buf : i8 * = malloc(32);
   sprintf(buf, "for.cont.%d", idx);
   forState.curBreakLabel = buf;
 
@@ -981,8 +975,7 @@ void emitFor(struct EmitState *state, struct StmtAST *stmt) {
   printf("  br label %%for.cond.%d\n", idx);
   printf("for.cond.%d:\n", idx);
   // cond must be an expression stmt, parseFor guarantees it.
-  struct Value cond =
-      makeBool(&forState, emitExpr(&forState, stmt->cond->expr));
+  let cond = makeBool(&forState, emitExpr(&forState, stmt->cond->expr));
   printf("  br i1 %s, label %%for.body.%d, label %%for.cont.%d\n", cond.val,
          idx, idx);
 
@@ -1000,18 +993,18 @@ void emitFor(struct EmitState *state, struct StmtAST *stmt) {
   state->tmpCounter = forState.tmpCounter;
 }
 
-void emitSwitch(struct EmitState *state, struct StmtAST *stmt) {
-  i32 idx = state->tmpCounter++;
+func emitSwitch(state : EmitState *, stmt : StmtAST *) {
+  let idx = state->tmpCounter++;
 
-  struct EmitState switchState = {0};
+  let switchState : EmitState = {0};
   switchState.tmpCounter = state->tmpCounter;
   switchState.parent = state;
 
-  i8 *buf = malloc(32);
+  let buf : i8 * = malloc(32);
   sprintf(buf, "cont.%d", idx);
   switchState.curBreakLabel = buf;
 
-  struct Value expr = emitExpr(&switchState, stmt->expr);
+  let expr = emitExpr(&switchState, stmt->expr);
   printf("  br label %%switch.%d\n", idx);
 
   emitStmt(&switchState, stmt->stmt);
@@ -1027,7 +1020,7 @@ void emitSwitch(struct EmitState *state, struct StmtAST *stmt) {
   } else {
     printf("  switch %s %s, label %%cont.%d [\n", expr.type, expr.val, idx);
   }
-  for (struct Case *cse = switchState.cases; cse != NULL; cse = cse->next) {
+  for (let cse = switchState.cases; cse != NULL; cse = cse->next) {
     printf("    %s %s, label %%case.%d\n", cse->val.type, cse->val.val, cse->n);
   }
   printf("  ]\n");
@@ -1036,22 +1029,22 @@ void emitSwitch(struct EmitState *state, struct StmtAST *stmt) {
   state->tmpCounter = switchState.tmpCounter;
 }
 
-void emitCase(struct EmitState *state, struct StmtAST *stmt) {
-  i32 index = state->tmpCounter++;
+func emitCase(state : EmitState *, stmt : StmtAST *) {
+  let index = state->tmpCounter++;
 
   // fallthrough.
   printf("  br label %%case.%d\n", index);
   printf("case.%d:\n", index);
 
-  struct Value constExpr = emitExpr(state, stmt->expr);
-  struct Case *cse = calloc(1, sizeof(struct Case));
+  let constExpr = emitExpr(state, stmt->expr);
+  let cse : Case * = calloc(1, sizeof(struct Case));
   cse->n = index;
   cse->val = constExpr;
   cse->next = state->cases;
   state->cases = cse;
 }
 
-void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
+func emitStmt(state : EmitState *, stmt : StmtAST *) {
   switch (stmt->kind) {
   case StmtKind::EXPR:
     if (stmt->expr != NULL) {
@@ -1068,7 +1061,7 @@ void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
 
   case StmtKind::COMPOUND:
     // TODO: new state?
-    for (struct StmtAST *cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
+    for (let cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       emitStmt(state, cur);
     }
     break;
@@ -1098,7 +1091,7 @@ void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
     if (state->defaultLabel != NULL) {
       failEmit("Multiple default");
     }
-    i32 idx = state->tmpCounter++;
+    let idx = state->tmpCounter++;
     state->defaultLabel = malloc(32);
     sprintf(state->defaultLabel, "default.%d", idx);
     printf("  br label %%default.%d\n", idx);
@@ -1107,8 +1100,8 @@ void emitStmt(struct EmitState *state, struct StmtAST *stmt) {
   }
 }
 
-void emitFunc(struct EmitState *state, struct DeclAST *decl) {
-  struct Value val = getGlobal(decl->name);
+func emitFunc(state : EmitState *, decl : DeclAST *) {
+  let val = getGlobal(decl->name);
   val.type = "ptr";
   addLocal(state, decl->name, val);
 
@@ -1116,10 +1109,10 @@ void emitFunc(struct EmitState *state, struct DeclAST *decl) {
     return;
   }
 
-  const i8 *defOrDecl = decl->body == NULL ? "declare" : "define";
+  let defOrDecl : const i8 * = decl->body == NULL ? "declare" : "define";
   printf("%s %s %s(", defOrDecl, convertType(decl->type->result), val.val);
-  for (struct DeclAST *arg = decl->fields; arg != NULL; arg = arg->next) {
-    i64 len = arg->name.end - arg->name.data;
+  for (let arg = decl->fields; arg != NULL; arg = arg->next) {
+    let len = arg->name.end - arg->name.data;
     printf("%s %%%.*s", convertType(arg->type), len, arg->name.data);
     if (arg->next != NULL) {
       printf(", ");
@@ -1128,15 +1121,15 @@ void emitFunc(struct EmitState *state, struct DeclAST *decl) {
   printf(")");
 
   if (decl->body != NULL) {
-    struct EmitState funcState = {0};
+    let funcState : EmitState = {0};
     funcState.parent = state;
     funcState.tmpCounter = 0;
 
     printf(" {\n");
 
-    for (struct DeclAST *arg = decl->fields; arg != NULL; arg = arg->next) {
-      struct Value addr = emitLocalVar(&funcState, arg);
-      i64 len = arg->name.end - arg->name.data;
+    for (let arg = decl->fields; arg != NULL; arg = arg->next) {
+      let addr = emitLocalVar(&funcState, arg);
+      let len = arg->name.end - arg->name.data;
       printf("  store %s %%%.*s, ptr %s\n", convertType(arg->type), len,
              arg->name.data, addr.val);
     }
@@ -1155,10 +1148,9 @@ void emitFunc(struct EmitState *state, struct DeclAST *decl) {
   }
 }
 
-void emitStruct(struct EmitState *state, struct DeclAST *decl) {
+func emitStruct(state : EmitState *, decl : DeclAST *) {
   // emit nested structs
-  for (struct DeclAST *field = decl->fields; field != NULL;
-       field = field->next) {
+  for (let field = decl->fields; field != NULL; field = field->next) {
     if (field->kind == DeclKind::STRUCT) {
       emitStruct(state, field);
     }
@@ -1167,8 +1159,7 @@ void emitStruct(struct EmitState *state, struct DeclAST *decl) {
   // TODO: padding
   printf("%s = type <{ ", convertType(decl->type));
 
-  for (struct DeclAST *field = decl->fields; field != NULL;
-       field = field->next) {
+  for (let field = decl->fields; field != NULL; field = field->next) {
     printf("%s", convertType(field->type));
     if (field->next != NULL) {
       printf(", ");
@@ -1178,24 +1169,25 @@ void emitStruct(struct EmitState *state, struct DeclAST *decl) {
   printf(" }>\n");
 }
 
-void emitGlobalVar(struct EmitState *state, struct DeclAST *decl) {
-  const i8 *declSpec = decl->type->isConst ? "constant" : "global";
+func emitGlobalVar(state : EmitState *, decl : DeclAST *) {
+  let declSpec : const i8 * = decl->type->isConst ? "constant" : "global";
 
-  struct Value val = getGlobal(decl->name);
+  let val = getGlobal(decl->name);
   val.type = convertType(decl->type);
   if (decl->init != NULL) {
-    struct Value init = emitExpr(state, decl->init); // TODO: emit constant
+    let init = emitExpr(state, decl->init); // TODO: emit constant
     printf("%s = %s %s %s\n", val.val, declSpec, init.type, init.val);
   } else {
-    const i8 *init =
-        decl->type->kind == TypeKind::STRUCT ? "zeroinitializer" : "null";
+    let init
+        : const i8 * =
+              decl->type->kind == TypeKind::STRUCT ? "zeroinitializer" : "null";
     printf("%s = %s %s %s\n", val.val, declSpec, val.type, init);
   }
 
   addLocal(state, decl->name, val);
 }
 
-void emitGlobalDecl(struct EmitState *state, struct DeclAST *decl) {
+func emitGlobalDecl(state : EmitState *, decl : DeclAST *) {
   switch (decl->kind) {
   case DeclKind::ENUM:
     // Enum type declarations are not emitted.
@@ -1217,7 +1209,7 @@ void emitGlobalDecl(struct EmitState *state, struct DeclAST *decl) {
   }
 }
 
-void emitTopLevel(struct EmitState *state, struct DeclAST *decl) {
+func emitTopLevel(state : EmitState *, decl : DeclAST *) {
   // TODO: emit types, globals, func decls then func defs?
 
   while (decl != NULL) {

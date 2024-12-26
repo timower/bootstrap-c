@@ -1,58 +1,58 @@
 import ast;
 
 struct DeclList {
-  struct DeclAST *decl;
+  decl : DeclAST *;
 
-  struct DeclList *next;
+  next : DeclList *;
 };
 
 struct ImportList {
-  struct Token name;
-  struct ImportList *next;
+  name : Token;
+  next : ImportList *;
 };
 
 struct SemaState {
-  struct SemaState *parent;
+  parent : SemaState *;
 
   // Return type of the current function.
-  struct Type *result;
+  result : Type *;
 
-  struct Type *switchType;
+  switchType : Type *;
 
   // Local variables and enum fields.
-  struct DeclList *locals;
+  locals : DeclList *;
 
   // struct tag list.
-  struct DeclList *types;
+  types : DeclList *;
 
   // Extra decls added during sema, used for string literals.
   // Should only be added to the root sema state.
-  struct DeclAST *extraDecls;
-  i32 strCount;
+  extraDecls : DeclAST *;
+  strCount : i32;
 
-  struct ImportList *imports;
+  imports : ImportList *;
 };
 
 // 2. sema
-void failSema(const i8 *msg) {
+func failSema(msg : const i8 *) {
   puts(msg);
   exit(1);
 }
 
-void failSemaExpr(const i8 *msg, struct ExprAST *expr) {
+func failSemaExpr(msg : const i8 *, expr : ExprAST *) {
   printExpr(expr);
   printf("\n");
   failSema(msg);
 }
 
-struct SemaState *getRoot(struct SemaState *state) {
+func getRoot(state : SemaState *) -> SemaState * {
   while (state->parent != NULL) {
     state = state->parent;
   }
   return state;
 }
 
-i32 typeEq(struct Type *one, struct Type *two) {
+func typeEq(one : Type *, two : Type *) -> i32 {
   if (one->kind != two->kind) {
     return 0;
   }
@@ -86,8 +86,8 @@ i32 typeEq(struct Type *one, struct Type *two) {
   return 1;
 }
 
-struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
-  struct Type *from = expr->type;
+func doConvert(expr : ExprAST *, to : Type *) -> ExprAST * {
+  let from = expr->type;
 
   if (typeEq(from, to)) {
     return expr;
@@ -95,7 +95,7 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
 
   // Allow integer expression casting
   if (to->kind == TypeKind::INT && expr->kind == ExprKind::INT) {
-    struct ExprAST *res = newExpr(ExprKind::INT);
+    let res = newExpr(ExprKind::INT);
     res->value = expr->value;
     res->type = to;
     return res;
@@ -111,8 +111,8 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
   return NULL;
 }
 
-i32 canCast(struct ExprAST *expr, struct Type *to) {
-  struct Type *from = expr->type;
+func canCast(expr : ExprAST *, to : Type *) -> i32 {
+  let from = expr->type;
 
   if (typeEq(from, to)) {
     return 1;
@@ -149,20 +149,20 @@ i32 canCast(struct ExprAST *expr, struct Type *to) {
   return 0;
 }
 
-void checkBool(struct ExprAST *expr) {
+func checkBool(expr : ExprAST *) {
   if (expr->type->kind != TypeKind::INT) {
     printExpr(expr);
     failSema(": Expected bool!");
   }
 }
 
-struct DeclList *newDeclList(struct DeclAST *decl) {
-  struct DeclList *res = calloc(1, sizeof(struct DeclList));
+func newDeclList(decl : DeclAST *) -> DeclList * {
+  let res : DeclList * = calloc(1, sizeof(struct DeclList));
   res->decl = decl;
   return res;
 }
 
-struct DeclAST *findType(struct DeclList *types, struct Token tag) {
+func findType(types : DeclList *, tag : Token) -> DeclAST * {
   for (; types != NULL; types = types->next) {
     if (tokCmp(tag, types->decl->type->tag)) {
       return types->decl;
@@ -171,20 +171,20 @@ struct DeclAST *findType(struct DeclList *types, struct Token tag) {
   return NULL;
 }
 
-struct DeclAST *lookupType(struct SemaState *state, struct Token tag) {
+func lookupType(state : SemaState *, tag : Token) -> DeclAST * {
   for (; state != NULL; state = state->parent) {
-    struct DeclAST *type = findType(state->types, tag);
+    let type = findType(state->types, tag);
     if (type != NULL) {
       return type;
     }
   }
 
   printToken(tag);
-  failSema("Unknown type");
+  failSema(": Unknown type for scope");
   return NULL;
 }
 
-struct DeclAST *findLocal(struct DeclList *local, struct Token name) {
+func findLocal(local : DeclList *, name : Token) -> DeclAST * {
   for (; local != NULL; local = local->next) {
     if (tokCmp(name, local->decl->name)) {
       return local->decl;
@@ -193,9 +193,9 @@ struct DeclAST *findLocal(struct DeclList *local, struct Token name) {
   return NULL;
 }
 
-struct DeclAST *lookupLocal(struct SemaState *state, struct Token name) {
+func lookupLocal(state : SemaState *, name : Token) -> DeclAST * {
   for (; state != NULL; state = state->parent) {
-    struct DeclAST *local = findLocal(state->locals, name);
+    let local = findLocal(state->locals, name);
     if (local != NULL) {
       return local;
     }
@@ -206,10 +206,10 @@ struct DeclAST *lookupLocal(struct SemaState *state, struct Token name) {
   return NULL;
 }
 
-struct DeclAST *findField(struct DeclAST *structDecl, struct Token name,
-                          i32 *idxOut) {
-  i32 idx = 0;
-  for (struct DeclAST *field = structDecl->fields; field != NULL;
+func findField(structDecl : DeclAST *, name : Token, idxOut : i32 *)
+    -> DeclAST * {
+  let idx = 0;
+  for (let field = structDecl->fields; field != NULL;
        field = field->next, idx++) {
     if (tokCmp(name, field->name)) {
       *idxOut = idx;
@@ -219,7 +219,7 @@ struct DeclAST *findField(struct DeclAST *structDecl, struct Token name,
   return NULL;
 }
 
-i32 getSize(struct SemaState *state, struct Type *type) {
+func getSize(state : SemaState *, type : Type *) -> i32 {
   switch (type->kind) {
   case TypeKind::VOID:
     return 0;
@@ -239,10 +239,9 @@ i32 getSize(struct SemaState *state, struct Type *type) {
   case TypeKind::ARRAY:
     return type->size * getSize(state, type->arg);
   case TypeKind::STRUCT: {
-    struct DeclAST *decl = lookupType(state, type->tag);
-    i32 size = 0;
-    for (struct DeclAST *field = decl->fields; field != NULL;
-         field = field->next) {
+    let decl = lookupType(state, type->tag);
+    let size = 0;
+    for (let field = decl->fields; field != NULL; field = field->next) {
       size += getSize(state, field->type);
     }
     return size == 0 ? 1 : size;
@@ -253,20 +252,20 @@ i32 getSize(struct SemaState *state, struct Type *type) {
   }
 }
 
-void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr);
+func semaExprNoDecay(state : SemaState *, expr : ExprAST *);
 
-void semaExpr(struct SemaState *state, struct ExprAST *expr) {
+func semaExpr(state : SemaState *, expr : ExprAST *) {
   semaExprNoDecay(state, expr);
 
   if (expr->kind == ExprKind::STR) {
     // Add a global variable for the string.
-    struct SemaState *root = getRoot(state);
-    struct DeclAST *decl = newDecl();
+    let root = getRoot(state);
+    let decl = newDecl();
     decl->kind = DeclKind::VAR;
     decl->type = expr->type;
 
-    i8 *name = malloc(32 as u64);
-    i32 n = sprintf(name, "str.%d", root->strCount++);
+    let name : i8 * = malloc(32 as u64);
+    let n = sprintf(name, "str.%d", root->strCount++);
     decl->name.kind = TokenKind::IDENTIFIER;
     decl->name.data = name;
     decl->name.end = name + n;
@@ -289,14 +288,14 @@ void semaExpr(struct SemaState *state, struct ExprAST *expr) {
   // Decay array to pointer
   // TODO: cast expr
   if (expr->type->kind == TypeKind::ARRAY) {
-    struct Type *decayType = newType(TypeKind::POINTER);
+    let decayType = newType(TypeKind::POINTER);
     decayType->arg = expr->type->arg;
     decayType->isDecay = 1;
     expr->type = decayType;
   }
 }
 
-void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
+func semaBinExpr(state : SemaState *, expr : ExprAST *) {
   semaExpr(state, expr->lhs);
   semaExpr(state, expr->rhs);
 
@@ -313,10 +312,10 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
   case TokenKind::EQ_OP:
   case TokenKind::NE_OP:
     if (!typeEq(expr->lhs->type, expr->rhs->type)) {
-      struct ExprAST *lhsConv = doConvert(expr->lhs, expr->rhs->type);
+      let lhsConv = doConvert(expr->lhs, expr->rhs->type);
 
       if (lhsConv == NULL) {
-        struct ExprAST *rhsConv = doConvert(expr->rhs, expr->lhs->type);
+        let rhsConv = doConvert(expr->rhs, expr->lhs->type);
         if (rhsConv == NULL) {
           printExpr(expr);
           failSema(": Binary op on different types");
@@ -361,7 +360,7 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
 
   default: {
     if (isAssign(expr->op)) {
-      struct ExprAST *conv = doConvert(expr->rhs, expr->lhs->type);
+      let conv = doConvert(expr->rhs, expr->lhs->type);
       if (conv == NULL) {
         printExpr(expr);
         failSema(": Assign doesn't match");
@@ -372,9 +371,9 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
     }
 
     if (!typeEq(expr->lhs->type, expr->rhs->type)) {
-      struct ExprAST *lhsConv = doConvert(expr->lhs, expr->rhs->type);
+      let lhsConv = doConvert(expr->lhs, expr->rhs->type);
       if (lhsConv == NULL) {
-        struct ExprAST *rhsConv = doConvert(expr->rhs, expr->lhs->type);
+        let rhsConv = doConvert(expr->rhs, expr->lhs->type);
         if (rhsConv == NULL) {
           printExpr(expr);
           failSema(": type mismatch");
@@ -390,10 +389,10 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
   }
 }
 
-i32 getStringLength(struct Token tok) {
-  i32 len = 0;
+func getStringLength(tok : Token) -> i32 {
+  let len = 0;
 
-  for (i8 *c = tok.data; c < tok.end; c++) {
+  for (let c = tok.data; c < tok.end; c++) {
     if (*c == '\\') {
       c++;
       len++;
@@ -405,19 +404,19 @@ i32 getStringLength(struct Token tok) {
   return len + 1; // null terminator
 }
 
-void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
+func semaExprNoDecay(state : SemaState *, expr : ExprAST *) {
   switch (expr->kind) {
   case ExprKind::ARG_LIST:
     failSema("TODO: sema all exprs");
     break;
 
   case ExprKind::SCOPE: {
-    struct DeclAST *decl = lookupType(state, expr->parent);
+    let decl = lookupType(state, expr->parent);
     if (decl == NULL || decl->type->kind != TypeKind::ENUM) {
       failSema("Expected enum type for scope expr");
     }
 
-    struct DeclAST *fieldDecl = findField(decl, expr->identifier, &expr->value);
+    let fieldDecl = findField(decl, expr->identifier, &expr->value);
     if (fieldDecl == NULL) {
       printToken(expr->identifier);
       failSema(" Cannot find field");
@@ -429,7 +428,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
 
   case ExprKind::MEMBER:
     semaExpr(state, expr->lhs);
-    struct DeclAST *structDecl = NULL;
+    let structDecl = NULL;
     if (expr->op.kind == TokenKind::PTR_OP) {
       if (expr->lhs->type->kind != TypeKind::POINTER ||
           expr->lhs->type->arg->kind != TypeKind::STRUCT) {
@@ -445,8 +444,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     } else {
       failSema("Unknown member op");
     }
-    struct DeclAST *fieldDecl =
-        findField(structDecl, expr->identifier, &expr->value);
+    let fieldDecl = findField(structDecl, expr->identifier, &expr->value);
     if (fieldDecl == NULL) {
       printToken(expr->identifier);
       failSema(" Cannot find field");
@@ -460,13 +458,13 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     if (expr->lhs->type->kind != TypeKind::FUNC) {
       failSema("Must call function type");
     }
-    struct Type *curArgTy = expr->lhs->type->arg;
-    struct ExprAST *cur = expr->rhs;
+    let curArgTy = expr->lhs->type->arg;
+    let cur = expr->rhs;
     for (; cur != NULL; cur = cur->rhs) {
       semaExpr(state, cur->lhs);
 
       if (curArgTy != NULL) {
-        struct ExprAST *conv = doConvert(cur->lhs, curArgTy);
+        let conv = doConvert(cur->lhs, curArgTy);
         if (conv == NULL) {
           printExpr(expr);
           printType(curArgTy);
@@ -478,7 +476,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
         curArgTy = curArgTy->argNext;
       }
     }
-    i32 isValidVararg = expr->lhs->type->isVarargs && curArgTy == NULL;
+    let isValidVararg = expr->lhs->type->isVarargs && curArgTy == NULL;
     if (!isValidVararg && (curArgTy == NULL) != (cur == NULL)) {
       failSema("Function call arg length mismatch");
     }
@@ -498,7 +496,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
 
   case ExprKind::ARRAY:
     expr->type = newType(TypeKind::ARRAY);
-    for (struct ExprAST *sub = expr; sub != NULL; sub = sub->rhs) {
+    for (let sub = expr; sub != NULL; sub = sub->rhs) {
       semaExpr(state, sub->lhs);
 
       if (expr->type->arg == NULL) {
@@ -523,7 +521,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     break;
 
   case ExprKind::VARIABLE: {
-    struct DeclAST *local = lookupLocal(state, expr->identifier);
+    let local = lookupLocal(state, expr->identifier);
 
     // enum value, transform this expr to an i32.
     if (local->kind == DeclKind::ENUM_FIELD) {
@@ -612,31 +610,12 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
   }
 }
 
-struct SemaState initState() {
-  struct SemaState semaState = {0};
-  struct Token nullTok;
-  nullTok.kind = TokenKind::IDENTIFIER;
-  nullTok.data = "NULL";
-  nullTok.end = nullTok.data + 4;
+func semaStmt(state : SemaState *, stmt : StmtAST *);
 
-  // Add null as a nullptr
-  struct DeclAST *nullDecl = newDecl();
-  nullDecl->kind = DeclKind::ENUM_FIELD;
-  nullDecl->name = nullTok;
-  nullDecl->enumValue = 0;
-  nullDecl->type = newType(TypeKind::POINTER);
-  nullDecl->type->arg = newType(TypeKind::VOID);
+func semaTopLevel(state : SemaState *, decl : DeclAST *) -> DeclAST *;
 
-  semaState.locals = newDeclList(nullDecl);
-  return semaState;
-}
-
-void semaStmt(struct SemaState *state, struct StmtAST *stmt);
-
-struct DeclAST *semaTopLevel(struct SemaState *state, struct DeclAST *decl);
-
-void addLocalDecl(struct SemaState *state, struct DeclAST *decl) {
-  struct DeclAST *prev = findLocal(state->locals, decl->name);
+func addLocalDecl(state : SemaState *, decl : DeclAST *) {
+  let prev = findLocal(state->locals, decl->name);
   if (prev != NULL) {
     // Allow redef of functions, TODO: verify type match...
     if (prev->kind == DeclKind::FUNC && prev->body == NULL) {
@@ -647,18 +626,18 @@ void addLocalDecl(struct SemaState *state, struct DeclAST *decl) {
     }
   }
 
-  struct DeclList *newLocal = newDeclList(decl);
+  let newLocal = newDeclList(decl);
   newLocal->next = state->locals;
   state->locals = newLocal;
 }
 
-void resolveTypeTags(struct SemaState *state, struct Type *type) {
+func resolveTypeTags(state : SemaState *, type : Type *) {
   if (type == NULL) {
     return;
   }
 
   if (type->kind == TypeKind::TAG) {
-    struct DeclAST *typeDecl = lookupType(state, type->tag);
+    let typeDecl = lookupType(state, type->tag);
     type->kind = typeDecl->type->kind;
   }
 
@@ -667,14 +646,13 @@ void resolveTypeTags(struct SemaState *state, struct Type *type) {
   resolveTypeTags(state, type->argNext);
 }
 
-void semaDecl(struct SemaState *state, struct DeclAST *decl) {
+func semaDecl(state : SemaState *, decl : DeclAST *) {
   resolveTypeTags(state, decl->type);
 
   switch (decl->kind) {
   case DeclKind::STRUCT:
     // Resolve tags in fields.
-    for (struct DeclAST *field = decl->fields; field != NULL;
-         field = field->next) {
+    for (let field = decl->fields; field != NULL; field = field->next) {
       if (field->kind != DeclKind::VAR) {
         failSema("Only var decls allowed in struct");
       }
@@ -689,13 +667,12 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
   case DeclKind::FUNC:
     addLocalDecl(state, decl);
     if (decl->body != NULL) {
-      struct SemaState funcState = {0};
+      let funcState : SemaState = {0};
       funcState.parent = state;
       funcState.result = decl->type->result;
 
       // Generate a local for each arg.
-      for (struct DeclAST *field = decl->fields; field != NULL;
-           field = field->next) {
+      for (let field = decl->fields; field != NULL; field = field->next) {
         resolveTypeTags(state, field->type);
         addLocalDecl(&funcState, field);
       }
@@ -738,29 +715,28 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
     }
 
     // Check if we already import this one
-    for (struct ImportList *cur = state->imports; cur != NULL;
-         cur = cur->next) {
+    for (let cur = state->imports; cur != NULL; cur = cur->next) {
       if (tokCmp(decl->name, cur->name)) {
         return;
       }
     }
 
     // Add to imports
-    struct ImportList *imports = calloc(1, sizeof(struct ImportList));
+    let imports : ImportList * = calloc(1, sizeof(struct ImportList));
     imports->name = decl->name;
     imports->next = state->imports;
     state->imports = imports;
 
-    i8 *buf = malloc(256);
+    let buf : i8 * = malloc(256);
     sprintf(buf, "%.*s.b", decl->name.end - decl->name.data, decl->name.data);
-    struct DeclAST *fileDecls = parseFile(buf);
+    let fileDecls = parseFile(buf);
     if (fileDecls == NULL) {
       failSema("Failed to import file");
     }
 
     // semaTopLevel will return a combined list of decls from the file and the
     // extraDecls.
-    struct DeclAST *extras = semaTopLevel(state, fileDecls);
+    let extras = semaTopLevel(state, fileDecls);
     state->extraDecls = extras;
 
   } break;
@@ -774,15 +750,15 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
   }
 }
 
-struct SemaState newState(struct SemaState *parent) {
-  struct SemaState state = {0};
+func newState(parent : SemaState *) -> SemaState {
+  let state : SemaState = {0};
   state.parent = parent;
   state.result = parent->result;
   state.switchType = parent->switchType;
   return state;
 }
 
-void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
+func semaStmt(state : SemaState *, stmt : StmtAST *) {
   switch (stmt->kind) {
   case StmtKind::EXPR:
     if (stmt->expr != NULL) {
@@ -801,7 +777,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     }
     if (stmt->expr != NULL) {
       semaExpr(state, stmt->expr);
-      struct ExprAST *conv = doConvert(stmt->expr, state->result);
+      let conv = doConvert(stmt->expr, state->result);
       if (conv == NULL) {
         printStmt(stmt);
         return failSema("Return type mismatch");
@@ -811,9 +787,9 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     break;
 
   case StmtKind::COMPOUND: {
-    struct SemaState subState = newState(state);
+    let subState = newState(state);
 
-    for (struct StmtAST *cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
+    for (let cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       semaStmt(&subState, cur);
     }
   } break;
@@ -835,7 +811,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     break;
 
   case StmtKind::FOR: {
-    struct SemaState subState = newState(state);
+    let subState = newState(state);
     semaStmt(&subState, stmt->init);
     // cond must be expr stmt.
     semaExpr(&subState, stmt->cond->expr);
@@ -846,7 +822,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
   } break;
 
   case StmtKind::SWITCH: {
-    struct SemaState subState = newState(state);
+    let subState = newState(state);
 
     semaExpr(&subState, stmt->expr);
     subState.switchType = stmt->expr->type;
@@ -875,7 +851,7 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
   }
 }
 
-void addTaggedType(struct SemaState *state, struct DeclAST *decl) {
+func addTaggedType(state : SemaState *, decl : DeclAST *) {
   switch (decl->kind) {
   case DeclKind::STRUCT:
   case DeclKind::ENUM:
@@ -885,26 +861,26 @@ void addTaggedType(struct SemaState *state, struct DeclAST *decl) {
     }
 
     // Add the struct to the types.
-    struct DeclList *type = newDeclList(decl);
+    let type = newDeclList(decl);
     type->next = state->types;
     state->types = type;
     break;
   }
 }
 
-struct DeclAST *semaTopLevel(struct SemaState *state, struct DeclAST *decl) {
+func semaTopLevel(state : SemaState *, decl : DeclAST *) -> DeclAST * {
   // Discover tagged types.
-  for (struct DeclAST *cur = decl; cur != NULL; cur = cur->next) {
+  for (let cur = decl; cur != NULL; cur = cur->next) {
     addTaggedType(state, cur);
   }
 
-  for (struct DeclAST *cur = decl; cur != NULL; cur = cur->next) {
+  for (let cur = decl; cur != NULL; cur = cur->next) {
     semaDecl(state, cur);
   }
 
   // Add extra decls
   if (state->extraDecls != NULL) {
-    struct DeclAST *last = state->extraDecls;
+    let last = state->extraDecls;
     while (last->next != NULL) {
       last = last->next;
     }
@@ -913,4 +889,23 @@ struct DeclAST *semaTopLevel(struct SemaState *state, struct DeclAST *decl) {
   }
 
   return decl;
+}
+
+func initSemaState() -> SemaState {
+  let semaState : SemaState = {0};
+  let nullTok : Token;
+  nullTok.kind = TokenKind::IDENTIFIER;
+  nullTok.data = "NULL";
+  nullTok.end = nullTok.data + 4;
+
+  // Add null as a nullptr
+  let nullDecl = newDecl();
+  nullDecl->kind = DeclKind::ENUM_FIELD;
+  nullDecl->name = nullTok;
+  nullDecl->enumValue = 0;
+  nullDecl->type = newType(TypeKind::POINTER);
+  nullDecl->type->arg = newType(TypeKind::VOID);
+
+  semaState.locals = newDeclList(nullDecl);
+  return semaState;
 }
