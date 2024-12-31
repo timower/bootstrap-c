@@ -17,8 +17,18 @@ TODO
  - [x] Change type syntax to `let foo: type` and func to `func foo() -> type`.
     * `let x: i32 = 5;`
     * `func foo() -> i32 { return 5; }`
- - [ ] Fix static arrays, and decay from array to pointer.
+ - [x] Fix static arrays, and decay from array to pointer.
+    * Index only for array & future slice types, or pointers to them.
+    * Pointer to array can be converted to pointer to first elem for C interop.
+ - [ ] Add slice type.
+    * syntax: `[i8]`
+    * stored as `{ ptr: T*, len: isize }`
+    * arrays become `[1, 2, 3]`
+    * array to slice: `array[start:end]` start & end are optional
+    * array or pointer to it? can be converted to slice implictly
  - [ ] Switch statements that make sense.
+ - [ ] Struct init and struct expressions.
+    * `Foo{.x = 1, .y = 2}`?
  - [ ] Type safe unions.
  - [ ] Require extern for external functions.
  - [ ] Remove function declarations, supporting use before define.

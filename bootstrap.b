@@ -48,7 +48,7 @@ func main(argc : i32, argv : i8 **) -> i32 {
     return -1;
   }
 
-  let decls = parseFile(argv[1]);
+  let decls = parseFile(*(argv + 1));
   if (decls == NULL) {
     puts("Failed to parse file");
     return -1;
@@ -56,6 +56,10 @@ func main(argc : i32, argv : i8 **) -> i32 {
 
   let semaState = initSemaState();
   decls = semaTopLevel(&semaState, decls);
+
+  // for (let decl = decls; decl != NULL; decl = decl->next) {
+  //   printDecl(decl);
+  // }
 
   let emitState : EmitState = {0};
   emitTopLevel(&emitState, decls);

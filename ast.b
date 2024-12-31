@@ -79,9 +79,6 @@ struct Type {
 
   // For funcs
   isVarargs : i32;
-
-  // TODO: remove, now that we have cast expr.
-  isDecay : i32;
 };
 
 enum ExprKind {
@@ -263,7 +260,11 @@ func printType(type : Type *) {
     break;
   case TypeKind::ARRAY:
     printType(type->arg);
-    printf("[%d] ", type->size);
+    if (type->size < 0) {
+      printf("[] ");
+    } else {
+      printf("[%d] ", type->size);
+    }
     break;
   case TypeKind::STRUCT:
     printf("struct ");
@@ -552,6 +553,13 @@ func newStmt(kind : StmtKind) -> StmtAST * {
 func newType(kind : TypeKind) -> Type * {
   let type : Type * = calloc(1, sizeof(struct Type));
   type->kind = kind;
+  return type;
+}
+
+func getCharType() -> Type * {
+  let type : Type * = newType(TypeKind::INT);
+  type->isSigned = 1;
+  type->size = 8;
   return type;
 }
 

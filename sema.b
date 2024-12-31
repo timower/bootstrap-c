@@ -65,7 +65,7 @@ func typeEq(one : Type *, two : Type *) -> i32 {
     return one->isSigned == two->isSigned && one->size == two->size;
 
   case TypeKind::ARRAY:
-    if (one->size != 0 && two->size != 0 && one->size != two->size) {
+    if (one->size >= 0 && two->size >= 0 && one->size != two->size) {
       return 0;
     }
   case TypeKind::POINTER:
@@ -108,6 +108,13 @@ func doConvert(expr : ExprAST *, to : Type *) -> ExprAST * {
     return expr;
   }
 
+  // Pointer to arrays can be convert to pointers to the first element.
+  // This is a no-op for code gen?
+  if (from->kind == TypeKind::POINTER && from->arg->kind == TypeKind::ARRAY &&
+      to->kind == TypeKind::POINTER && typeEq(from->arg->arg, to->arg)) {
+    return expr;
+  }
+
   return NULL;
 }
 
@@ -146,7 +153,24 @@ func canCast(expr : ExprAST *, to : Type *) -> i32 {
     return 1;
   }
 
+  // pointers to array can be casted to pointers to the first element.
+  if (from->kind == TypeKind::POINTER && from->arg->kind == TypeKind::ARRAY &&
+      to->kind == TypeKind::POINTER && typeEq(from->arg->arg, to->arg)) {
+    return 1;
+  }
+
   return 0;
+}
+
+// Decays pointers to arrays to pointers to the first element
+func doDecay(type : Type *) -> Type * {
+  if (type->kind == TypeKind::POINTER && type->arg->kind == TypeKind::ARRAY) {
+    let res = newType(TypeKind::POINTER);
+    res->arg = type->arg->arg;
+    return res;
+  }
+
+  return type;
 }
 
 func checkBool(expr : ExprAST *) {
@@ -235,9 +259,13 @@ func getSize(state : SemaState *, type : Type *) -> i32 {
   case TypeKind::FUNC:
     return 8;
 
-    // TODO: padding
   case TypeKind::ARRAY:
+    if (type->size < 0) {
+      failSema("Unsized array in sizeof");
+    }
     return type->size * getSize(state, type->arg);
+
+    // TODO: padding
   case TypeKind::STRUCT: {
     let decl = lookupType(state, type->tag);
     let size = 0;
@@ -252,48 +280,7 @@ func getSize(state : SemaState *, type : Type *) -> i32 {
   }
 }
 
-func semaExprNoDecay(state : SemaState *, expr : ExprAST *);
-
-func semaExpr(state : SemaState *, expr : ExprAST *) {
-  semaExprNoDecay(state, expr);
-
-  if (expr->kind == ExprKind::STR) {
-    // Add a global variable for the string.
-    let root = getRoot(state);
-    let decl = newDecl();
-    decl->kind = DeclKind::VAR;
-    decl->type = expr->type;
-
-    let name : i8 * = malloc(32 as u64);
-    let n = sprintf(name, "str.%d", root->strCount++);
-    decl->name.kind = TokenKind::IDENTIFIER;
-    decl->name.data = name;
-    decl->name.end = name + n;
-
-    decl->init = newExpr(ExprKind::STR);
-    decl->init->identifier = expr->identifier;
-    decl->init->type = expr->type;
-
-    decl->next = root->extraDecls;
-    root->extraDecls = decl;
-
-    // Transmute expr into a variable ref.
-    expr->kind = ExprKind::VARIABLE;
-    expr->identifier = decl->name;
-
-    // This should trigger the decay below...
-    expr->type = decl->type;
-  }
-
-  // Decay array to pointer
-  // TODO: cast expr
-  if (expr->type->kind == TypeKind::ARRAY) {
-    let decayType = newType(TypeKind::POINTER);
-    decayType->arg = expr->type->arg;
-    decayType->isDecay = 1;
-    expr->type = decayType;
-  }
-}
+func semaExpr(state : SemaState *, expr : ExprAST *);
 
 func semaBinExpr(state : SemaState *, expr : ExprAST *) {
   semaExpr(state, expr->lhs);
@@ -404,7 +391,49 @@ func getStringLength(tok : Token) -> i32 {
   return len + 1; // null terminator
 }
 
-func semaExprNoDecay(state : SemaState *, expr : ExprAST *) {
+func semaStringType(state : SemaState *, expr : ExprAST *) {
+  expr->type = newType(TypeKind::ARRAY);
+  expr->type->arg = getCharType();
+  expr->type->size = getStringLength(expr->identifier);
+  expr->type->isConst = 1;
+}
+
+func semaString(state : SemaState *, expr : ExprAST *) {
+  semaStringType(state, expr);
+
+  // Add a global variable for the string.
+  let root = getRoot(state);
+  let decl = newDecl();
+  decl->kind = DeclKind::VAR;
+  decl->type = expr->type;
+
+  let name : i8 * = malloc(32 as u64);
+  let n = sprintf(name, "str.%d", root->strCount++);
+  decl->name.kind = TokenKind::IDENTIFIER;
+  decl->name.data = name;
+  decl->name.end = name + n;
+
+  decl->init = newExpr(ExprKind::STR);
+  decl->init->identifier = expr->identifier;
+  decl->init->type = expr->type;
+
+  decl->next = root->extraDecls;
+  root->extraDecls = decl;
+
+  let ptrType = newType(TypeKind::POINTER);
+  ptrType->arg = decl->type;
+  expr->type = ptrType;
+
+  // transmute expr into a address of expr.
+  let varRef = newExpr(ExprKind::VARIABLE);
+  varRef->identifier = decl->name;
+
+  expr->kind = ExprKind::UNARY;
+  expr->op.kind = TokenKind::AND;
+  expr->rhs = varRef;
+}
+
+func semaExpr(state : SemaState *, expr : ExprAST *) {
   switch (expr->kind) {
   case ExprKind::ARG_LIST:
     failSema("TODO: sema all exprs");
@@ -488,6 +517,7 @@ func semaExprNoDecay(state : SemaState *, expr : ExprAST *) {
     checkBool(expr->cond);
     semaExpr(state, expr->lhs);
     semaExpr(state, expr->rhs);
+
     if (!typeEq(expr->lhs->type, expr->rhs->type)) {
       failSema("?: lhs and rhs should have same type");
     }
@@ -498,6 +528,9 @@ func semaExprNoDecay(state : SemaState *, expr : ExprAST *) {
     expr->type = newType(TypeKind::ARRAY);
     for (let sub = expr; sub != NULL; sub = sub->rhs) {
       semaExpr(state, sub->lhs);
+
+      // Decay types in arrays.
+      sub->lhs->type = doDecay(sub->lhs->type);
 
       if (expr->type->arg == NULL) {
         expr->type->arg = sub->lhs->type;
@@ -510,14 +543,7 @@ func semaExprNoDecay(state : SemaState *, expr : ExprAST *) {
     break;
 
   case ExprKind::STR:
-    expr->type = newType(TypeKind::ARRAY);
-    expr->type->arg = newType(TypeKind::INT);
-    expr->type->arg->size = 8;
-    expr->type->arg->isSigned = 1;
-
-    expr->type->size = getStringLength(expr->identifier);
-
-    expr->type->isConst = 1;
+    semaString(state, expr);
     break;
 
   case ExprKind::VARIABLE: {
@@ -542,9 +568,18 @@ func semaExprNoDecay(state : SemaState *, expr : ExprAST *) {
 
   case ExprKind::INDEX:
     semaExpr(state, expr->lhs);
-    if (expr->lhs->type->kind != TypeKind::POINTER &&
-        expr->lhs->type->kind != TypeKind::ARRAY) {
-      failSema("Can't index non array or pointer");
+    if (expr->lhs->type->kind == TypeKind::POINTER &&
+        expr->lhs->type->arg->kind == TypeKind::ARRAY) {
+      // auto insert deref to turn expr into an array.
+      let derefExpr = newExpr(ExprKind::UNARY);
+      derefExpr->op.kind = TokenKind::STAR;
+      derefExpr->rhs = expr->lhs;
+      derefExpr->type = expr->lhs->type->arg;
+
+      expr->lhs = derefExpr;
+    } else if (expr->lhs->type->kind != TypeKind::ARRAY) {
+      printExpr(expr);
+      failSema(" Index only works on arrays, or pointers to them.");
     }
     semaExpr(state, expr->rhs);
     if (expr->rhs->type->kind != TypeKind::INT) {
@@ -555,7 +590,7 @@ func semaExprNoDecay(state : SemaState *, expr : ExprAST *) {
 
   case ExprKind::UNARY:
     if (expr->op.kind == TokenKind::AND) {
-      semaExprNoDecay(state, expr->rhs);
+      semaExpr(state, expr->rhs);
       expr->type = newType(TypeKind::POINTER);
       expr->type->arg = expr->rhs->type;
       return;
@@ -586,7 +621,7 @@ func semaExprNoDecay(state : SemaState *, expr : ExprAST *) {
 
   case ExprKind::SIZEOF:
     if (expr->rhs != NULL) {
-      semaExprNoDecay(state, expr->rhs);
+      semaExpr(state, expr->rhs);
       expr->value = getSize(state, expr->rhs->type);
     } else {
       expr->value = getSize(state, expr->sizeofArg);
@@ -646,6 +681,22 @@ func resolveTypeTags(state : SemaState *, type : Type *) {
   resolveTypeTags(state, type->argNext);
 }
 
+// TODO: do this on 'doConvert'?
+func sizeArrayTypes(declType : Type *, initType : Type *) {
+  if (declType->kind == TypeKind::ARRAY && declType->size < 0) {
+    declType->size = initType->size;
+    if (declType->size < 0) {
+      failSema("Coudln't infer array size");
+    }
+  }
+
+  // recurse into pointers and arrays
+  if (declType->kind == TypeKind::POINTER ||
+      declType->kind == TypeKind::ARRAY) {
+    sizeArrayTypes(declType->arg, initType->arg);
+  }
+}
+
 func semaDecl(state : SemaState *, decl : DeclAST *) {
   resolveTypeTags(state, decl->type);
 
@@ -683,11 +734,7 @@ func semaDecl(state : SemaState *, decl : DeclAST *) {
   case DeclKind::VAR:
     addLocalDecl(state, decl);
     if (decl->init != NULL) {
-      if (decl->type != NULL && decl->type->kind == TypeKind::ARRAY) {
-        semaExprNoDecay(state, decl->init);
-      } else {
-        semaExpr(state, decl->init);
-      }
+      semaExpr(state, decl->init);
 
       if (decl->type == NULL) {
         decl->type = decl->init->type;
@@ -700,13 +747,12 @@ func semaDecl(state : SemaState *, decl : DeclAST *) {
         decl->init->type = decl->type;
       } else if (decl->init = doConvert(decl->init, decl->type),
                  decl->init == NULL) {
+        printf(" <> ");
         printDecl(decl);
         failSema(": Decl init type doesn't match");
       }
 
-      if (decl->type->kind == TypeKind::ARRAY && decl->type->size == 0) {
-        decl->type->size = decl->init->type->size;
-      }
+      sizeArrayTypes(decl->type, decl->init->type);
     }
     break;
   case DeclKind::IMPORT: {
