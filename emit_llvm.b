@@ -185,7 +185,13 @@ func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
     return lookupVar(state, expr->identifier);
 
   case ExprKind::INDEX: {
-    let array = emitExpr(state, expr->lhs);
+    let array : Value;
+    if (expr->lhs->type->kind == TypeKind::ARRAY) {
+      array = emitAddr(state, expr->lhs);
+    } else {
+      // array = emitExpr(state, expr->lhs);
+      failEmit("Unsupported index on non array");
+    }
     let index = emitExpr(state, expr->rhs);
 
     let gep = getNextTemp(state);
@@ -598,8 +604,7 @@ func emitVarRef(state : EmitState *, expr : ExprAST *) -> Value {
 
   // Funcs and arrays are implictly converted to pointers here.
   if (expr->type->kind == TypeKind::FUNC ||
-      expr->type->kind == TypeKind::ARRAY ||
-      (expr->type->kind == TypeKind::POINTER && expr->type->isDecay)) {
+      expr->type->kind == TypeKind::ARRAY) {
     addr.type = "ptr";
     return addr;
   }
@@ -618,11 +623,12 @@ func getStrConst(type : Type *, tok : Token) -> Value {
   cur += sprintf(val, "c\""); // %.*s\\00\"", len, tok.data);
 
   for (let i : i64 = 0; i < len; i++) {
-    if (tok.data[i] == '\\') {
-      let c = getEscaped(tok.data[++i]);
+    let val = *(tok.data + i);
+    if (val == '\\') {
+      let c = getEscaped(*(tok.data + ++i));
       cur += sprintf(cur, "\\%02x", c);
     } else {
-      *cur++ = tok.data[i];
+      *cur++ = val;
     }
   }
   cur += sprintf(cur, "\\00\"");
@@ -1109,7 +1115,7 @@ func emitFunc(state : EmitState *, decl : DeclAST *) {
     return;
   }
 
-  let defOrDecl : const i8 * = decl->body == NULL ? "declare" : "define";
+  let defOrDecl = decl->body == NULL ? "declare" as i8 * : "define" as i8 *;
   printf("%s %s %s(", defOrDecl, convertType(decl->type->result), val.val);
   for (let arg = decl->fields; arg != NULL; arg = arg->next) {
     let len = arg->name.end - arg->name.data;
@@ -1170,7 +1176,7 @@ func emitStruct(state : EmitState *, decl : DeclAST *) {
 }
 
 func emitGlobalVar(state : EmitState *, decl : DeclAST *) {
-  let declSpec : const i8 * = decl->type->isConst ? "constant" : "global";
+  let declSpec = decl->type->isConst ? "constant" as i8 * : "global" as i8 *;
 
   let val = getGlobal(decl->name);
   val.type = convertType(decl->type);
@@ -1178,9 +1184,8 @@ func emitGlobalVar(state : EmitState *, decl : DeclAST *) {
     let init = emitExpr(state, decl->init); // TODO: emit constant
     printf("%s = %s %s %s\n", val.val, declSpec, init.type, init.val);
   } else {
-    let init
-        : const i8 * =
-              decl->type->kind == TypeKind::STRUCT ? "zeroinitializer" : "null";
+    let init = decl->type->kind == TypeKind::STRUCT ? "zeroinitializer" as i8 *
+                                                    : "null" as i8 *;
     printf("%s = %s %s %s\n", val.val, declSpec, val.type, init);
   }
 

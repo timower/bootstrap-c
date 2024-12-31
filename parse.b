@@ -221,10 +221,11 @@ func parseNumber(state : ParseState *) -> ExprAST * {
 
   let start = state->curToken.data;
   if (*start == '\'') {
-    if (start[1] == '\\') {
-      result->value = getEscaped(start[2]) as i32;
+    let next = *(start + 1);
+    if (next == '\\') {
+      result->value = getEscaped(*(start + 2)) as i32;
     } else {
-      result->value = start[1] as i32;
+      result->value = next as i32;
     }
   } else {
     let endp = state->curToken.end;
@@ -440,6 +441,8 @@ func isUnary(tok : Token) -> i32 {
   }
 }
 
+// base_type := int2 | 'void' | 'struct' ident | 'enum' ident | ident
+// type := const? base_type ('*' | '[' int? ']' )*
 func parseType(state : ParseState *) -> Type * {
   let type = newType(TypeKind::INT);
 
@@ -475,25 +478,33 @@ func parseType(state : ParseState *) -> Type * {
     return NULL;
   }
 
-  //  Parse pointers
-  while (match(state, TokenKind::STAR)) {
-    getNextToken(state);
-    let ptrType = newType(TypeKind::POINTER);
-    ptrType->arg = type;
-    type = ptrType;
-  }
+  // parse type suffixes (pointers & arrays)
+  while (1) {
+    if (match(state, TokenKind::STAR)) {
+      getNextToken(state);
+      let ptrType = newType(TypeKind::POINTER);
+      ptrType->arg = type;
+      type = ptrType;
+    } else if (match(state, TokenKind::OPEN_BRACKET)) {
+      getNextToken(state);
 
-  // (1D) arrays
-  if (match(state, TokenKind::OPEN_BRACKET)) {
-    getNextToken(state);
+      let arrayType = newType(TypeKind::ARRAY);
+      arrayType->arg = type;
 
-    // size not supported
-    expect(state, TokenKind::CLOSE_BRACKET);
-    getNextToken(state);
+      if (match(state, TokenKind::CONSTANT)) {
+        let numExpr = parseNumber(state);
+        arrayType->size = numExpr->value;
+      } else {
+        arrayType->size = -1;
+      }
 
-    let arrayType = newType(TypeKind::ARRAY);
-    arrayType->arg = type;
-    type = arrayType;
+      expect(state, TokenKind::CLOSE_BRACKET);
+      getNextToken(state);
+
+      type = arrayType;
+    } else {
+      break;
+    }
   }
 
   return type;
