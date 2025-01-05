@@ -397,8 +397,6 @@ func printExpr(expr : ExprAST *) {
     printExpr(expr->lhs);
     printf(")");
     break;
-  case ExprKind::ARG_LIST:
-    break;
   case ExprKind::SCOPE:
     printf("SCOPE(");
     printToken(expr->parent);
@@ -606,18 +604,20 @@ func getUPtr() -> Type * {
 
 func isAssign(tok : Token) -> i32 {
   switch (tok.kind) {
-  case TokenKind::EQ:
-  case TokenKind::MUL_ASSIGN:
-  case TokenKind::DIV_ASSIGN:
-  case TokenKind::MOD_ASSIGN:
-  case TokenKind::ADD_ASSIGN:
-  case TokenKind::SUB_ASSIGN:
-  case TokenKind::LEFT_ASSIGN:
-  case TokenKind::RIGHT_ASSIGN:
-  case TokenKind::AND_ASSIGN:
-  case TokenKind::XOR_ASSIGN:
-  case TokenKind::OR_ASSIGN:
+    // clang-format off
+  case TokenKind::EQ,
+       TokenKind::MUL_ASSIGN,
+       TokenKind::DIV_ASSIGN,
+       TokenKind::MOD_ASSIGN,
+       TokenKind::ADD_ASSIGN,
+       TokenKind::SUB_ASSIGN,
+       TokenKind::LEFT_ASSIGN,
+       TokenKind::RIGHT_ASSIGN,
+       TokenKind::AND_ASSIGN,
+       TokenKind::XOR_ASSIGN,
+       TokenKind::OR_ASSIGN:
     return 1;
+    // clang-format on
   default:
     return 0;
   }

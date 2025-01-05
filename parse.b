@@ -394,12 +394,10 @@ func parsePostfix(state : ParseState *) -> ExprAST * {
     case TokenKind::OPEN_PAREN:
       expr = parseCall(state, expr);
       break;
-    case TokenKind::DOT:
-    case TokenKind::PTR_OP:
+    case TokenKind::DOT, TokenKind::PTR_OP:
       expr = parseMember(state, expr);
       break;
-    case TokenKind::INC_OP:
-    case TokenKind::DEC_OP:
+    case TokenKind::INC_OP, TokenKind::DEC_OP:
       expr = parseUnaryPostfix(state, expr);
       break;
     default:
@@ -412,16 +410,7 @@ func parsePostfix(state : ParseState *) -> ExprAST * {
 func isDecl(tok : Token) -> i32 {
   // We don't support typedef, so this is easy
   switch (tok.kind) {
-  case TokenKind::STRUCT:
-  case TokenKind::ENUM:
-  case TokenKind::LET:
-  case TokenKind::FUNC:
-
-    // TODO: remove:
-  case TokenKind::CONST:
-  case TokenKind::VOID:
-  case TokenKind::INT2:
-
+  case TokenKind::STRUCT, TokenKind::ENUM, TokenKind::LET, TokenKind::FUNC:
     return 1;
   default:
     return 0;
@@ -430,14 +419,8 @@ func isDecl(tok : Token) -> i32 {
 
 func isUnary(tok : Token) -> i32 {
   switch (tok.kind) {
-  case TokenKind::INC_OP:
-  case TokenKind::DEC_OP:
-  case TokenKind::AND:
-  case TokenKind::STAR:
-  case TokenKind::PLUS:
-  case TokenKind::MINUS:
-  case TokenKind::TILDE:
-  case TokenKind::BANG:
+  case TokenKind::INC_OP, TokenKind::DEC_OP, TokenKind::AND, TokenKind::STAR,
+      TokenKind::PLUS, TokenKind::MINUS, TokenKind::TILDE, TokenKind::BANG:
     return 1;
   default:
     return 0;
@@ -576,27 +559,19 @@ func parseCast(state : ParseState *) -> ExprAST * {
 
 func getPrecedence(tok : Token) -> i32 {
   switch (tok.kind) {
-  case TokenKind::STAR:
-  case TokenKind::SLASH:
-  case TokenKind::PERCENT:
+  case TokenKind::STAR, TokenKind::SLASH, TokenKind::PERCENT:
     return 100;
 
-  case TokenKind::PLUS:
-  case TokenKind::MINUS:
+  case TokenKind::PLUS, TokenKind::MINUS:
     return 90;
 
-  case TokenKind::LEFT_OP:
-  case TokenKind::RIGHT_OP:
+  case TokenKind::LEFT_OP, TokenKind::RIGHT_OP:
     return 80;
 
-  case TokenKind::LESS:
-  case TokenKind::GREATER:
-  case TokenKind::LE_OP:
-  case TokenKind::GE_OP:
+  case TokenKind::LESS, TokenKind::GREATER, TokenKind::LE_OP, TokenKind::GE_OP:
     return 70;
 
-  case TokenKind::EQ_OP:
-  case TokenKind::NE_OP:
+  case TokenKind::EQ_OP, TokenKind::NE_OP:
     return 60;
 
   case TokenKind::AND:
@@ -845,10 +820,9 @@ func parseCaseOrDefault(state : ParseState *) -> StmtAST * {
   expect(state, TokenKind::COLON);
   getNextToken(state);
 
-  // TODO:
-  // if (match(state, TokenKind::CASE) || match(state, TokenKind::DEFAULT)) {
-  //   failParse(state, "Empty case not allowed, use break");
-  // }
+  if (match(state, TokenKind::CASE) || match(state, TokenKind::DEFAULT)) {
+    failParse(state, "Empty case not allowed, use break");
+  }
 
   let cur = stmt;
   // keep parsing statements until the next case or default or }
