@@ -6,32 +6,63 @@ LLCFLAGS = --relocation-model=pic -filetype=obj
 
 export ASAN_OPTIONS=detect_leaks=0
 
-bootstrap: bootstrap.o
+PARENT_COMMMIT = $(shell git rev-parse --short HEAD^)
+
+# Stores build artifacts (.ll, .o). Binaries are stored in the root.
+BUILD_DIR ?= $(CURDIR)/build
+
+# Stores bootstrap stages from parent commits, cached to not rebuild them
+CACHE_DIR ?= $(CURDIR)/cache
+
+PARENT_STAGE = $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
+
+# Sources of the compiler
+# TODO: when bootstrap can emit dep files, we can just list the main src here.
+SRC = bootstrap.c
+TEST_SRC = test.c
+
+# We call the bootstrap compiler on the first source file.
+MAIN_SRC = $(firstword $(SRC))
+
+LL = $(BUILD_DIR)/$(MAIN_SRC:.c=.ll)
+OBJ = $(BUILD_DIR)/$(MAIN_SRC:.c=.o)
+
+bootstrap: $(OBJ)
+	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
 %.o: %.ll
-	llc $(LLCFLAGS)  $< -o $@
+	llc $(LLCFLAGS) $< -o $@
+
+$(LL): $(PARENT_STAGE) $(SRC)
+	$(PARENT_STAGE) $(MAIN_SRC) > $@
+
+$(PARENT_STAGE):
+	$(eval TMP := $(shell mktemp -d))
+	git clone . $(TMP)
+	git -C $(TMP) reset --hard $(PARENT_COMMMIT)
+	cd $(TMP) && $(MAKE) CACHE_DIR=$(CACHE_DIR) stage2
+	mv $(TMP)/stage2 $@
+	rm -rf $(TMP)
 
 self: bootstrap
-	./bootstrap bootstrap.c
+	./bootstrap $(MAIN_SRC)
 
-stage0.ll: bootstrap
-	./bootstrap bootstrap.c > stage0.ll
+test: bootstrap
+	./bootstrap $(TEST_SRC)
 
-stage0: stage0.o
+$(BUILD_DIR)/stage1.ll: bootstrap
+	./bootstrap $(MAIN_SRC) > $@
 
-test: stage0
-	./stage0 test.c
+$(BUILD_DIR)/stage2.ll: stage1
+	./stage1 $(MAIN_SRC) > $@
 
-stage1.ll: stage0
-	./stage0 bootstrap.c > stage1.ll
+stage%: $(BUILD_DIR)/stage%.o
+	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
-stage1: stage1.o
-
-stage2.ll: stage1
-	./stage1 bootstrap.c > stage2.ll
-
-stage2: stage2.o
-
-.PHONY: clean self test
+.PHONY: distclean clean self test
 clean:
-	rm -f *.o bootstrap stage*
+	rm -f build/* bootstrap stage*
+
+distclean: clean
+	rm -f cache/*
+
