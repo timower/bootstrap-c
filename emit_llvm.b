@@ -4,12 +4,10 @@ import ast;
 import util;
 
 struct EmitState {
-  tmpCounter : i32;
+  tmpCounter : i32 *;
   vars : LocalVar *;
 
   curBreakLabel : i8 *;
-  defaultLabel : i8 *;
-  cases : Case *;
 
   parent : EmitState *;
 };
@@ -36,11 +34,20 @@ struct Case {
   next : Case *;
 };
 
-// 3. emit
 func failEmit(msg : const i8 *) {
   puts(msg);
   exit(1);
 }
+
+func newEmitState(parent : EmitState *) -> EmitState {
+  let state : EmitState = {0};
+  state.tmpCounter = parent->tmpCounter;
+  state.parent = parent;
+  state.curBreakLabel = parent->curBreakLabel;
+  return state;
+}
+
+func getCount(state : EmitState *) -> i32 { return (*state->tmpCounter)++; }
 
 // Convert type to LLVM type.
 func convertType(type : Type *) -> const i8 * {
@@ -85,9 +92,10 @@ func convertType(type : Type *) -> const i8 * {
 
   case TypeKind::ENUM:
     return "i32";
+  case TypeKind::TAG:
+    failEmit("Unknown type to emit");
   }
 
-  failEmit("Unknown type to emit");
   return NULL;
 }
 
@@ -113,7 +121,7 @@ func getNextTemp(state : EmitState *) -> Value {
   let val : Value;
 
   let buf : i8 * = malloc(16);
-  sprintf(buf, "%%tmp%d", state->tmpCounter++);
+  sprintf(buf, "%%tmp%d", getCount(state));
   val.val = buf;
 
   return val;
@@ -134,7 +142,7 @@ func getTempGlobal(state : EmitState *, prefix : const i8 *) -> Value {
   let val : Value;
 
   let buf : i8 * = malloc(64);
-  sprintf(buf, "@%s%d", prefix, state->tmpCounter++);
+  sprintf(buf, "@%s%d", prefix, getCount(state));
   val.val = buf;
 
   return val;
@@ -219,15 +227,8 @@ func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
     if (expr->op.kind == TokenKind::STAR) {
       return emitExpr(state, expr->rhs);
     }
-  case ExprKind::INT:
-  case ExprKind::BINARY:
-  case ExprKind::CONDITIONAL:
-  case ExprKind::SIZEOF:
-  case ExprKind::STR:
-  case ExprKind::ARRAY:
-  case ExprKind::CALL:
-  case ExprKind::ARG_LIST:
-  case ExprKind::CAST:
+
+  default:
     printExpr(expr);
     failEmit(" Can't be use as lvalue");
     break;
@@ -249,9 +250,14 @@ func emitLoad(state : EmitState *, addr : Value, type : const i8 *) -> Value {
   return val;
 }
 
-func emitBinary(state : EmitState *, resType : Type *, opKind : TokenKind,
-                lhs : Value, lhsType : Type *, rhs : Value, rhsType : Type *)
-    -> Value {
+func emitBinary(state
+                : EmitState *, resType
+                : Type *, opKind
+                : TokenKind, lhs
+                : Value, lhsType
+                : Type *, rhs
+                : Value, rhsType
+                : Type *) -> Value {
 
   // ptr - ptr -> i32
   let lhsPointer = lhsType->kind == TypeKind::POINTER;
@@ -416,7 +422,7 @@ func emitAssignment(state : EmitState *, expr : ExprAST *) -> Value {
 
 func emitLogicalBinOp(state : EmitState *, expr : ExprAST *) -> Value {
   let lhs = emitExpr(state, expr->lhs);
-  let idx = state->tmpCounter++;
+  let idx = getCount(state);
 
   let firstLabel : i8 * = "true";
   let secondLabel : i8 * = "false";
@@ -783,7 +789,7 @@ func emitCond(state : EmitState *, expr : ExprAST *) -> Value {
   cond = makeBool(state, cond);
 
   let falseLabel : i8 * = "false";
-  let idx = state->tmpCounter++;
+  let idx = getCount(state);
   printf("  br i1 %s, label %%cond.true.%d, label %%cond.%s.%d\n", cond.val,
          idx, falseLabel, idx);
 
@@ -904,10 +910,7 @@ func emitLocalDecl(state : EmitState *, decl : DeclAST *) {
     emitLocalVar(state, decl);
     break;
 
-  case DeclKind::ENUM:
-  case DeclKind::ENUM_FIELD:
-  case DeclKind::STRUCT:
-  case DeclKind::FUNC:
+  default:
     failEmit("Local Unsupported");
   }
 }
@@ -922,7 +925,7 @@ func emitIf(state : EmitState *, stmt : StmtAST *) {
   if (stmt->stmt == NULL) {
     falseLabel = "cont";
   }
-  let idx = state->tmpCounter++;
+  let idx = getCount(state);
   printf("  br i1 %s, label %%if.true.%d, label %%if.%s.%d\n", cond.val, idx,
          falseLabel, idx);
 
@@ -940,7 +943,7 @@ func emitIf(state : EmitState *, stmt : StmtAST *) {
 }
 
 func emitWhile(state : EmitState *, stmt : StmtAST *) {
-  let idx = state->tmpCounter++;
+  let idx = getCount(state);
 
   printf("  br label %%while.cond.%d\n", idx);
   printf("while.cond.%d:\n", idx);
@@ -948,9 +951,7 @@ func emitWhile(state : EmitState *, stmt : StmtAST *) {
   printf("  br i1 %s, label %%while.body.%d, label %%while.cont.%d\n", cond.val,
          idx, idx);
 
-  let whileState : EmitState = {0};
-  whileState.tmpCounter = state->tmpCounter;
-  whileState.parent = state;
+  let whileState = newEmitState(state);
 
   let buf : i8 * = malloc(32);
   sprintf(buf, "while.cont.%d", idx);
@@ -961,16 +962,12 @@ func emitWhile(state : EmitState *, stmt : StmtAST *) {
   printf(" br label %%while.cond.%d\n", idx);
 
   printf("while.cont.%d:\n", idx);
-
-  state->tmpCounter = whileState.tmpCounter;
 }
 
 func emitFor(state : EmitState *, stmt : StmtAST *) {
-  let idx = state->tmpCounter++;
+  let idx = getCount(state);
 
-  let forState : EmitState = {0};
-  forState.tmpCounter = state->tmpCounter;
-  forState.parent = state;
+  let forState = newEmitState(state);
 
   let buf : i8 * = malloc(32);
   sprintf(buf, "for.cont.%d", idx);
@@ -995,16 +992,35 @@ func emitFor(state : EmitState *, stmt : StmtAST *) {
   printf("  br label %%for.cond.%d\n", idx);
 
   printf("for.cont.%d:\n", idx);
+}
 
-  state->tmpCounter = forState.tmpCounter;
+func getCases(state
+              : EmitState *, expr
+              : ExprAST *, cases
+              : Case *, index
+              : i32) -> Case * {
+  switch (expr->kind) {
+  case ExprKind::SCOPE:
+  case ExprKind::INT:
+    let constExpr = emitExpr(state, expr);
+    let cse : Case * = calloc(1, sizeof(struct Case));
+    cse->n = index;
+    cse->val = constExpr;
+    cse->next = cases;
+    return cse;
+  case ExprKind::BINARY:
+    let lhsCases = getCases(state, expr->lhs, cases, index);
+    return getCases(state, expr->rhs, lhsCases, index);
+    break;
+  default:
+    failEmit("Unsupported case expr");
+  }
 }
 
 func emitSwitch(state : EmitState *, stmt : StmtAST *) {
-  let idx = state->tmpCounter++;
+  let idx = getCount(state);
 
-  let switchState : EmitState = {0};
-  switchState.tmpCounter = state->tmpCounter;
-  switchState.parent = state;
+  let switchState = newEmitState(state);
 
   let buf : i8 * = malloc(32);
   sprintf(buf, "cont.%d", idx);
@@ -1013,41 +1029,60 @@ func emitSwitch(state : EmitState *, stmt : StmtAST *) {
   let expr = emitExpr(&switchState, stmt->expr);
   printf("  br label %%switch.%d\n", idx);
 
-  emitStmt(&switchState, stmt->stmt);
+  let cases : Case * = NULL;
+  let defaultLabel : i8 * = NULL;
+
+  for (let caseStmt = stmt->stmt; caseStmt != NULL;
+       caseStmt = caseStmt->nextStmt) {
+
+    if (caseStmt->kind == StmtKind::CASE) {
+      let index = getCount(state);
+
+      // fallthrough.
+      // TODO: remove...
+      printf("  br label %%case.%d\n", index);
+      printf("case.%d:\n", index);
+
+      cases = getCases(state, caseStmt->expr, cases, index);
+
+    } else if (caseStmt->kind == StmtKind::DEFAULT) {
+
+      if (defaultLabel != NULL) {
+        failEmit("Multiple default");
+      }
+
+      let idx = getCount(state);
+      defaultLabel = malloc(32);
+      sprintf(defaultLabel, "default.%d", idx);
+
+      printf("  br label %%default.%d\n", idx);
+      printf("default.%d:\n", idx);
+
+    } else {
+      failEmit("Unsupported switch stmt");
+    }
+
+    let caseState = newEmitState(&switchState);
+    for (let cur = caseStmt->stmt; cur != NULL; cur = cur->nextStmt) {
+      emitStmt(&caseState, cur);
+    }
+  }
 
   // fallthrough to the end of the switch
   printf("  br label %%cont.%d\n", idx);
 
   printf("switch.%d:\n", idx);
 
-  if (switchState.defaultLabel != NULL) {
-    printf("  switch %s %s, label %%%s [\n", expr.type, expr.val,
-           switchState.defaultLabel);
+  if (defaultLabel != NULL) {
+    printf("  switch %s %s, label %%%s [\n", expr.type, expr.val, defaultLabel);
   } else {
     printf("  switch %s %s, label %%cont.%d [\n", expr.type, expr.val, idx);
   }
-  for (let cse = switchState.cases; cse != NULL; cse = cse->next) {
+  for (let cse = cases; cse != NULL; cse = cse->next) {
     printf("    %s %s, label %%case.%d\n", cse->val.type, cse->val.val, cse->n);
   }
   printf("  ]\n");
   printf("cont.%d:\n", idx);
-
-  state->tmpCounter = switchState.tmpCounter;
-}
-
-func emitCase(state : EmitState *, stmt : StmtAST *) {
-  let index = state->tmpCounter++;
-
-  // fallthrough.
-  printf("  br label %%case.%d\n", index);
-  printf("case.%d:\n", index);
-
-  let constExpr = emitExpr(state, stmt->expr);
-  let cse : Case * = calloc(1, sizeof(struct Case));
-  cse->n = index;
-  cse->val = constExpr;
-  cse->next = state->cases;
-  state->cases = cse;
 }
 
 func emitStmt(state : EmitState *, stmt : StmtAST *) {
@@ -1066,9 +1101,9 @@ func emitStmt(state : EmitState *, stmt : StmtAST *) {
     break;
 
   case StmtKind::COMPOUND:
-    // TODO: new state?
+    let newState = newEmitState(state);
     for (let cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
-      emitStmt(state, cur);
+      emitStmt(&newState, cur);
     }
     break;
 
@@ -1084,24 +1119,15 @@ func emitStmt(state : EmitState *, stmt : StmtAST *) {
     return emitSwitch(state, stmt);
 
   case StmtKind::CASE:
-    return emitCase(state, stmt);
+  case StmtKind::DEFAULT:
+    failEmit("Case outside of switch");
+    break;
 
   case StmtKind::BREAK:
     if (state->curBreakLabel == NULL) {
       failEmit("Break outside loop");
     }
     printf("  br label %%%s\n", state->curBreakLabel);
-    break;
-
-  case StmtKind::DEFAULT:
-    if (state->defaultLabel != NULL) {
-      failEmit("Multiple default");
-    }
-    let idx = state->tmpCounter++;
-    state->defaultLabel = malloc(32);
-    sprintf(state->defaultLabel, "default.%d", idx);
-    printf("  br label %%default.%d\n", idx);
-    printf("default.%d:\n", idx);
     break;
   }
 }
@@ -1127,9 +1153,9 @@ func emitFunc(state : EmitState *, decl : DeclAST *) {
   printf(")");
 
   if (decl->body != NULL) {
-    let funcState : EmitState = {0};
-    funcState.parent = state;
-    funcState.tmpCounter = 0;
+    let funcState = newEmitState(state);
+    let funcCounter = 0;
+    funcState.tmpCounter = &funcCounter;
 
     printf(" {\n");
 
@@ -1195,10 +1221,7 @@ func emitGlobalVar(state : EmitState *, decl : DeclAST *) {
 func emitGlobalDecl(state : EmitState *, decl : DeclAST *) {
   switch (decl->kind) {
   case DeclKind::ENUM:
-    // Enum type declarations are not emitted.
-    if (decl->type->kind != TypeKind::INT) {
-      return;
-    }
+    return;
   case DeclKind::VAR:
     emitGlobalVar(state, decl);
     break;
@@ -1208,17 +1231,23 @@ func emitGlobalDecl(state : EmitState *, decl : DeclAST *) {
   case DeclKind::FUNC:
     emitFunc(state, decl);
     break;
+
+  case DeclKind::IMPORT:
+    break;
+
   case DeclKind::ENUM_FIELD:
     failEmit("Unsupported");
     break;
   }
 }
 
-func emitTopLevel(state : EmitState *, decl : DeclAST *) {
-  // TODO: emit types, globals, func decls then func defs?
+func emitTopLevel(decl : DeclAST *) {
+  let state : EmitState = {0};
+  let rootCounter = 0;
+  state.tmpCounter = &rootCounter;
 
   while (decl != NULL) {
-    emitGlobalDecl(state, decl);
+    emitGlobalDecl(&state, decl);
     decl = decl->next;
   }
 }

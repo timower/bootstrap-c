@@ -17,8 +17,6 @@ struct SemaState {
   // Return type of the current function.
   result : Type *;
 
-  switchType : Type *;
-
   // Local variables and enum fields.
   locals : DeclList *;
 
@@ -230,8 +228,11 @@ func lookupLocal(state : SemaState *, name : Token) -> DeclAST * {
   return NULL;
 }
 
-func findField(structDecl : DeclAST *, name : Token, idxOut : i32 *)
-    -> DeclAST * {
+// clang-format off
+func findField(structDecl: DeclAST *,
+               name: Token,
+               idxOut: i32 *) -> DeclAST * {
+  // clang-format on
   let idx = 0;
   for (let field = structDecl->fields; field != NULL;
        field = field->next, idx++) {
@@ -800,8 +801,81 @@ func newState(parent : SemaState *) -> SemaState {
   let state : SemaState = {0};
   state.parent = parent;
   state.result = parent->result;
-  state.switchType = parent->switchType;
   return state;
+}
+
+func getFieldCount(decl : DeclAST *) -> i32 {
+  let count = 0;
+
+  for (let field = decl->fields; field != NULL; field = field->next) {
+    count++;
+  }
+
+  return count;
+}
+
+// Semas the expression, and returns a bitset of matched field indexes.
+func getFieldBitset(state : SemaState *, expr : ExprAST *) -> i32 {
+  switch (expr->kind) {
+  case ExprKind::SCOPE:
+    return 1 << expr->value;
+  case ExprKind::BINARY:
+    if (expr->op.kind != TokenKind::COMMA) {
+      failSema("Unsupported case expression");
+    }
+    return getFieldBitset(state, expr->lhs) | getFieldBitset(state, expr->rhs);
+  default:
+    failSema("Unsupported case expression");
+  }
+}
+
+func semaSwitchStmt(state : SemaState *, stmt : StmtAST *) {
+  semaExpr(state, stmt->expr);
+  let switchType = stmt->expr->type;
+
+  let isEnum = switchType->kind == TypeKind::ENUM;
+  if (switchType->kind != TypeKind::INT && !isEnum) {
+    printType(stmt->expr->type);
+    failSema("Switch expr must be integer or enum");
+  }
+
+  let fieldBitSet = 0;
+
+  for (let caseStmt = stmt->stmt; caseStmt != NULL;
+       caseStmt = caseStmt->nextStmt) {
+
+    if (caseStmt->kind == StmtKind::CASE) {
+      semaExpr(state, caseStmt->expr);
+
+      if (!typeEq(caseStmt->expr->type, switchType)) {
+        printStmt(caseStmt);
+        printType(switchType);
+        failSema("case expr must match switch type");
+      }
+
+      if (isEnum) {
+        fieldBitSet |= getFieldBitset(state, caseStmt->expr);
+      }
+    } else if (caseStmt->kind == StmtKind::DEFAULT) {
+      fieldBitSet = -1;
+    } else {
+      failSema("Unknown switch case statement");
+    }
+
+    let subState = newState(state);
+    for (let cur = caseStmt->stmt; cur != NULL; cur = cur->nextStmt) {
+      semaStmt(&subState, cur);
+    }
+  }
+
+  if (isEnum && fieldBitSet != -1) {
+    let decl = lookupType(state, stmt->expr->type->tag);
+    let size = getFieldCount(decl);
+    if ((1 << size) - 1 != fieldBitSet) {
+      printStmt(stmt);
+      failSema("Switch is not exhaustive");
+    }
+  }
 }
 
 func semaStmt(state : SemaState *, stmt : StmtAST *) {
@@ -867,32 +941,16 @@ func semaStmt(state : SemaState *, stmt : StmtAST *) {
     semaStmt(&subState, stmt->stmt);
   } break;
 
-  case StmtKind::SWITCH: {
-    let subState = newState(state);
-
-    semaExpr(&subState, stmt->expr);
-    subState.switchType = stmt->expr->type;
-
-    if (stmt->expr->type->kind != TypeKind::INT &&
-        stmt->expr->type->kind != TypeKind::ENUM) {
-      printType(stmt->expr->type);
-      failSema("Switch expr must be integer or enum");
-    }
-
-    semaStmt(&subState, stmt->stmt);
-  } break;
+  case StmtKind::SWITCH:
+    semaSwitchStmt(state, stmt);
+    break;
 
   case StmtKind::CASE:
-    semaExpr(state, stmt->expr);
-    if (!typeEq(stmt->expr->type, state->switchType)) {
-      printStmt(stmt);
-      printType(state->switchType);
-      failSema("case expr must match switch type");
-    }
+  case StmtKind::DEFAULT:
+    failSema("Case or default outside of switch");
     break;
 
   case StmtKind::BREAK:
-  case StmtKind::DEFAULT:
     break;
   }
 }
@@ -910,6 +968,8 @@ func addTaggedType(state : SemaState *, decl : DeclAST *) {
     let type = newDeclList(decl);
     type->next = state->types;
     state->types = type;
+    break;
+  default:
     break;
   }
 }

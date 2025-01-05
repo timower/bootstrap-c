@@ -11,6 +11,9 @@ struct ParseState {
 
   // Currently parsed token.
   curToken : Token;
+
+  // current file name.
+  fileName : i8 *;
 };
 
 // 1. parse
@@ -32,7 +35,7 @@ func failParseArg(state : ParseState *, msg : const i8 *, arg : const i8 *) {
     }
   }
 
-  printf("%d:%d: ", line, column);
+  printf("%s:%d:%d: ", state->fileName, line, column);
   if (state->curToken.data < state->end) {
     printToken(state->curToken);
   }
@@ -614,8 +617,10 @@ func getPrecedence(tok : Token) -> i32 {
 }
 
 // binary_rhs := lhs ( op cast )*
-func parseBinOpRhs(state : ParseState *, prec : i32, lhs : ExprAST *)
-    -> ExprAST * {
+func parseBinOpRhs(state
+                   : ParseState *, prec
+                   : i32, lhs
+                   : ExprAST *) -> ExprAST * {
   while (1) {
     let curPred = getPrecedence(state->curToken);
     if (curPred < prec) {
@@ -687,15 +692,9 @@ func parseAssignment(state : ParseState *) -> ExprAST * {
 // expression := assignment (',' assignment)*
 func parseExpression(state : ParseState *) -> ExprAST * {
   let expr = parseAssignment(state);
-  if (expr == NULL) {
-    return expr;
-  }
   while (match(state, TokenKind::COMMA)) {
     let op = getNextToken(state);
     let rhs = parseAssignment(state);
-    if (rhs == NULL) {
-      return expr;
-    }
 
     let new = newExpr(ExprKind::BINARY);
     new->lhs = expr;
@@ -806,26 +805,105 @@ func parseReturnStmt(state : ParseState *) -> StmtAST * {
   return stmt;
 }
 
-func parseCaseStmt(state : ParseState *) -> StmtAST * {
-  getNextToken(state);
+// case_expr := primary_expr (',' primary_expr)*
+func parseCaseExpr(state : ParseState *) -> ExprAST * {
+  let expr = parsePrimary(state);
+  while (match(state, TokenKind::COMMA)) {
+    let op = getNextToken(state);
+    let rhs = parsePrimary(state);
 
-  let stmt = newStmt(StmtKind::CASE);
+    let new = newExpr(ExprKind::BINARY);
+    new->lhs = expr;
+    new->op = op;
+    new->rhs = rhs;
 
-  stmt->expr = parseConditional(state);
+    expr = new;
+  }
+
+  return expr;
+}
+
+// case := 'case' case_expr ':' stmt*
+//       | 'default' ':' stmt*
+func parseCaseOrDefault(state : ParseState *) -> StmtAST * {
+  let stmt : StmtAST * = NULL;
+
+  if (match(state, TokenKind::CASE)) {
+    getNextToken(state); // eat 'case'
+
+    stmt = newStmt(StmtKind::CASE);
+    stmt->expr = parseCaseExpr(state);
+
+  } else if (match(state, TokenKind::DEFAULT)) {
+    getNextToken(state); // eat 'default'
+
+    stmt = newStmt(StmtKind::DEFAULT);
+  } else {
+    failParse(state, "Expected case or default");
+  }
 
   expect(state, TokenKind::COLON);
   getNextToken(state);
+
+  // TODO:
+  // if (match(state, TokenKind::CASE) || match(state, TokenKind::DEFAULT)) {
+  //   failParse(state, "Empty case not allowed, use break");
+  // }
+
+  let cur = stmt;
+  // keep parsing statements until the next case or default or }
+  while (!match(state, TokenKind::CASE) &&
+         !match(state, TokenKind::CLOSE_BRACE) &&
+         !match(state, TokenKind::DEFAULT)) {
+    let nextStmt = parseStmt(state);
+    cur->nextStmt = nextStmt;
+    cur = nextStmt;
+  }
+
+  stmt->stmt = stmt->nextStmt;
+  stmt->nextStmt = NULL;
+
   return stmt;
 }
 
-func parseSwitchOrWhileStmt(state : ParseState *, kind : StmtKind)
-    -> StmtAST * {
+// switchStmt := 'switch' '(' expr ')' '{' caseStmt* '}'
+func parseSwitchStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state);
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  let stmt = newStmt(kind);
+  let stmt = newStmt(StmtKind::SWITCH);
+
+  stmt->expr = parseExpression(state);
+  expect(state, TokenKind::CLOSE_PAREN);
+  getNextToken(state);
+
+  // Parse list of case statements.
+  expect(state, TokenKind::OPEN_BRACE);
+  getNextToken(state);
+
+  let cur = stmt;
+  while (!match(state, TokenKind::CLOSE_BRACE)) {
+    let cse = parseCaseOrDefault(state);
+    cur->nextStmt = cse;
+    cur = cse;
+  }
+  getNextToken(state); // eat }
+
+  stmt->stmt = stmt->nextStmt;
+  stmt->nextStmt = NULL;
+
+  return stmt;
+}
+
+func parseWhileStmt(state : ParseState *) -> StmtAST * {
+  getNextToken(state);
+
+  expect(state, TokenKind::OPEN_PAREN);
+  getNextToken(state);
+
+  let stmt = newStmt(StmtKind::WHILE);
 
   stmt->expr = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
@@ -858,14 +936,11 @@ func parseStmt(state : ParseState *) -> StmtAST * {
   }
 
   if (match(state, TokenKind::SWITCH)) {
-    return parseSwitchOrWhileStmt(state, StmtKind::SWITCH);
-  }
-  if (match(state, TokenKind::WHILE)) {
-    return parseSwitchOrWhileStmt(state, StmtKind::WHILE);
+    return parseSwitchStmt(state);
   }
 
-  if (match(state, TokenKind::CASE)) {
-    return parseCaseStmt(state);
+  if (match(state, TokenKind::WHILE)) {
+    return parseWhileStmt(state);
   }
 
   if (match(state, TokenKind::BREAK)) {
@@ -873,16 +948,6 @@ func parseStmt(state : ParseState *) -> StmtAST * {
     let stmt = newStmt(StmtKind::BREAK);
 
     expect(state, TokenKind::SEMICOLON);
-    getNextToken(state);
-
-    return stmt;
-  }
-
-  if (match(state, TokenKind::DEFAULT)) {
-    getNextToken(state);
-    let stmt = newStmt(StmtKind::DEFAULT);
-
-    expect(state, TokenKind::COLON);
     getNextToken(state);
 
     return stmt;
@@ -1194,4 +1259,42 @@ func parseTopLevel(state : ParseState *) -> DeclAST * {
   }
 
   return firstDecl;
+}
+
+func parseFile(name : const i8 *) -> DeclAST * {
+  let fd = open(name, 0); //  O_RDONLY
+  if (fd == -1) {
+    puts("open failed!");
+    return NULL;
+  }
+
+  let size = lseek(fd, 0, 2); //  SEEK_END
+  if (size == -1) {
+    puts("seek failed!");
+    return NULL;
+  }
+
+  if (lseek(fd, 0, 0) == -1) { // SEEK_SET
+    puts("seek failed!");
+    return NULL;
+  }
+
+  let fileMem : i8 * = malloc(size as u64);
+
+  let off : i64 = 0;
+  while (off != size) {
+    let r = read(fd, fileMem + off, (size - off) as u64);
+    if (r == -1) {
+      puts("read failed!");
+      return NULL;
+    }
+    off += r;
+  }
+
+  let parseState : ParseState = {0};
+  parseState.fileName = name;
+  parseState.current = parseState.start = fileMem;
+  parseState.end = fileMem + size;
+
+  return parseTopLevel(&parseState);
 }
