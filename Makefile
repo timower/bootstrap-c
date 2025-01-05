@@ -18,14 +18,14 @@ PARENT_STAGE = $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 
 # Sources of the compiler
 # TODO: when bootstrap can emit dep files, we can just list the main src here.
-SRC = bootstrap.c
+SRC = bootstrap.b
 TEST_SRC = test.b
 
 # We call the bootstrap compiler on the first source file.
 MAIN_SRC = $(firstword $(SRC))
 
-LL = $(BUILD_DIR)/$(MAIN_SRC:.c=.ll)
-OBJ = $(BUILD_DIR)/$(MAIN_SRC:.c=.o)
+LL = $(BUILD_DIR)/$(MAIN_SRC:.b=.ll)
+OBJ = $(BUILD_DIR)/$(MAIN_SRC:.b=.o)
 
 bootstrap: $(OBJ)
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
