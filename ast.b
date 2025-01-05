@@ -240,6 +240,11 @@ func printToken(token : Token) {
 }
 
 func printType(type : Type *) {
+  if (type == NULL) {
+    printf("nullType ");
+    return;
+  }
+
   if (type->isConst) {
     printf("const ");
   }
@@ -284,6 +289,11 @@ func printType(type : Type *) {
     }
     printf(") -> ");
     printType(type->result);
+    break;
+  case TypeKind::ENUM:
+    printf("enum ");
+    printStr(type->tag.data, type->tag.end);
+    printf(" ");
     break;
   case TypeKind::TAG:
     printf("tag ");
@@ -450,8 +460,11 @@ func printStmt(stmt : StmtAST *) {
   case StmtKind::SWITCH:
     printf("switch (");
     printExpr(stmt->expr);
-    printf(")\n");
-    printStmt(stmt->stmt);
+    printf(") {\n");
+    for (let cur : StmtAST * = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
+      printStmt(cur);
+    }
+    printf("}\n");
     break;
   case StmtKind::DEFAULT:
     printf("default:\n");
@@ -463,6 +476,9 @@ func printStmt(stmt : StmtAST *) {
     printf("case ");
     printExpr(stmt->expr);
     printf(":\n");
+    for (let cur : StmtAST * = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
+      printStmt(cur);
+    }
     break;
   case StmtKind::WHILE:
     printf("while (");
@@ -494,7 +510,6 @@ func printDecl(decl : DeclAST *) {
       printDecl(field);
     }
     printf("} ");
-    printToken(decl->name);
     break;
   case DeclKind::ENUM_FIELD:
     printToken(decl->name);
@@ -528,6 +543,11 @@ func printDecl(decl : DeclAST *) {
     if (decl->body != NULL) {
       printStmt(decl->body);
     }
+    break;
+  case DeclKind::IMPORT:
+    printf("Import ");
+    printToken(decl->name);
+    printf("\n");
     break;
   }
   printf("\n");
