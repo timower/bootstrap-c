@@ -255,14 +255,11 @@ func printType(type : Type *) {
     } else {
       printf("u%d ", type->size);
     }
-    break;
   case TypeKind::VOID:
     printf("void ");
-    break;
   case TypeKind::POINTER:
     printType(type->arg);
     printf("* ");
-    break;
   case TypeKind::ARRAY:
     printType(type->arg);
     if (type->size < 0) {
@@ -270,12 +267,10 @@ func printType(type : Type *) {
     } else {
       printf("[%d] ", type->size);
     }
-    break;
   case TypeKind::STRUCT:
     printf("struct ");
     printStr(type->tag.data, type->tag.end);
     printf(" ");
-    break;
   case TypeKind::FUNC:
     printf("(");
     for (let arg : Type * = type->arg; arg != NULL; arg = arg->argNext) {
@@ -289,17 +284,14 @@ func printType(type : Type *) {
     }
     printf(") -> ");
     printType(type->result);
-    break;
   case TypeKind::ENUM:
     printf("enum ");
     printStr(type->tag.data, type->tag.end);
     printf(" ");
-    break;
   case TypeKind::TAG:
     printf("tag ");
     printStr(type->tag.data, type->tag.end);
     printf(" ");
-    break;
   }
 }
 
@@ -316,29 +308,24 @@ func printExpr(expr : ExprAST *) {
   switch (expr->kind) {
   case ExprKind::VARIABLE:
     printToken(expr->identifier);
-    break;
   case ExprKind::INT:
     printf("INT(%d)", expr->value);
-    break;
   case ExprKind::STR:
     printf("STR(");
     printStr(expr->identifier.data, expr->identifier.end);
     printf(")");
-    break;
   case ExprKind::BINARY:
     printf("%s(", tokens[expr->op.kind as i32]);
     printExpr(expr->lhs);
     printf(" ");
     printExpr(expr->rhs);
     printf(")");
-    break;
   case ExprKind::INDEX:
     printf("INDEX(");
     printExpr(expr->lhs);
     printf(" ");
     printExpr(expr->rhs);
     printf(")");
-    break;
   case ExprKind::CALL:
     printf("CALL(");
     printExpr(expr->lhs);
@@ -347,14 +334,12 @@ func printExpr(expr : ExprAST *) {
       printExpr(cur->lhs);
     }
     printf(")");
-    break;
   case ExprKind::MEMBER:
     printf("MEMBER(");
     printExpr(expr->lhs);
     printf(" %s ", tokens[expr->op.kind as i32]);
     printStr(expr->identifier.data, expr->identifier.end);
     printf(")");
-    break;
   case ExprKind::UNARY:
     printf("UNARY(");
     if (expr->lhs != NULL) {
@@ -365,7 +350,6 @@ func printExpr(expr : ExprAST *) {
       printExpr(expr->rhs);
     }
     printf(")");
-    break;
   case ExprKind::SIZEOF:
     printf("SIZEOF(");
     if (expr->sizeofArg != NULL) {
@@ -374,7 +358,6 @@ func printExpr(expr : ExprAST *) {
       printExpr(expr->rhs);
     }
     printf(")");
-    break;
   case ExprKind::CONDITIONAL:
     printf("COND(");
     printExpr(expr->cond);
@@ -383,7 +366,6 @@ func printExpr(expr : ExprAST *) {
     printf(" : ");
     printExpr(expr->rhs);
     printf(")");
-    break;
   case ExprKind::ARRAY:
     printf("ARRAY(");
     for (; expr != NULL; expr = expr->rhs) {
@@ -391,19 +373,16 @@ func printExpr(expr : ExprAST *) {
       printf(", ");
     }
     printf(")");
-    break;
   case ExprKind::CAST:
     printf("CAST(");
     printExpr(expr->lhs);
     printf(")");
-    break;
   case ExprKind::SCOPE:
     printf("SCOPE(");
     printToken(expr->parent);
     printf("::");
     printToken(expr->identifier);
     printf(")");
-    break;
   default:
     printf("UNKOWN");
   }
@@ -415,18 +394,15 @@ func printStmt(stmt : StmtAST *) {
   switch (stmt->kind) {
   case StmtKind::DECL:
     printDecl(stmt->decl);
-    break;
   case StmtKind::COMPOUND:
     printf("{\n");
     for (let cur : StmtAST * = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       printStmt(cur);
     }
     printf("}\n");
-    break;
   case StmtKind::EXPR:
     printExpr(stmt->expr);
     printf(";\n");
-    break;
   case StmtKind::FOR:
     printf("for(\n");
     printf("  ");
@@ -437,7 +413,6 @@ func printStmt(stmt : StmtAST *) {
     printExpr(stmt->expr);
     printf("\n):");
     printStmt(stmt->stmt);
-    break;
   case StmtKind::IF:
     printf("if(");
     printExpr(stmt->expr);
@@ -447,14 +422,12 @@ func printStmt(stmt : StmtAST *) {
       printf("else\n");
       printStmt(stmt->stmt);
     }
-    break;
   case StmtKind::RETURN:
     printf("return ");
     if (stmt->expr != NULL) {
       printExpr(stmt->expr);
     }
     printf(";\n");
-    break;
   case StmtKind::SWITCH:
     printf("switch (");
     printExpr(stmt->expr);
@@ -463,13 +436,10 @@ func printStmt(stmt : StmtAST *) {
       printStmt(cur);
     }
     printf("}\n");
-    break;
   case StmtKind::DEFAULT:
     printf("default:\n");
-    break;
   case StmtKind::BREAK:
     printf("break;\n");
-    break;
   case StmtKind::CASE:
     printf("case ");
     printExpr(stmt->expr);
@@ -477,13 +447,11 @@ func printStmt(stmt : StmtAST *) {
     for (let cur : StmtAST * = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       printStmt(cur);
     }
-    break;
   case StmtKind::WHILE:
     printf("while (");
     printExpr(stmt->expr);
     printf(")\n");
     printStmt(stmt->stmt);
-    break;
   }
 }
 
@@ -498,7 +466,6 @@ func printDecl(decl : DeclAST *) {
       printDecl(field);
     }
     printf("}");
-    break;
   case DeclKind::ENUM:
     printType(decl->type);
     printf("{\n");
@@ -508,10 +475,8 @@ func printDecl(decl : DeclAST *) {
       printDecl(field);
     }
     printf("} ");
-    break;
   case DeclKind::ENUM_FIELD:
     printToken(decl->name);
-    break;
   case DeclKind::VAR:
     printf("let ");
     printToken(decl->name);
@@ -522,7 +487,6 @@ func printDecl(decl : DeclAST *) {
       printf(" = ");
       printExpr(decl->init);
     }
-    break;
   case DeclKind::FUNC:
     printf("func ");
     printToken(decl->name);
@@ -541,12 +505,10 @@ func printDecl(decl : DeclAST *) {
     if (decl->body != NULL) {
       printStmt(decl->body);
     }
-    break;
   case DeclKind::IMPORT:
     printf("Import ");
     printToken(decl->name);
     printf("\n");
-    break;
   }
   printf("\n");
 }

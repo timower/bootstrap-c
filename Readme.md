@@ -20,7 +20,7 @@ TODO
  - [x] Fix static arrays, and decay from array to pointer.
     * Index only for array & future slice types, or pointers to them.
     * Pointer to array can be converted to pointer to first elem for C interop.
- - [ ] Switch statements that make sense.
+ - [x] Switch statements that make sense.
  - [ ] Struct init and struct expressions.
     * `Foo{.x = 1, .y = 2}`?
  - [ ] Type safe unions.
