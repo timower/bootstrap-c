@@ -54,27 +54,27 @@ func convertType(type : Type *) -> const i8 * {
   switch (type->kind) {
   case TypeKind::VOID:
     return "void";
-  case TypeKind::INT: {
+
+  case TypeKind::INT:
     let buf : i8 * = malloc(16);
     sprintf(buf, "i%d", type->size);
     return buf;
-  }
+
   case TypeKind::POINTER:
     return "ptr";
-  case TypeKind::STRUCT: {
+
+  case TypeKind::STRUCT:
     let len = type->tag.end - type->tag.data;
     let buf : i8 * = malloc((len + 10) as u64);
     sprintf(buf, "%%struct.%.*s", len, type->tag.data);
     return buf;
-  }
 
-  case TypeKind::ARRAY: {
+  case TypeKind::ARRAY:
     let buf : i8 * = malloc(32);
     sprintf(buf, "[%d x %s]", type->size, convertType(type->arg));
     return buf;
-  }
 
-  case TypeKind::FUNC: {
+  case TypeKind::FUNC:
     let buf : i8 * = malloc(128);
     let cur = buf + sprintf(buf, "%s (", convertType(type->result));
     for (let arg = type->arg; arg != NULL; arg = arg->argNext) {
@@ -88,10 +88,10 @@ func convertType(type : Type *) -> const i8 * {
     }
     sprintf(cur, ")");
     return buf;
-  }
 
   case TypeKind::ENUM:
     return "i32";
+
   case TypeKind::TAG:
     failEmit("Unknown type to emit");
   }
@@ -192,7 +192,7 @@ func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
   case ExprKind::VARIABLE:
     return lookupVar(state, expr->identifier);
 
-  case ExprKind::INDEX: {
+  case ExprKind::INDEX:
     let array : Value;
     if (expr->lhs->type->kind == TypeKind::ARRAY) {
       array = emitAddr(state, expr->lhs);
@@ -208,9 +208,8 @@ func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
     printf("  %s = getelementptr inbounds %s, ptr %s, %s %s\n", gep.val,
            convertType(expr->lhs->type->arg), array.val, index.type, index.val);
     return gep;
-  }
 
-  case ExprKind::MEMBER: {
+  case ExprKind::MEMBER:
     let agg = expr->op.kind == TokenKind::DOT ? emitAddr(state, expr->lhs)
                                               : emitExpr(state, expr->lhs);
     let aggType = expr->op.kind == TokenKind::DOT ? expr->lhs->type
@@ -221,18 +220,17 @@ func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
     printf("  %s = getelementptr inbounds %s, ptr %s, i32 0, i32 %d\n", gep.val,
            convertType(aggType), agg.val, expr->value);
     return gep;
-  }
 
   case ExprKind::UNARY:
     if (expr->op.kind == TokenKind::STAR) {
       return emitExpr(state, expr->rhs);
     }
-
   default:
-    printExpr(expr);
-    failEmit(" Can't be use as lvalue");
     break;
   }
+
+  printExpr(expr);
+  failEmit(" Can't be use as lvalue");
 
   let v : Value;
   v.val = "undef";
@@ -566,19 +564,14 @@ func emitUnary(state : EmitState *, expr : ExprAST *) -> Value {
   let constop : const i8 *;
   let upcast = 0;
   switch (expr->op.kind) {
-  default:
-  case TokenKind::INC_OP:
-  case TokenKind::DEC_OP:
-    failEmit("Invalid unary");
-    break;
+  case TokenKind::PLUS:
+    return operand;
 
   case TokenKind::STAR:
     res.type = convertType(expr->type);
     printf("  %s = load %s, ptr %s\n", res.val, res.type, operand.val);
     return res;
 
-  case TokenKind::PLUS:
-    return operand;
   case TokenKind::MINUS:
     instr = "sub";
     constop = "0";
@@ -592,6 +585,9 @@ func emitUnary(state : EmitState *, expr : ExprAST *) -> Value {
     constop = "0";
     upcast = 1;
     break;
+
+  default:
+    failEmit("Invalid unary");
   }
 
   res.type = operand.type;
@@ -822,6 +818,7 @@ func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
       v.val = "null";
       return v;
     }
+    return intToVal(expr->value, expr->type);
   case ExprKind::SCOPE:
     return intToVal(expr->value, expr->type);
   case ExprKind::BINARY:
@@ -843,8 +840,7 @@ func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
   case ExprKind::CALL:
     return emitCall(state, expr);
 
-  case ExprKind::INDEX:
-  case ExprKind::MEMBER:
+  case ExprKind::INDEX, ExprKind::MEMBER:
     return emitMemberOrIndex(state, expr);
 
   case ExprKind::CAST:
@@ -853,11 +849,8 @@ func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
   case ExprKind::CONDITIONAL:
     return emitCond(state, expr);
 
-  case ExprKind::SIZEOF:
-    printExpr(expr);
-
-  case ExprKind::ARG_LIST:
   default:
+    printExpr(expr);
     failEmit("Unsupported expr");
   }
 
@@ -1000,8 +993,7 @@ func getCases(state
               : Case *, index
               : i32) -> Case * {
   switch (expr->kind) {
-  case ExprKind::SCOPE:
-  case ExprKind::INT:
+  case ExprKind::SCOPE, ExprKind::INT:
     let constExpr = emitExpr(state, expr);
     let cse : Case * = calloc(1, sizeof(struct Case));
     cse->n = index;
@@ -1018,16 +1010,16 @@ func getCases(state
 }
 
 func emitSwitch(state : EmitState *, stmt : StmtAST *) {
-  let idx = getCount(state);
+  let switchIdx = getCount(state);
 
   let switchState = newEmitState(state);
 
   let buf : i8 * = malloc(32);
-  sprintf(buf, "cont.%d", idx);
+  sprintf(buf, "cont.%d", switchIdx);
   switchState.curBreakLabel = buf;
 
   let expr = emitExpr(&switchState, stmt->expr);
-  printf("  br label %%switch.%d\n", idx);
+  printf("  br label %%switch.%d\n", switchIdx);
 
   let cases : Case * = NULL;
   let defaultLabel : i8 * = NULL;
@@ -1035,15 +1027,15 @@ func emitSwitch(state : EmitState *, stmt : StmtAST *) {
   for (let caseStmt = stmt->stmt; caseStmt != NULL;
        caseStmt = caseStmt->nextStmt) {
 
+    // Jump to end of switch at the end of the previous case.
+    printf("  br label %%cont.%d\n", switchIdx);
+
     if (caseStmt->kind == StmtKind::CASE) {
-      let index = getCount(state);
+      let caseIdx = getCount(state);
 
-      // fallthrough.
-      // TODO: remove...
-      printf("  br label %%case.%d\n", index);
-      printf("case.%d:\n", index);
+      printf("case.%d:\n", caseIdx);
 
-      cases = getCases(state, caseStmt->expr, cases, index);
+      cases = getCases(state, caseStmt->expr, cases, caseIdx);
 
     } else if (caseStmt->kind == StmtKind::DEFAULT) {
 
@@ -1051,12 +1043,11 @@ func emitSwitch(state : EmitState *, stmt : StmtAST *) {
         failEmit("Multiple default");
       }
 
-      let idx = getCount(state);
+      let defaultIdx = getCount(state);
       defaultLabel = malloc(32);
-      sprintf(defaultLabel, "default.%d", idx);
+      sprintf(defaultLabel, "default.%d", defaultIdx);
 
-      printf("  br label %%default.%d\n", idx);
-      printf("default.%d:\n", idx);
+      printf("default.%d:\n", defaultIdx);
 
     } else {
       failEmit("Unsupported switch stmt");
@@ -1069,20 +1060,21 @@ func emitSwitch(state : EmitState *, stmt : StmtAST *) {
   }
 
   // fallthrough to the end of the switch
-  printf("  br label %%cont.%d\n", idx);
+  printf("  br label %%cont.%d\n", switchIdx);
 
-  printf("switch.%d:\n", idx);
+  printf("switch.%d:\n", switchIdx);
 
   if (defaultLabel != NULL) {
     printf("  switch %s %s, label %%%s [\n", expr.type, expr.val, defaultLabel);
   } else {
-    printf("  switch %s %s, label %%cont.%d [\n", expr.type, expr.val, idx);
+    printf("  switch %s %s, label %%cont.%d [\n", expr.type, expr.val,
+           switchIdx);
   }
   for (let cse = cases; cse != NULL; cse = cse->next) {
     printf("    %s %s, label %%case.%d\n", cse->val.type, cse->val.val, cse->n);
   }
   printf("  ]\n");
-  printf("cont.%d:\n", idx);
+  printf("cont.%d:\n", switchIdx);
 }
 
 func emitStmt(state : EmitState *, stmt : StmtAST *) {
@@ -1118,8 +1110,7 @@ func emitStmt(state : EmitState *, stmt : StmtAST *) {
   case StmtKind::SWITCH:
     return emitSwitch(state, stmt);
 
-  case StmtKind::CASE:
-  case StmtKind::DEFAULT:
+  case StmtKind::CASE, StmtKind::DEFAULT:
     failEmit("Case outside of switch");
     break;
 

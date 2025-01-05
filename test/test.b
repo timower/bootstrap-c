@@ -74,7 +74,7 @@ func main(argc : i32, argv : i8 **) -> i32 {
   //   test(fn);
   // }
 
-  let x = Kind::C;
+  let x = Kind::B;
   switch (x) {
   case Kind::A, Kind::B:
     puts("A or B");
