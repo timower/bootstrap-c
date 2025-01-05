@@ -39,6 +39,12 @@ void failSema(const i8 *msg) {
   exit(1);
 }
 
+void failSemaExpr(const i8 *msg, struct ExprAST *expr) {
+  printExpr(expr);
+  printf("\n");
+  failSema(msg);
+}
+
 struct SemaState *getRoot(struct SemaState *state) {
   while (state->parent != NULL) {
     state = state->parent;
@@ -66,11 +72,15 @@ i32 typeEq(struct Type *one, struct Type *two) {
     return typeEq(one->arg, two->arg);
 
   case STRUCT_TYPE:
+  case ENUM_TYPE:
     return tokCmp(one->tag, two->tag);
 
   case FUNC_TYPE:
     failSema("TODO: type eq func");
     break;
+
+  default:
+    failSema("Unknown type for typeEq");
   }
 
   return 1;
@@ -123,6 +133,16 @@ i32 canCast(struct ExprAST *expr, struct Type *to) {
   // void * can be converted from and to any other pointer..
   if (from->kind == POINTER_TYPE && to->kind == POINTER_TYPE &&
       (from->arg->kind == VOID_TYPE || to->arg->kind == VOID_TYPE)) {
+    return 1;
+  }
+
+  // enums can be casted to integers
+  if (from->kind == ENUM_TYPE && to->kind == INT_TYPE2) {
+    return 1;
+  }
+
+  // and vice versa
+  if (from->kind == INT_TYPE2 && to->kind == ENUM_TYPE) {
     return 1;
   }
 
@@ -203,6 +223,11 @@ i32 getSize(struct SemaState *state, struct Type *type) {
   switch (type->kind) {
   case VOID_TYPE:
     return 0;
+
+    // default enum is i32 = 4 bytes.
+  case ENUM_TYPE:
+    return 4;
+
   case INT_TYPE2:
     return type->size / 8;
 
@@ -385,6 +410,22 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     failSema("TODO: sema all exprs");
     break;
 
+  case SCOPE_EXPR: {
+    struct DeclAST *decl = lookupType(state, expr->parent);
+    if (decl == NULL || decl->type->kind != ENUM_TYPE) {
+      failSema("Expected enum type for scope expr");
+    }
+
+    struct DeclAST *fieldDecl = findField(decl, expr->identifier, &expr->value);
+    if (fieldDecl == NULL) {
+      printToken(expr->identifier);
+      failSema(" Cannot find field");
+    }
+
+    expr->type = newType(ENUM_TYPE);
+    expr->type->tag = decl->type->tag;
+  } break;
+
   case MEMBER_EXPR:
     semaExpr(state, expr->lhs);
     struct DeclAST *structDecl = NULL;
@@ -507,7 +548,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
     }
     semaExpr(state, expr->rhs);
     if (expr->rhs->type->kind != INT_TYPE2) {
-      failSema("Can't index with non integer");
+      failSemaExpr("Can't index with non integer", expr);
     }
     expr->type = expr->lhs->type->arg;
     break;
@@ -637,18 +678,30 @@ void semaDecl(struct SemaState *state, struct DeclAST *decl) {
     return;
 
   case ENUM_DECL: {
-    addLocalDecl(state, decl);
+    // Type unsafe enum, TODO: remove
+    if (decl->name.kind == IDENTIFIER) {
+      addLocalDecl(state, decl);
 
-    // TODO: this is wrong..
-    struct SemaState *root = getRoot(state);
+      // TODO: this is wrong..
+      struct SemaState *root = getRoot(state);
 
-    // add a global/root var for reach field.
-    for (struct DeclAST *field = decl->fields; field != NULL;
-         field = field->next) {
-      struct DeclList *newLocal = newDeclList(field);
-      newLocal->next = root->locals;
-      root->locals = newLocal;
+      // add a global/root var for reach field.
+      for (struct DeclAST *field = decl->fields; field != NULL;
+           field = field->next) {
+        struct DeclList *newLocal = newDeclList(field);
+        newLocal->next = root->locals;
+        root->locals = newLocal;
+      }
+    } else {
+      if (findType(state->types, decl->type->tag) != NULL) {
+        failSema("Type redef");
+      }
+
+      struct DeclList *type = newDeclList(decl);
+      type->next = state->types;
+      state->types = type;
     }
+
   } break;
 
   case FUNC_DECL:
@@ -808,9 +861,10 @@ void semaStmt(struct SemaState *state, struct StmtAST *stmt) {
     semaExpr(&subState, stmt->expr);
     subState.switchType = stmt->expr->type;
 
-    if (stmt->expr->type->kind != INT_TYPE2) {
+    if (stmt->expr->type->kind != INT_TYPE2 &&
+        stmt->expr->type->kind != ENUM_TYPE) {
       printType(stmt->expr->type);
-      failSema("Switch expr must be integer");
+      failSema("Switch expr must be integer or enum");
     }
 
     semaStmt(&subState, stmt->stmt);
@@ -848,4 +902,3 @@ struct DeclAST *semaTopLevel(struct SemaState *state, struct DeclAST *decl) {
 
   return decl;
 }
-

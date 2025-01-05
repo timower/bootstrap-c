@@ -82,7 +82,12 @@ const i8 *convertType(struct Type *type) {
     sprintf(cur, ")");
     return buf;
   }
+
+  case ENUM_TYPE:
+    return "i32";
   }
+
+  failEmit("Unknown type to emit");
   return NULL;
 }
 
@@ -720,6 +725,22 @@ struct Value emitCast(struct EmitState *state, struct ExprAST *expr) {
     return v;
   }
 
+  if (from->kind == ENUM_TYPE && to->kind == INT_TYPE2) {
+    // Enum is i32
+    if (to->size == 4 && to->isSigned) {
+      return v;
+    }
+    from = getInt32();
+  }
+
+  if (from->kind == INT_TYPE2 && to->kind == ENUM_TYPE) {
+    // Enum is i32
+    if (from->size == 4 && from->isSigned) {
+      return v;
+    }
+    to = getInt32();
+  }
+
   if (from->kind != INT_TYPE2 || to->kind != INT_TYPE2) {
     failEmit("Unsupported cast");
   }
@@ -786,6 +807,7 @@ struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
       v.val = "null";
       return v;
     }
+  case SCOPE_EXPR:
     return intToVal(expr->value, expr->type);
   case BINARY_EXPR:
     return emitBinOp(state, expr);
@@ -820,6 +842,7 @@ struct Value emitExpr(struct EmitState *state, struct ExprAST *expr) {
     printExpr(expr);
 
   case ARG_LIST:
+  default:
     failEmit("Unsupported expr");
   }
 
@@ -1166,6 +1189,10 @@ void emitGlobalVar(struct EmitState *state, struct DeclAST *decl) {
 void emitGlobalDecl(struct EmitState *state, struct DeclAST *decl) {
   switch (decl->kind) {
   case ENUM_DECL:
+    // Enum type declarations are not emitted.
+    if (decl->type->kind != INT_TYPE2) {
+      return;
+    }
   case VAR_DECL:
     emitGlobalVar(state, decl);
     break;

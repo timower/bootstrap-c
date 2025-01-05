@@ -12,12 +12,17 @@ TODO
  - [x] Add `as` cast operator.
  - [x] Remove implicit casts.
  - [x] Support multiple file imports.
+ - [ ] Type safe enums.
+    * `enum Foo { A, B }; enum Foo x = Foo::A;`
  - [ ] Change type syntax to `let foo: type` and func to `func foo() -> type`.
+    * `let x: i32 = 5;`
+    * `func foo() -> i32 { return 5; }`
+ - [ ] Switch statements that make sense.
+ - [ ] Type safe unions.
  - [ ] Require extern for external functions.
  - [ ] Remove function declarations, supporting use before define.
  - [ ] Actual constant expressions and decls.
  - [ ] Remove statement and expression distinction.
- - [ ] Type safe enums.
  - [ ] Add tuples
  - [ ] Add Unit type, remove void.
  - [ ] Correctly padded structs.
