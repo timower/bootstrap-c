@@ -297,7 +297,7 @@ const i8 *intTypes[] = {
 /// \{
 void printStr(i8 *start, i8 *end) {
   for (i8 *c = start; c != end; c++) {
-    putchar(*c);
+    putchar(*c as i32);
   }
 }
 
@@ -314,7 +314,7 @@ void failParseArg(struct ParseState *state, const i8 *msg, const i8 *arg) {
   i32 line = 1;
   i32 column = 0;
   for (const i8 *c = state->start; c < state->current && c < state->end; c++) {
-    if (iseol(*c)) {
+    if (iseol(*c as i32)) {
       line++;
       column = 0;
     } else {
@@ -617,17 +617,17 @@ i32 tokCmp(struct Token one, struct Token two) {
     return 0;
   }
 
-  return memcmp(one.data, two.data, len1) == 0;
+  return memcmp(one.data, two.data, len1 as u64) == 0;
 }
 
 i32 tokCmpStr(struct Token one, const i8 *str) {
   i64 len1 = one.end - one.data;
-  i64 len2 = strlen(str);
+  i64 len2 = strlen(str) as i64;
   if (len1 != len2) {
     return 0;
   }
 
-  return memcmp(one.data, str, len1) == 0;
+  return memcmp(one.data, str, len1 as u64) == 0;
 }
 
 // 1. parse
@@ -638,7 +638,7 @@ i32 nextChar(struct ParseState *state) {
     return -1;
   }
 
-  i32 result = *state->current;
+  i32 result = *state->current as i32;
   state->current++;
   return result;
 }
@@ -648,7 +648,7 @@ i32 peekChar(struct ParseState *state) {
   if (state->current >= state->end) {
     return -1;
   }
-  return *state->current;
+  return *state->current as i32;
 }
 
 /// True if the current character is an EOL character
@@ -661,6 +661,10 @@ struct Token getToken(struct ParseState *state) {
   i8 *tokenStart = state->current;
   i32 lastChar = nextChar(state);
   struct Token token;
+
+  // TODO: const expressions and make these global
+  const i32 tokenSize = (sizeof(tokens) / sizeof(tokens[0])) as i32;
+  const i32 intTypeSize = (sizeof(intTypes) / sizeof(intTypes[0])) as i32;
 
   // Eat whitespace
   while (is_space(lastChar)) {
@@ -683,7 +687,7 @@ struct Token getToken(struct ParseState *state) {
     token.end = state->current; // one past the end!
 
     // Check if it's a keyword.
-    for (i32 i = CONTINUE; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
+    for (i32 i = CONTINUE; i < tokenSize; i++) {
       if (tokCmpStr(token, tokens[i])) {
         token.kind = i;
         return token;
@@ -691,7 +695,7 @@ struct Token getToken(struct ParseState *state) {
     }
 
     // i32 types [iu](8|16|32|64)
-    for (i32 i = 0; i < sizeof(intTypes) / sizeof(intTypes[0]); i++) {
+    for (i32 i = 0; i < intTypeSize; i++) {
       if (tokCmpStr(token, intTypes[i])) {
         token.kind = INT2;
         return token;
@@ -758,10 +762,10 @@ struct Token getToken(struct ParseState *state) {
   }
 
   // Asume operator
-  for (i32 i = CONTINUE; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
-    i64 len = strlen(tokens[i]);
+  for (i32 i = CONTINUE; i < tokenSize; i++) {
+    i64 len = strlen(tokens[i]) as i64;
     i64 remaining = state->end - tokenStart;
-    if (len < remaining && memcmp(tokenStart, tokens[i], len) == 0) {
+    if (len < remaining && memcmp(tokenStart, tokens[i], len as u64) == 0) {
       token.kind = i;
       token.data = tokenStart;
 
@@ -800,16 +804,16 @@ struct ExprAST *newExpr(i32 kind) {
   return result;
 }
 
-i8 getEscaped(i32 c) {
-  switch (c) {
+i8 getEscaped(i8 c) {
+  switch (c as i32) {
   case 'n':
-    return '\n';
+    return '\n' as i8;
   case 't':
-    return '\t';
+    return '\t' as i8;
   case 'r':
-    return '\r';
+    return '\r' as i8;
   case '0':
-    return '\0';
+    return '\0' as i8;
   default:
     return c;
   }
@@ -821,13 +825,13 @@ struct ExprAST *parseNumber(struct ParseState *state) {
   i8 *start = state->curToken.data;
   if (*start == '\'') {
     if (start[1] == '\\') {
-      result->value = getEscaped(start[2]);
+      result->value = getEscaped(start[2]) as i32;
     } else {
-      result->value = start[1];
+      result->value = start[1] as i32;
     }
   } else {
     i8 *endp = state->curToken.end;
-    i32 num = strtol(start, &endp, 10);
+    i32 num = strtol(start, &endp, 10) as i32;
     result->value = num;
   }
 
@@ -1252,6 +1256,20 @@ struct Type *getInt32() {
   return type;
 }
 
+struct Type *getIPtr() {
+  struct Type *type = newType(INT_TYPE2);
+  type->isSigned = 1;
+  type->size = 64; // TODO: target dependent
+  return type;
+}
+
+struct Type *getUPtr() {
+  struct Type *type = newType(INT_TYPE2);
+  type->isSigned = 0;
+  type->size = 64; // TODO: target dependent
+  return type;
+}
+
 void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   getNextToken(state);
   decl->type = getInt32();
@@ -1308,7 +1326,7 @@ void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
     decl->type = newType(INT_TYPE2);
     decl->type->isSigned = *state->curToken.data == 'i';
     i8 *end = state->curToken.end;
-    decl->type->size = strtol(state->curToken.data + 1, &end, 10);
+    decl->type->size = strtol(state->curToken.data + 1, &end, 10) as i32;
 
     getNextToken(state);
   } else if (match(state, VOID)) {
@@ -1721,7 +1739,6 @@ i32 typeEq(struct Type *one, struct Type *two) {
   return 1;
 }
 
-// TODO: Remove implicit casts after adding 'as'
 struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
   struct Type *from = expr->type;
 
@@ -1729,21 +1746,15 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
     return expr;
   }
 
-  // Sign change, no-op for now. TODO: remove
-  if (from->kind == INT_TYPE2 && to->kind == INT_TYPE2 &&
-      from->size == to->size) {
-    return expr;
-  }
-
-  // Same signedness but different type
-  if (from->kind == INT_TYPE2 && to->kind == INT_TYPE2 &&
-      from->size != to->size) {
-    struct ExprAST *res = newExpr(CAST_EXPR);
-    res->lhs = expr;
+  // Allow integer expression casting
+  if (to->kind == INT_TYPE2 && expr->kind == INT_EXPR) {
+    struct ExprAST *res = newExpr(INT_EXPR);
+    res->value = expr->value;
     res->type = to;
     return res;
   }
 
+  // TODO: Remove and use 'as' once the ': type' syntax is implemented.
   // void * can be converted from and to any other pointer..
   if (from->kind == POINTER_TYPE && to->kind == POINTER_TYPE &&
       (from->arg->kind == VOID_TYPE || to->arg->kind == VOID_TYPE)) {
@@ -1753,28 +1764,32 @@ struct ExprAST *doConvert(struct ExprAST *expr, struct Type *to) {
   return NULL;
 }
 
-struct Type *getCommonType(struct Type *a, struct Type *b) {
-  if (typeEq(a, b)) {
-    return a;
+i32 canCast(struct ExprAST *expr, struct Type *to) {
+  struct Type *from = expr->type;
+
+  if (typeEq(from, to)) {
+    return 1;
   }
 
-  // i32, char -> i32
-  if (a->kind == INT_TYPE2 && b->kind == INT_TYPE2) {
-    if (a->size > b->size) {
-      return a;
-    }
-    return b;
+  // Sign change, no-op for now.
+  if (from->kind == INT_TYPE2 && to->kind == INT_TYPE2 &&
+      from->size == to->size) {
+    return 1;
   }
 
-  if (a->kind == POINTER_TYPE && b->kind == POINTER_TYPE) {
-    if (a->arg->kind == VOID_TYPE) {
-      return a;
-    }
-    if (b->arg->kind == VOID_TYPE) {
-      return b;
-    }
+  // Same signedness but different type
+  if (from->kind == INT_TYPE2 && to->kind == INT_TYPE2 &&
+      from->size != to->size) {
+    return 1;
   }
-  return NULL;
+
+  // void * can be converted from and to any other pointer..
+  if (from->kind == POINTER_TYPE && to->kind == POINTER_TYPE &&
+      (from->arg->kind == VOID_TYPE || to->arg->kind == VOID_TYPE)) {
+    return 1;
+  }
+
+  return 0;
 }
 
 void checkBool(struct ExprAST *expr) {
@@ -1888,7 +1903,7 @@ void semaExpr(struct SemaState *state, struct ExprAST *expr) {
     decl->kind = VAR_DECL;
     decl->type = expr->type;
 
-    i8 *name = malloc(32);
+    i8 *name = malloc(32 as u64);
     i32 n = sprintf(name, "str.%d", root->strCount++);
     decl->name.kind = IDENTIFIER;
     decl->name.data = name;
@@ -1923,12 +1938,11 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
   semaExpr(state, expr->lhs);
   semaExpr(state, expr->rhs);
 
-  struct Type *commonType = getCommonType(expr->lhs->type, expr->rhs->type);
-
   switch (expr->op.kind) {
   case COMMA:
     expr->type = expr->rhs->type;
     break;
+
     // comparision results in i32.
   case LESS:
   case GREATER:
@@ -1936,15 +1950,20 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
   case GE_OP:
   case EQ_OP:
   case NE_OP:
-    // TODO: this is wrong?
-    if (commonType == NULL) {
-      printExpr(expr);
-      failSema(": Binary op on different types");
+    if (!typeEq(expr->lhs->type, expr->rhs->type)) {
+      struct ExprAST *lhsConv = doConvert(expr->lhs, expr->rhs->type);
+
+      if (lhsConv == NULL) {
+        struct ExprAST *rhsConv = doConvert(expr->rhs, expr->lhs->type);
+        if (rhsConv == NULL) {
+          printExpr(expr);
+          failSema(": Binary op on different types");
+        }
+        expr->rhs = rhsConv;
+      } else {
+        expr->lhs = lhsConv;
+      }
     }
-
-    expr->lhs = doConvert(expr->lhs, commonType);
-    expr->rhs = doConvert(expr->rhs, commonType);
-
     expr->type = getInt32();
     return;
 
@@ -1960,9 +1979,7 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
         failSema("Only char pointer subtract supported");
       }
 
-      expr->type = newType(INT_TYPE2);
-      expr->type->isSigned = 1;
-      expr->type->size = 64; // TODO: depend on target
+      expr->type = getIPtr();
       break;
     }
   case PLUS:
@@ -1979,7 +1996,7 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
       break;
     }
 
-  default:
+  default: {
     if (isAssign(expr->op)) {
       struct ExprAST *conv = doConvert(expr->rhs, expr->lhs->type);
       if (conv == NULL) {
@@ -1991,18 +2008,22 @@ void semaBinExpr(struct SemaState *state, struct ExprAST *expr) {
       break;
     }
 
-    if (commonType == NULL) {
-      printExpr(expr);
-      failSema(": Binary op on different types");
+    if (!typeEq(expr->lhs->type, expr->rhs->type)) {
+      struct ExprAST *lhsConv = doConvert(expr->lhs, expr->rhs->type);
+      if (lhsConv == NULL) {
+        struct ExprAST *rhsConv = doConvert(expr->rhs, expr->lhs->type);
+        if (rhsConv == NULL) {
+          printExpr(expr);
+          failSema(": type mismatch");
+        }
+        expr->rhs = rhsConv;
+      } else {
+        expr->lhs = lhsConv;
+      }
     }
-    expr->lhs = doConvert(expr->lhs, commonType);
-    expr->rhs = doConvert(expr->rhs, commonType);
 
-    if (expr->lhs == NULL || expr->rhs == NULL) {
-      failSema("Wot");
-    }
-
-    expr->type = commonType;
+    expr->type = expr->lhs->type;
+  }
   }
 }
 
@@ -2134,9 +2155,7 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
   } break;
 
   case INT_EXPR:
-    expr->type = newType(INT_TYPE2);
-    expr->type->size = 32;
-    expr->type->isSigned = 1;
+    expr->type = getInt32();
     return;
 
   case BINARY_EXPR:
@@ -2195,12 +2214,16 @@ void semaExprNoDecay(struct SemaState *state, struct ExprAST *expr) {
       expr->value = getSize(state, expr->sizeofArg);
     }
     expr->kind = INT_EXPR;
-    expr->type = getInt32();
+    expr->type = getUPtr();
     break;
+
   case CAST_EXPR:
     semaExpr(state, expr->lhs);
     if (expr->type == NULL) {
       failSema("Cast without type?");
+    }
+    if (!canCast(expr->lhs, expr->type)) {
+      failSema("Can't cast");
     }
     break;
   }
@@ -2446,8 +2469,8 @@ const i8 *convertType(struct Type *type) {
   case POINTER_TYPE:
     return "ptr";
   case STRUCT_TYPE: {
-    i32 len = type->tag.end - type->tag.data;
-    i8 *buf = malloc(len + 10);
+    i64 len = type->tag.end - type->tag.data;
+    i8 *buf = malloc((len + 10) as u64);
     sprintf(buf, "%%struct.%.*s", len, type->tag.data);
     return buf;
   }
@@ -2508,8 +2531,8 @@ struct Value getNextTemp(struct EmitState *state) {
 struct Value getGlobal(struct Token ident) {
   struct Value val;
 
-  i32 len = ident.end - ident.data;
-  i8 *buf = malloc(len + 2);
+  i64 len = ident.end - ident.data;
+  i8 *buf = malloc((len + 2) as u64);
   sprintf(buf, "@%.*s", len, ident.data);
   val.val = buf;
 
@@ -2994,13 +3017,13 @@ struct Value emitVarRef(struct EmitState *state, struct ExprAST *expr) {
 }
 
 struct Value getStrConst(struct Type *type, struct Token tok) {
-  i32 len = tok.end - tok.data;
-  i8 *val = malloc(len + 16);
+  i64 len = tok.end - tok.data;
+  i8 *val = malloc((len + 16) as u64);
 
   i8 *cur = val;
   cur += sprintf(val, "c\""); // %.*s\\00\"", len, tok.data);
 
-  for (i32 i = 0; i < len; i++) {
+  for (i64 i = 0; i < len; i++) {
     if (tok.data[i] == '\\') {
       i8 c = getEscaped(tok.data[++i]);
       cur += sprintf(cur, "\\%02x", c);
@@ -3023,7 +3046,7 @@ struct Value emitStrRef(struct EmitState *state, struct ExprAST *expr) {
 
   struct Type *strType = newType(ARRAY_TYPE);
   strType->arg = expr->type->arg;
-  strType->size = expr->identifier.end - expr->identifier.data + 1;
+  strType->size = (expr->identifier.end - expr->identifier.data + 1) as i32;
   struct Value strConst = getStrConst(strType, expr->identifier);
 
   printf("%s = constant %s %s\n", strGlobal.val, strConst.type, strConst.val);
@@ -3039,7 +3062,7 @@ struct Value emitArray(struct EmitState *state, struct ExprAST *expr) {
     return res;
   }
 
-  i8 *buf = malloc(64 * expr->type->size);
+  i8 *buf = malloc(64 * expr->type->size as u64);
   res.val = buf;
 
   buf += sprintf(buf, "[ ");
@@ -3477,7 +3500,7 @@ void emitFunc(struct EmitState *state, struct DeclAST *decl) {
   const i8 *defOrDecl = decl->body == NULL ? "declare" : "define";
   printf("%s %s %s(", defOrDecl, convertType(decl->type->result), val.val);
   for (struct DeclAST *arg = decl->fields; arg != NULL; arg = arg->next) {
-    i32 len = arg->name.end - arg->name.data;
+    i64 len = arg->name.end - arg->name.data;
     printf("%s %%%.*s", convertType(arg->type), len, arg->name.data);
     if (arg->next != NULL) {
       printf(", ");
@@ -3494,7 +3517,7 @@ void emitFunc(struct EmitState *state, struct DeclAST *decl) {
 
     for (struct DeclAST *arg = decl->fields; arg != NULL; arg = arg->next) {
       struct Value addr = emitLocalVar(&funcState, arg);
-      i32 len = arg->name.end - arg->name.data;
+      i64 len = arg->name.end - arg->name.data;
       printf("  store %s %%%.*s, ptr %s\n", convertType(arg->type), len,
              arg->name.data, addr.val);
     }
@@ -3591,7 +3614,7 @@ i32 main(i32 argc, i8 **argv) {
     return -1;
   }
 
-  i32 size = lseek(fd, 0, 2); //  SEEK_END
+  i64 size = lseek(fd, 0, 2); //  SEEK_END
   if (size == -1) {
     return -1;
   }
@@ -3600,11 +3623,11 @@ i32 main(i32 argc, i8 **argv) {
     return -1;
   }
 
-  i8 *fileMem = malloc(size);
+  i8 *fileMem = malloc(size as u64);
 
-  i32 off = 0;
+  i64 off = 0;
   while (off != size) {
-    i32 r = read(fd, fileMem + off, size - off);
+    i64 r = read(fd, fileMem + off, (size - off) as u64);
     if (r == -1) {
       return -1;
     }

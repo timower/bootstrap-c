@@ -10,7 +10,8 @@ TODO
 ----
  - [x] Add correct integer types (i8, i16, i32, i64) and (u8, u16, u32, u64).
  - [x] Add `as` cast operator.
- - [ ] Remove implicit casts.
+ - [x] Remove implicit casts.
+ - [ ] Add iptr and uptr types.
  - [ ] Support multiple file imports.
  - [ ] Type safe enums.
  - [ ] Change type syntax to `let foo: type`.
