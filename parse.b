@@ -210,6 +210,7 @@ struct Token getNextToken(struct ParseState *state) {
   return result;
 }
 
+// number := [0-9]+ | '[\n\t\r\\'"]' | '.'
 struct ExprAST *parseNumber(struct ParseState *state) {
   struct ExprAST *result = newExpr(INT_EXPR);
 
@@ -230,6 +231,7 @@ struct ExprAST *parseNumber(struct ParseState *state) {
   return result;
 }
 
+// string := '"' [^"]* '"'
 struct ExprAST *parseString(struct ParseState *state) {
   struct ExprAST *result = newExpr(STR_EXPR);
   result->identifier = state->curToken;
@@ -237,15 +239,28 @@ struct ExprAST *parseString(struct ParseState *state) {
   return result;
 }
 
-struct ExprAST *parseIdentifier(struct ParseState *state) {
-  struct ExprAST *result = newExpr(VARIABLE_EXPR);
-  result->identifier = state->curToken;
-  getNextToken(state);
+// ident_or_scope := identifier | identifier '::' identifier
+struct ExprAST *parseIdentifierOrScope(struct ParseState *state) {
+  struct Token ident = getNextToken(state);
+
+  if (!match(state, SCOPE)) {
+    struct ExprAST *result = newExpr(VARIABLE_EXPR);
+    result->identifier = ident;
+    return result;
+  }
+
+  getNextToken(state); // eat ::
+  expect(state, IDENTIFIER);
+
+  struct ExprAST *result = newExpr(SCOPE_EXPR);
+  result->parent = ident;
+  result->identifier = getNextToken(state);
   return result;
 }
 
 struct ExprAST *parseExpression(struct ParseState *state);
 
+// paren := '(' expression ')'
 struct ExprAST *parseParen(struct ParseState *state) {
   getNextToken(state); // eat (
 
@@ -256,10 +271,15 @@ struct ExprAST *parseParen(struct ParseState *state) {
   return expr;
 }
 
+// primary := identifier
+//          | identifier '::' identifier
+//          | number
+//          | string
+//          | paren
 struct ExprAST *parsePrimary(struct ParseState *state) {
   switch (state->curToken.kind) {
   case IDENTIFIER:
-    return parseIdentifier(state);
+    return parseIdentifierOrScope(state);
   case CONSTANT:
     return parseNumber(state);
   case STRING_LITERAL:
@@ -272,7 +292,10 @@ struct ExprAST *parsePrimary(struct ParseState *state) {
   }
 }
 
+// index := lhs '[' expression ']'
 struct ExprAST *parseIndex(struct ParseState *state, struct ExprAST *lhs) {
+  getNextToken(state); // eat [
+
   struct ExprAST *expr = newExpr(INDEX_EXPR);
   expr->lhs = lhs;
 
@@ -286,7 +309,10 @@ struct ExprAST *parseIndex(struct ParseState *state, struct ExprAST *lhs) {
 
 struct ExprAST *parseAssignment(struct ParseState *state);
 
+// call := lhs '(' [assignment (',' assigment)*] ')'
 struct ExprAST *parseCall(struct ParseState *state, struct ExprAST *lhs) {
+  getNextToken(state); // eat (
+
   struct ExprAST *expr = newExpr(CALL_EXPR);
 
   expr->lhs = lhs;
@@ -317,6 +343,7 @@ struct ExprAST *parseCall(struct ParseState *state, struct ExprAST *lhs) {
   return expr;
 }
 
+// member := lhs ['.' | '->'] identifier
 struct ExprAST *parseMember(struct ParseState *state, struct ExprAST *lhs) {
   struct ExprAST *expr = newExpr(MEMBER_EXPR);
   expr->lhs = lhs;
@@ -330,6 +357,7 @@ struct ExprAST *parseMember(struct ParseState *state, struct ExprAST *lhs) {
   return expr;
 }
 
+// unary_postfix := lhs '++' | lhs '--'
 struct ExprAST *parseUnaryPostfix(struct ParseState *state,
                                   struct ExprAST *lhs) {
   struct ExprAST *expr = newExpr(UNARY_EXPR);
@@ -342,6 +370,7 @@ struct ExprAST *parseUnaryPostfix(struct ParseState *state,
   return expr;
 }
 
+// postfix := primary ( [index | call | member | unary_postfix] )*
 struct ExprAST *parsePostfix(struct ParseState *state) {
   struct ExprAST *expr = parsePrimary(state);
 
@@ -352,21 +381,17 @@ struct ExprAST *parsePostfix(struct ParseState *state) {
 
     switch (state->curToken.kind) {
     case OPEN_BRACKET:
-      getNextToken(state);
       expr = parseIndex(state, expr);
       break;
     case OPEN_PAREN:
-      getNextToken(state);
       expr = parseCall(state, expr);
       break;
     case DOT:
     case PTR_OP:
-      // parseMember calls getNextToken after storing op.
       expr = parseMember(state, expr);
       break;
     case INC_OP:
     case DEC_OP:
-      // parseMember calls getNextToken after storing op.
       expr = parseUnaryPostfix(state, expr);
       break;
     default:
@@ -392,6 +417,17 @@ i32 isDecl(struct Token tok) {
 
 void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl);
 
+// unary := postfix
+//        | '++' unary
+//        | '--' unary
+//        | '&' unary
+//        | '*' unary
+//        | '+' unary
+//        | '-' unary
+//        | '~' unary
+//        | '!' unary
+//        | sizeof '(' unary ')'
+//        | sizeof '(' decl ')'
 struct ExprAST *parseUnary(struct ParseState *state) {
   if (match(state, INC_OP) || match(state, DEC_OP) || match(state, AND) ||
       match(state, STAR) || match(state, PLUS) || match(state, MINUS) ||
@@ -429,6 +465,7 @@ struct ExprAST *parseUnary(struct ParseState *state) {
   return parsePostfix(state);
 }
 
+// cast := unary | unary 'as' decl
 struct ExprAST *parseCast(struct ParseState *state) {
   struct ExprAST *lhs = parseUnary(state);
 
@@ -488,6 +525,7 @@ i32 getPrecedence(struct Token tok) {
   }
 }
 
+// binary_rhs := lhs ( op cast )*
 struct ExprAST *parseBinOpRhs(struct ParseState *state, i32 prec,
                               struct ExprAST *lhs) {
   while (1) {
@@ -515,11 +553,14 @@ struct ExprAST *parseBinOpRhs(struct ParseState *state, i32 prec,
   }
 }
 
+// binary := cast (op cast)*
 struct ExprAST *parseBinOp(struct ParseState *state) {
   struct ExprAST *lhs = parseCast(state);
   return parseBinOpRhs(state, 0, lhs);
 }
 
+// conditional := binary
+//              | binary '?' expression ':' conditional
 struct ExprAST *parseConditional(struct ParseState *state) {
   struct ExprAST *cond = parseBinOp(state);
   if (!match(state, QUESTION)) {
@@ -539,8 +580,7 @@ struct ExprAST *parseConditional(struct ParseState *state) {
   return expr;
 }
 
-
-
+// assignment := conditional | conditional '=' assignment
 struct ExprAST *parseAssignment(struct ParseState *state) {
   struct ExprAST *lhs = parseConditional(state);
   if (!isAssign(state->curToken)) {
@@ -556,6 +596,7 @@ struct ExprAST *parseAssignment(struct ParseState *state) {
   return expr;
 }
 
+// expression := assignment (',' assignment)*
 struct ExprAST *parseExpression(struct ParseState *state) {
   struct ExprAST *expr = parseAssignment(state);
   if (expr == NULL) {
@@ -580,6 +621,8 @@ struct ExprAST *parseExpression(struct ParseState *state) {
 
 struct DeclAST *parseNoInitDecl(struct ParseState *state);
 
+// struct := 'struct' identifier '{' decl* '}'
+//         | 'struct' identifier
 void parseStruct(struct ParseState *state, struct DeclAST *decl) {
   getNextToken(state); // eat struct
   decl->type = newType(STRUCT_TYPE);
@@ -612,12 +655,23 @@ void parseStruct(struct ParseState *state, struct DeclAST *decl) {
   decl->next = NULL;
 }
 
+// enum := 'enum' '{' identifier  (',' identifier )* ','? '}'
+//       | 'enum' identifier '{' identifier  (',' identifier )* ','? '}'
+//       | 'enum' identifier
 void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   getNextToken(state);
-  decl->type = getInt32();
 
-  // not supported: enum tag.
-  expect(state, OPEN_BRACE);
+  if (match(state, IDENTIFIER)) {
+    decl->type = newType(ENUM_TYPE);
+    decl->type->tag = getNextToken(state);
+    if (!match(state, OPEN_BRACE)) {
+      return;
+    }
+  } else {
+    decl->type = getInt32();
+    expect(state, OPEN_BRACE);
+  }
+
   getNextToken(state);
 
   decl->kind = ENUM_DECL;
@@ -652,6 +706,7 @@ void parseEnum(struct ParseState *state, struct DeclAST *decl) {
   decl->next = NULL;
 }
 
+// decl_specifier := ['const'] ( struct | enum | int | 'void' )
 void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
   i32 isConst = 0;
   if (match(state, CONST)) {
@@ -680,6 +735,7 @@ void parseDeclSpecifier(struct ParseState *state, struct DeclAST *decl) {
   decl->type->isConst = isConst;
 }
 
+// func_decl := '(' [decl (',' decl)*] ')'
 void parseFuncDecl(struct ParseState *state, struct DeclAST *decl) {
   getNextToken(state); // eat (
   decl->kind = FUNC_DECL;
@@ -728,7 +784,7 @@ void parseFuncDecl(struct ParseState *state, struct DeclAST *decl) {
   funcType->argNext = NULL;
 }
 
-// simplified declarator
+// declarator := star* identifier ('[' ']' | func_decl )
 void parseDeclarator(struct ParseState *state, struct DeclAST *decl) {
   //  Parse pointers
   while (match(state, STAR)) {
@@ -752,13 +808,12 @@ void parseDeclarator(struct ParseState *state, struct DeclAST *decl) {
     struct Type *arrayType = newType(ARRAY_TYPE);
     arrayType->arg = decl->type;
     decl->type = arrayType;
-  }
-  // Function decl
-  else if (match(state, OPEN_PAREN)) {
+  } else if (match(state, OPEN_PAREN)) {
     parseFuncDecl(state, decl);
   }
 }
 
+// no_init_decl := decl_specifier declarator
 struct DeclAST *parseNoInitDecl(struct ParseState *state) {
   struct DeclAST *decl = newDecl();
   decl->kind = VAR_DECL;
@@ -766,9 +821,15 @@ struct DeclAST *parseNoInitDecl(struct ParseState *state) {
   // specifiers
   parseDeclSpecifier(state, decl);
 
-  // We don't support taging and creating a struct in the same decl.
+  // We don't support taging and creating a struct or enum in the same decl.
   if (decl->kind == STRUCT_DECL) {
     expect(state, SEMICOLON);
+    return decl;
+  }
+
+  // TODO: merge with if above. Currently we have to be backwards compat.
+  if (decl->kind == ENUM_DECL && decl->type->tag.kind != TOK_EOF &&
+      match(state, SEMICOLON)) {
     return decl;
   }
 
@@ -776,6 +837,7 @@ struct DeclAST *parseNoInitDecl(struct ParseState *state) {
   return decl;
 }
 
+// initializer := assignment | '{' assignment (',' assignment)* ','? '}'
 struct ExprAST *parseInitializer(struct ParseState *state) {
   if (!match(state, OPEN_BRACE)) {
     return parseAssignment(state);
@@ -808,12 +870,6 @@ struct ExprAST *parseInitializer(struct ParseState *state) {
   cur->rhs = NULL;
 
   return expr;
-}
-
-struct StmtAST *newStmt(i32 kind) {
-  struct StmtAST *stmt = calloc(1, sizeof(struct StmtAST));
-  stmt->kind = kind;
-  return stmt;
 }
 
 struct StmtAST *parseStmt(struct ParseState *state);
@@ -1062,4 +1118,3 @@ struct DeclAST *parseTopLevel(struct ParseState *state) {
 
   return firstDecl;
 }
-

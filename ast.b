@@ -5,21 +5,21 @@ struct Token {
     TOK_EOF,
 
     // clang-format off
-    // constants
-    IDENTIFIER, CONSTANT, STRING_LITERAL, INT2,
+  // constants
+  IDENTIFIER, CONSTANT, STRING_LITERAL, INT2,
 
-    // keywords
-    CONTINUE, DEFAULT, SIZEOF, STRUCT, SWITCH, RETURN, IMPORT, CONST,
-    WHILE,    BREAK,   VOID,   ENUM,   CASE,   ELSE,
+  // keywords
+  CONTINUE, DEFAULT, SIZEOF, STRUCT, SWITCH, RETURN, IMPORT, CONST,
+  WHILE,    BREAK,   VOID,   ENUM,   CASE,   ELSE,
 
-    // operators
-    LEFT_ASSIGN, RIGHT_ASSIGN, ELLIPSIS,  FOR, PTR_OP, INC_OP, DEC_OP, LEFT_OP,
-    RIGHT_OP, LE_OP, GE_OP, EQ_OP, NE_OP, AND_OP, OR_OP, MUL_ASSIGN,
-    DIV_ASSIGN, MOD_ASSIGN, ADD_ASSIGN, SUB_ASSIGN, AND_ASSIGN, XOR_ASSIGN,
-    OR_ASSIGN, IF, AS, SEMICOLON, OPEN_BRACE, CLOSE_BRACE, COMMA, COLON, EQ,
-    OPEN_PAREN, CLOSE_PAREN, OPEN_BRACKET, CLOSE_BRACKET, DOT, AND, BANG,
-    TILDE, MINUS, PLUS, STAR, SLASH, PERCENT, LESS, GREATER, HAT, PIPE,
-    QUESTION,
+  // operators
+  LEFT_ASSIGN, RIGHT_ASSIGN, ELLIPSIS,  FOR, SCOPE,  PTR_OP, INC_OP, DEC_OP,
+  LEFT_OP, RIGHT_OP, LE_OP, GE_OP, EQ_OP, NE_OP, AND_OP, OR_OP, MUL_ASSIGN,
+  DIV_ASSIGN, MOD_ASSIGN, ADD_ASSIGN, SUB_ASSIGN, AND_ASSIGN, XOR_ASSIGN,
+  OR_ASSIGN, IF, AS, SEMICOLON, OPEN_BRACE, CLOSE_BRACE, COMMA, COLON, EQ,
+  OPEN_PAREN, CLOSE_PAREN, OPEN_BRACKET, CLOSE_BRACKET, DOT, AND, BANG,
+  TILDE, MINUS, PLUS, STAR, SLASH, PERCENT, LESS, GREATER, HAT, PIPE,
+  QUESTION
     // clang-format on
   } kind;
 
@@ -32,13 +32,14 @@ const i8 *tokens[] = {
 
     "continue", "default", "sizeof", "struct", "switch", "return", "import",
     "const",    "while",   "break",  "void",   "enum",   "case",   "else",
-    "<<=",      ">>=",     "...",    "for",    "->",     "++",     "--",
-    "<<",       ">>",      "<=",     ">=",     "==",     "!=",     "&&",
-    "||",       "*=",      "/=",     "%=",     "+=",     "-=",     "&=",
-    "^=",       "|=",      "if",     "as",     ";",      "{",      "}",
-    ",",        ":",       "=",      "(",      ")",      "[",      "]",
-    ".",        "&",       "!",      "~",      "-",      "+",      "*",
-    "/",        "%",       "<",      ">",      "^",      "|",      "?",
+    "<<=",      ">>=",     "...",    "for",    "::",     "->",     "++",
+    "--",       "<<",      ">>",     "<=",     ">=",     "==",     "!=",
+    "&&",       "||",      "*=",     "/=",     "%=",     "+=",     "-=",
+    "&=",       "^=",      "|=",     "if",     "as",     ";",      "{",
+    "}",        ",",       ":",      "=",      "(",      ")",      "[",
+    "]",        ".",       "&",      "!",      "~",      "-",      "+",
+    "*",        "/",       "%",      "<",      ">",      "^",      "|",
+    "?",
 };
 
 // Represents an expression in the AST.
@@ -53,11 +54,11 @@ struct ExprAST {
     CALL_EXPR,  // lhs(rhs->lhs, rhs->rhs->lhs, ..)
     INDEX_EXPR, // lhs[rhs]
 
-    MEMBER_EXPR, // lhs.identifier or lhs->identifier based on op, value is
-                 // field index after sema
+    MEMBER_EXPR, // lhs.identifier, lhs->identifier,
+    SCOPE_EXPR,  // parent::identifier
 
     UNARY_EXPR,  // lhs++, lhs-- or --rhs ++rhs based on op
-    SIZEOF_EXPR, // sizeof rhs
+    SIZEOF_EXPR, // sizeof(rhs) or sizeof(sizeofArg)
 
     CONDITIONAL_EXPR, // cond ? lhs : rhs
 
@@ -81,6 +82,7 @@ struct ExprAST {
   struct ExprAST *lhs;
   struct ExprAST *rhs;
 
+  struct Token parent;
   struct Token identifier;
 
   struct ExprAST *cond;
@@ -96,6 +98,7 @@ struct Type {
     POINTER_TYPE,
     ARRAY_TYPE,
     FUNC_TYPE,
+    ENUM_TYPE,
   } kind;
 
   // For tagged structs / enums.
@@ -225,7 +228,6 @@ void printToken(struct Token token) {
   printStr(token.data, token.end);
   printf(") ");
 }
-
 
 void printType(struct Type *type) {
   if (type->isConst) {
@@ -368,6 +370,15 @@ void printExpr(struct ExprAST *expr) {
     break;
   case ARG_LIST:
     break;
+  case SCOPE_EXPR:
+    printf("SCOPE(");
+    printToken(expr->parent);
+    printf("::");
+    printToken(expr->identifier);
+    printf(")");
+    break;
+  default:
+    printf("UNKOWN");
   }
 }
 
@@ -505,6 +516,12 @@ struct ExprAST *newExpr(i32 kind) {
 struct DeclAST *newDecl() {
   struct DeclAST *decl = calloc(1, sizeof(struct DeclAST));
   return decl;
+}
+
+struct StmtAST *newStmt(i32 kind) {
+  struct StmtAST *stmt = calloc(1, sizeof(struct StmtAST));
+  stmt->kind = kind;
+  return stmt;
 }
 
 struct Type *newType(i32 kind) {
