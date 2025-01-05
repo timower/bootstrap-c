@@ -58,7 +58,6 @@ func typeEq(one : Type *, two : Type *) -> i32 {
   switch (one->kind) {
   case TypeKind::VOID:
     break;
-
   case TypeKind::INT:
     return one->isSigned == two->isSigned && one->size == two->size;
 
@@ -75,8 +74,6 @@ func typeEq(one : Type *, two : Type *) -> i32 {
 
   case TypeKind::FUNC:
     failSema("TODO: type eq func");
-    break;
-
   default:
     failSema("Unknown type for typeEq");
   }
@@ -455,7 +452,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
 
     expr->type = newType(TypeKind::ENUM);
     expr->type->tag = decl->type->tag;
-    break;
 
   case ExprKind::MEMBER:
     semaExpr(state, expr->lhs);
@@ -481,8 +477,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
       failSema(" Cannot find field");
     }
     expr->type = fieldDecl->type;
-    break;
-
   case ExprKind::CALL:
     semaExpr(state, expr->lhs);
     // We don't support function pointers
@@ -512,8 +506,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
       failSema("Function call arg length mismatch");
     }
     expr->type = expr->lhs->type->result;
-    break;
-
   case ExprKind::CONDITIONAL:
     semaExpr(state, expr->cond);
     checkBool(expr->cond);
@@ -524,8 +516,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
       failSema("?: lhs and rhs should have same type");
     }
     expr->type = expr->lhs->type;
-    break;
-
   case ExprKind::ARRAY:
     expr->type = newType(TypeKind::ARRAY);
     for (let sub = expr; sub != NULL; sub = sub->rhs) {
@@ -542,11 +532,9 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
 
       expr->type->size++;
     }
-    break;
 
   case ExprKind::STR:
     semaString(state, expr);
-    break;
 
   case ExprKind::VARIABLE:
     let local = lookupLocal(state, expr->identifier);
@@ -558,7 +546,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
     }
 
     expr->type = local->type;
-    break;
 
   case ExprKind::INT:
     expr->type = getInt32();
@@ -566,8 +553,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
 
   case ExprKind::BINARY:
     semaBinExpr(state, expr);
-    break;
-
   case ExprKind::INDEX:
     semaExpr(state, expr->lhs);
     if (expr->lhs->type->kind == TypeKind::POINTER &&
@@ -588,8 +573,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
       failSemaExpr("Can't index with non integer", expr);
     }
     expr->type = expr->lhs->type->arg;
-    break;
-
   case ExprKind::UNARY:
     if (expr->op.kind == TokenKind::AND) {
       semaExpr(state, expr->rhs);
@@ -619,8 +602,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
       expr->type = getInt32();
     }
 
-    break;
-
   case ExprKind::SIZEOF:
     if (expr->rhs != NULL) {
       semaExpr(state, expr->rhs);
@@ -630,8 +611,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
     }
     expr->kind = ExprKind::INT;
     expr->type = getUPtr();
-    break;
-
   case ExprKind::CAST:
     semaExpr(state, expr->lhs);
     if (expr->type == NULL) {
@@ -643,7 +622,6 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
       printType(expr->type);
       failSema(" Can't cast");
     }
-    break;
   }
 }
 
@@ -712,11 +690,8 @@ func semaDecl(state : SemaState *, decl : DeclAST *) {
 
       resolveTypeTags(state, field->type);
     }
-    break;
-
   case DeclKind::ENUM:
     break;
-
   case DeclKind::FUNC:
     addLocalDecl(state, decl);
     if (decl->body != NULL) {
@@ -731,8 +706,6 @@ func semaDecl(state : SemaState *, decl : DeclAST *) {
       }
       semaStmt(&funcState, decl->body);
     }
-    break;
-
   case DeclKind::VAR:
     addLocalDecl(state, decl);
     if (decl->init != NULL) {
@@ -756,7 +729,6 @@ func semaDecl(state : SemaState *, decl : DeclAST *) {
 
       sizeArrayTypes(decl->type, decl->init->type);
     }
-    break;
   case DeclKind::IMPORT:
     if (state->parent != NULL) {
       failSema("Import not allowed in local scope");
@@ -786,8 +758,6 @@ func semaDecl(state : SemaState *, decl : DeclAST *) {
     // extraDecls.
     let extras = semaTopLevel(state, fileDecls);
     state->extraDecls = extras;
-
-    break;
 
   case DeclKind::ENUM_FIELD:
     failSema("Shoudln't happen");
@@ -885,7 +855,6 @@ func semaStmt(state : SemaState *, stmt : StmtAST *) {
     if (stmt->expr != NULL) {
       semaExpr(state, stmt->expr);
     }
-    break;
   case StmtKind::DECL:
     if (stmt->decl->kind != DeclKind::VAR) {
       failSema("Only var decls allowed in local scope");
@@ -905,15 +874,12 @@ func semaStmt(state : SemaState *, stmt : StmtAST *) {
       }
       stmt->expr = conv;
     }
-    break;
-
   case StmtKind::COMPOUND:
     let subState = newState(state);
 
     for (let cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       semaStmt(&subState, cur);
     }
-    break;
 
   case StmtKind::IF:
     semaExpr(state, stmt->expr);
@@ -923,13 +889,10 @@ func semaStmt(state : SemaState *, stmt : StmtAST *) {
     if (stmt->stmt != NULL) {
       semaStmt(state, stmt->stmt);
     }
-    break;
-
   case StmtKind::WHILE:
     semaExpr(state, stmt->expr);
     checkBool(stmt->expr);
     semaStmt(state, stmt->stmt);
-    break;
   case StmtKind::FOR:
     let subState = newState(state);
     semaStmt(&subState, stmt->init);
@@ -939,16 +902,11 @@ func semaStmt(state : SemaState *, stmt : StmtAST *) {
     semaExpr(&subState, stmt->expr);
 
     semaStmt(&subState, stmt->stmt);
-    break;
 
   case StmtKind::SWITCH:
     semaSwitchStmt(state, stmt);
-    break;
-
   case StmtKind::CASE, StmtKind::DEFAULT:
     failSema("Case or default outside of switch");
-    break;
-
   case StmtKind::BREAK:
     break;
   }
@@ -966,7 +924,6 @@ func addTaggedType(state : SemaState *, decl : DeclAST *) {
     let type = newDeclList(decl);
     type->next = state->types;
     state->types = type;
-    break;
   default:
     break;
   }

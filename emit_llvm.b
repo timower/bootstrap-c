@@ -294,64 +294,44 @@ func emitBinary(state
   switch (opKind) {
   default:
     failEmit("Invalid binary op");
-    break;
   case TokenKind::PLUS:
     instr = "add";
-    break;
   case TokenKind::MINUS:
     instr = "sub";
-    break;
   case TokenKind::STAR:
     instr = "mul";
-    break;
   case TokenKind::SLASH:
     instr = "sdiv";
-    break;
   case TokenKind::PERCENT:
     instr = "srem";
-    break;
-
   case TokenKind::LEFT_OP:
     instr = "shl";
-    break;
   case TokenKind::RIGHT_OP:
     instr = "ashr";
-    break;
-
   case TokenKind::LESS:
     instr = "icmp slt";
     upcast = 1;
-    break;
   case TokenKind::GREATER:
     instr = "icmp sgt";
     upcast = 1;
-    break;
   case TokenKind::LE_OP:
     instr = "icmp sle";
     upcast = 1;
-    break;
   case TokenKind::GE_OP:
     instr = "icmp sge";
     upcast = 1;
-    break;
   case TokenKind::EQ_OP:
     instr = "icmp eq";
     upcast = 1;
-    break;
   case TokenKind::NE_OP:
     instr = "icmp ne";
     upcast = 1;
-    break;
-
   case TokenKind::AND:
     instr = "and";
-    break;
   case TokenKind::HAT:
     instr = "xor";
-    break;
   case TokenKind::PIPE:
     instr = "or";
-    break;
   }
   let res = getNextTemp(state);
   res.type = convertType(resType);
@@ -379,34 +359,24 @@ func emitAssignment(state : EmitState *, expr : ExprAST *) -> Value {
   switch (expr->op.kind) {
   case TokenKind::ADD_ASSIGN:
     op = TokenKind::PLUS;
-    break;
   case TokenKind::SUB_ASSIGN:
     op = TokenKind::MINUS;
-    break;
   case TokenKind::MUL_ASSIGN:
     op = TokenKind::STAR;
-    break;
   case TokenKind::DIV_ASSIGN:
     op = TokenKind::SLASH;
-    break;
   case TokenKind::MOD_ASSIGN:
     op = TokenKind::PERCENT;
-    break;
   case TokenKind::LEFT_ASSIGN:
     op = TokenKind::LEFT_OP;
-    break;
   case TokenKind::RIGHT_ASSIGN:
     op = TokenKind::RIGHT_OP;
-    break;
   case TokenKind::AND_ASSIGN:
     op = TokenKind::AND;
-    break;
   case TokenKind::XOR_ASSIGN:
     op = TokenKind::HAT;
-    break;
   case TokenKind::OR_ASSIGN:
     op = TokenKind::PIPE;
-    break;
   default:
     failEmit("Invalid assign op");
   }
@@ -575,16 +545,13 @@ func emitUnary(state : EmitState *, expr : ExprAST *) -> Value {
   case TokenKind::MINUS:
     instr = "sub";
     constop = "0";
-    break;
   case TokenKind::TILDE:
     instr = "xor";
     constop = "-1";
-    break;
   case TokenKind::BANG:
     instr = "icmp eq";
     constop = "0";
     upcast = 1;
-    break;
 
   default:
     failEmit("Invalid unary");
@@ -901,7 +868,6 @@ func emitLocalDecl(state : EmitState *, decl : DeclAST *) {
   switch (decl->kind) {
   case DeclKind::VAR:
     emitLocalVar(state, decl);
-    break;
 
   default:
     failEmit("Local Unsupported");
@@ -1003,7 +969,6 @@ func getCases(state
   case ExprKind::BINARY:
     let lhsCases = getCases(state, expr->lhs, cases, index);
     return getCases(state, expr->rhs, lhsCases, index);
-    break;
   default:
     failEmit("Unsupported case expr");
   }
@@ -1083,22 +1048,15 @@ func emitStmt(state : EmitState *, stmt : StmtAST *) {
     if (stmt->expr != NULL) {
       emitExpr(state, stmt->expr);
     }
-    break;
   case StmtKind::RETURN:
     emitReturn(state, stmt);
-    break;
-
   case StmtKind::DECL:
     emitLocalDecl(state, stmt->decl);
-    break;
-
   case StmtKind::COMPOUND:
     let newState = newEmitState(state);
     for (let cur = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
       emitStmt(&newState, cur);
     }
-    break;
-
   case StmtKind::IF:
     return emitIf(state, stmt);
 
@@ -1112,14 +1070,11 @@ func emitStmt(state : EmitState *, stmt : StmtAST *) {
 
   case StmtKind::CASE, StmtKind::DEFAULT:
     failEmit("Case outside of switch");
-    break;
-
   case StmtKind::BREAK:
     if (state->curBreakLabel == NULL) {
       failEmit("Break outside loop");
     }
     printf("  br label %%%s\n", state->curBreakLabel);
-    break;
   }
 }
 
@@ -1215,20 +1170,14 @@ func emitGlobalDecl(state : EmitState *, decl : DeclAST *) {
     return;
   case DeclKind::VAR:
     emitGlobalVar(state, decl);
-    break;
   case DeclKind::STRUCT:
     emitStruct(state, decl);
-    break;
   case DeclKind::FUNC:
     emitFunc(state, decl);
-    break;
-
   case DeclKind::IMPORT:
     break;
-
   case DeclKind::ENUM_FIELD:
     failEmit("Unsupported");
-    break;
   }
 }
 

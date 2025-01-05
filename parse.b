@@ -390,16 +390,12 @@ func parsePostfix(state : ParseState *) -> ExprAST * {
     switch (state->curToken.kind) {
     case TokenKind::OPEN_BRACKET:
       expr = parseIndex(state, expr);
-      break;
     case TokenKind::OPEN_PAREN:
       expr = parseCall(state, expr);
-      break;
     case TokenKind::DOT, TokenKind::PTR_OP:
       expr = parseMember(state, expr);
-      break;
     case TokenKind::INC_OP, TokenKind::DEC_OP:
       expr = parseUnaryPostfix(state, expr);
-      break;
     default:
       return expr;
     }
