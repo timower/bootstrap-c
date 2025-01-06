@@ -772,6 +772,27 @@ func emitCond(state : EmitState *, expr : ExprAST *) -> Value {
          res.val, res.type, trueVal.val, idx, falseVal.val, idx);
   return res;
 }
+
+func emitStructExpr(state : EmitState *, expr : ExprAST *) -> Value {
+  let type = convertType(expr->type);
+
+  let res : Value = {0};
+  res.type = type;
+  res.val = "undef";
+
+  for (let field = expr->rhs; field != NULL; field = field->rhs) {
+    let fieldVal = emitExpr(state, field->lhs);
+    let next = getNextTemp(state);
+    next.type = type;
+    printf("  %s = insertvalue %s %s, %s %s, %d\n", next.val, type, res.val,
+           fieldVal.type, fieldVal.val, field->value);
+
+    res = next;
+  }
+
+  return res;
+}
+
 // \returns The register name or value of the expr
 func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
   switch (expr->kind) {
@@ -815,6 +836,9 @@ func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
 
   case ExprKind::CONDITIONAL:
     return emitCond(state, expr);
+
+  case ExprKind::STRUCT:
+    return emitStructExpr(state, expr);
 
   default:
     printExpr(expr);

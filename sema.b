@@ -437,7 +437,32 @@ func semaString(state : SemaState *, expr : ExprAST *) {
 func semaExpr(state : SemaState *, expr : ExprAST *) {
   switch (expr->kind) {
   case ExprKind::ARG_LIST:
-    failSema("TODO: sema all exprs");
+    failSema("Arg list shouldn't occur");
+
+  case ExprKind::STRUCT:
+    let typeDecl = lookupType(state, expr->identifier);
+    if (typeDecl == NULL || typeDecl->type->kind != TypeKind::STRUCT) {
+      failSema("Expected struct type for struct init expression");
+    }
+
+    // TODO: verify field completeness.
+    for (let field = expr->rhs; field != NULL; field = field->rhs) {
+      let fieldDecl = findField(typeDecl, field->identifier, &field->value);
+      if (fieldDecl == NULL) {
+        printToken(expr->identifier);
+        failSema(" cannot find field");
+      }
+
+      semaExpr(state, field->lhs);
+      let conv = doConvert(field->lhs, fieldDecl->type);
+      if (conv == NULL) {
+        failSema("cannot convert to field type");
+      }
+      field->lhs = conv;
+    }
+
+    expr->type = typeDecl->type;
+
   case ExprKind::SCOPE:
     let decl = lookupType(state, expr->parent);
     if (decl == NULL || decl->type->kind != TypeKind::ENUM) {

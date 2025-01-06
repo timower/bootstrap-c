@@ -86,7 +86,8 @@ enum ExprKind {
   STR,      // "identifier"
   VARIABLE, // identifier
 
-  ARRAY, // {a, b, c}
+  ARRAY,  // {a, b, c}
+  STRUCT, // identifier { a, b, c }
 
   CALL,  // lhs(rhs->lhs, rhs->rhs->lhs, ..)
   INDEX, // lhs[rhs]
@@ -373,6 +374,16 @@ func printExpr(expr : ExprAST *) {
       printf(", ");
     }
     printf(")");
+  case ExprKind::STRUCT:
+    printToken(expr->identifier);
+    printf("{");
+    for (let field = expr->rhs; field != NULL; field = field->rhs) {
+      printToken(field->identifier);
+      printf(" = ");
+      printExpr(field->lhs);
+      printf(", ");
+    }
+    printf("}");
   case ExprKind::CAST:
     printf("CAST(");
     printExpr(expr->lhs);
