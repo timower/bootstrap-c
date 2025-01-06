@@ -248,23 +248,67 @@ func parseString(state : ParseState *) -> ExprAST * {
   return result;
 }
 
-// ident_or_scope := identifier | identifier '::' identifier
-func parseIdentifierOrScope(state : ParseState *) -> ExprAST * {
+func parseAssignment(state : ParseState *) -> ExprAST *;
+func parseConditional(state : ParseState *) -> ExprAST *;
+
+// structInit = '{' ( ident '=' cond ','  )* ','? '}'
+func parseStructInit(state : ParseState *, ident : Token) -> ExprAST * {
+  getNextToken(state); // eat '{'
+
+  let expr = newExpr(ExprKind::STRUCT);
+  expr->identifier = ident;
+
+  let cur = expr;
+  while (!match(state, TokenKind::CLOSE_BRACE)) {
+    cur->rhs = newExpr(ExprKind::STRUCT); // dummy struct expr
+    cur = cur->rhs;
+
+    expect(state, TokenKind::IDENTIFIER);
+    cur->identifier = getNextToken(state); // field name
+
+    expect(state, TokenKind::EQ);
+    getNextToken(state);
+
+    cur->lhs = parseConditional(state);
+
+    // close without trailing comma
+    if (match(state, TokenKind::CLOSE_BRACE)) {
+      break;
+    }
+
+    expect(state, TokenKind::COMMA);
+    getNextToken(state); // eat ,
+  }
+  getNextToken(state); // eat }
+  cur->rhs = NULL;
+
+  return expr;
+}
+
+// identExpr := identifier
+//           | identifier '::' identifier
+//           | identifier '{' assign* '}'
+func parseIdentifierExpr(state : ParseState *) -> ExprAST * {
   let ident = getNextToken(state);
 
-  if (!match(state, TokenKind::SCOPE)) {
+  switch (state->curToken.kind) {
+  case TokenKind::OPEN_BRACE:
+    return parseStructInit(state, ident);
+
+  case TokenKind::SCOPE:
+    getNextToken(state); // eat ::
+    expect(state, TokenKind::IDENTIFIER);
+
+    let result = newExpr(ExprKind::SCOPE);
+    result->parent = ident;
+    result->identifier = getNextToken(state);
+    return result;
+
+  default:
     let result = newExpr(ExprKind::VARIABLE);
     result->identifier = ident;
     return result;
   }
-
-  getNextToken(state); // eat ::
-  expect(state, TokenKind::IDENTIFIER);
-
-  let result = newExpr(ExprKind::SCOPE);
-  result->parent = ident;
-  result->identifier = getNextToken(state);
-  return result;
 }
 
 func parseExpression(state : ParseState *) -> ExprAST *;
@@ -280,15 +324,14 @@ func parseParen(state : ParseState *) -> ExprAST * {
   return expr;
 }
 
-// primary := identifier
-//          | identifier '::' identifier
+// primary := identExpr
 //          | number
 //          | string
 //          | paren
 func parsePrimary(state : ParseState *) -> ExprAST * {
   switch (state->curToken.kind) {
   case TokenKind::IDENTIFIER:
-    return parseIdentifierOrScope(state);
+    return parseIdentifierExpr(state);
   case TokenKind::CONSTANT:
     return parseNumber(state);
   case TokenKind::STRING_LITERAL:
@@ -315,8 +358,6 @@ func parseIndex(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
 
   return expr;
 }
-
-func parseAssignment(state : ParseState *) -> ExprAST *;
 
 // call := lhs '(' [assignment (',' assigment)*] ')'
 func parseCall(state : ParseState *, lhs : ExprAST *) -> ExprAST * {

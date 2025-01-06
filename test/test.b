@@ -74,8 +74,8 @@ func main(argc : i32, argv : i8 **) -> i32 {
   //   test(fn);
   // }
 
-  let x = Kind::B;
-  switch (x) {
+  let x = Foo{kind = Kind::A, value = argc};
+  switch (x.kind) {
   case Kind::A, Kind::B:
     puts("A or B");
   case Kind::C:
