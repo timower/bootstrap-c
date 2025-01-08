@@ -115,6 +115,8 @@ enum ExprKind {
   BINARY, // a + b, ...
 
   CAST, // (type)lhs
+
+  PAREN, // (lhs)
 };
 
 // Represents an expression in the AST.
@@ -242,304 +244,6 @@ func tokCmpStr(one : Token, str : const i8 *) -> i32 {
 
   return memcmp(one.data, str, len1 as u64) == 0;
 }
-
-func printStr(start : i8 *, end : i8 *) {
-  for (let c = start; c != end; c++) {
-    putchar(*c as i32);
-  }
-}
-
-func printToken(token : Token) {
-  if (token.kind != TokenKind::IDENTIFIER) {
-    printf("%s", tokens[token.kind as i32]);
-  }
-  printStr(token.data, token.end);
-}
-
-func printType(type : Type *) {
-  if (type == NULL) {
-    printf("nullType ");
-    return;
-  }
-
-  if (type->isConst) {
-    printf("const ");
-  }
-  switch (type->kind) {
-  case TypeKind::INT:
-    if (type->isSigned) {
-      printf("i%d ", type->size);
-    } else {
-      printf("u%d ", type->size);
-    }
-  case TypeKind::VOID:
-    printf("void ");
-  case TypeKind::POINTER:
-    printType(type->arg);
-    printf("* ");
-  case TypeKind::ARRAY:
-    printType(type->arg);
-    if (type->size < 0) {
-      printf("[] ");
-    } else {
-      printf("[%d] ", type->size);
-    }
-  case TypeKind::STRUCT:
-    printf("struct ");
-    printStr(type->tag.data, type->tag.end);
-    printf(" ");
-  case TypeKind::FUNC:
-    printf("(");
-    for (let arg : Type * = type->arg; arg != NULL; arg = arg->argNext) {
-      printType(arg);
-      if (arg->argNext != NULL) {
-        printf(",");
-      }
-    }
-    if (type->isVarargs) {
-      printf("  ...");
-    }
-    printf(") -> ");
-    printType(type->result);
-  case TypeKind::ENUM:
-    printf("enum ");
-    printStr(type->tag.data, type->tag.end);
-    printf(" ");
-  case TypeKind::TAG:
-    printf("tag ");
-    printStr(type->tag.data, type->tag.end);
-    printf(" ");
-  }
-}
-
-func printExpr(expr : ExprAST *) {
-  if (expr == NULL) {
-    puts("ERROR! null expr");
-    return;
-  }
-
-  if (expr->type != NULL) {
-    printType(expr->type);
-  }
-
-  switch (expr->kind) {
-  case ExprKind::VARIABLE:
-    printToken(expr->identifier);
-  case ExprKind::INT:
-    printf("INT(%d)", expr->value);
-  case ExprKind::STR:
-    printf("STR(");
-    printStr(expr->identifier.data, expr->identifier.end);
-    printf(")");
-  case ExprKind::BINARY:
-    printf("%s(", tokens[expr->op.kind as i32]);
-    printExpr(expr->lhs);
-    printf(" ");
-    printExpr(expr->rhs);
-    printf(")");
-  case ExprKind::INDEX:
-    printf("INDEX(");
-    printExpr(expr->lhs);
-    printf(" ");
-    printExpr(expr->rhs);
-    printf(")");
-  case ExprKind::CALL:
-    printf("CALL(");
-    printExpr(expr->lhs);
-    for (let cur : ExprAST * = expr->rhs; cur != NULL; cur = cur->rhs) {
-      printf(" ");
-      printExpr(cur->lhs);
-    }
-    printf(")");
-  case ExprKind::MEMBER:
-    printf("MEMBER(");
-    printExpr(expr->lhs);
-    printf(" %s ", tokens[expr->op.kind as i32]);
-    printStr(expr->identifier.data, expr->identifier.end);
-    printf(")");
-  case ExprKind::UNARY:
-    printf("UNARY(");
-    if (expr->lhs != NULL) {
-      printExpr(expr->lhs);
-    }
-    printf("%s", tokens[expr->op.kind as i32]);
-    if (expr->rhs != NULL) {
-      printExpr(expr->rhs);
-    }
-    printf(")");
-  case ExprKind::SIZEOF:
-    printf("SIZEOF(");
-    if (expr->sizeofArg != NULL) {
-      printType(expr->sizeofArg);
-    } else {
-      printExpr(expr->rhs);
-    }
-    printf(")");
-  case ExprKind::CONDITIONAL:
-    printf("COND(");
-    printExpr(expr->cond);
-    printf(" ? ");
-    printExpr(expr->lhs);
-    printf(" : ");
-    printExpr(expr->rhs);
-    printf(")");
-  case ExprKind::ARRAY:
-    printf("ARRAY(");
-    for (; expr != NULL; expr = expr->rhs) {
-      printExpr(expr->lhs);
-      printf(", ");
-    }
-    printf(")");
-  case ExprKind::STRUCT:
-    printToken(expr->identifier);
-    printf("{");
-    for (let field = expr->rhs; field != NULL; field = field->rhs) {
-      printToken(field->identifier);
-      printf(" = ");
-      printExpr(field->lhs);
-      printf(", ");
-    }
-    printf("}");
-  case ExprKind::CAST:
-    printf("CAST(");
-    printExpr(expr->lhs);
-    printf(")");
-  case ExprKind::SCOPE:
-    printf("SCOPE(");
-    printToken(expr->parent);
-    printf("::");
-    printToken(expr->identifier);
-    printf(")");
-  default:
-    printf("UNKOWN");
-  }
-}
-
-func printDecl(decl : DeclAST *);
-
-func printStmt(stmt : StmtAST *) {
-  switch (stmt->kind) {
-  case StmtKind::DECL:
-    printDecl(stmt->decl);
-  case StmtKind::COMPOUND:
-    printf("{\n");
-    for (let cur : StmtAST * = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
-      printStmt(cur);
-    }
-    printf("}\n");
-  case StmtKind::EXPR:
-    printExpr(stmt->expr);
-    printf(";\n");
-  case StmtKind::FOR:
-    printf("for(\n");
-    printf("  ");
-    printStmt(stmt->init);
-    printf("  ");
-    printStmt(stmt->cond);
-    printf("  ");
-    printExpr(stmt->expr);
-    printf("\n):");
-    printStmt(stmt->stmt);
-  case StmtKind::IF:
-    printf("if(");
-    printExpr(stmt->expr);
-    printf(")\n");
-    printStmt(stmt->init);
-    if (stmt->stmt != NULL) {
-      printf("else\n");
-      printStmt(stmt->stmt);
-    }
-  case StmtKind::RETURN:
-    printf("return ");
-    if (stmt->expr != NULL) {
-      printExpr(stmt->expr);
-    }
-    printf(";\n");
-  case StmtKind::SWITCH:
-    printf("switch (");
-    printExpr(stmt->expr);
-    printf(") {\n");
-    for (let cur : StmtAST * = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
-      printStmt(cur);
-    }
-    printf("}\n");
-  case StmtKind::DEFAULT:
-    printf("default:\n");
-  case StmtKind::BREAK:
-    printf("break;\n");
-  case StmtKind::CASE:
-    printf("case ");
-    printExpr(stmt->expr);
-    printf(":\n");
-    for (let cur : StmtAST * = stmt->stmt; cur != NULL; cur = cur->nextStmt) {
-      printStmt(cur);
-    }
-  case StmtKind::WHILE:
-    printf("while (");
-    printExpr(stmt->expr);
-    printf(")\n");
-    printStmt(stmt->stmt);
-  }
-}
-
-func printDecl(decl : DeclAST *) {
-  switch (decl->kind) {
-  case DeclKind::STRUCT:
-    printType(decl->type);
-    printf("{\n");
-    for (let field : DeclAST * = decl->fields; field != NULL;
-         field = field->next) {
-      printf("  ");
-      printDecl(field);
-    }
-    printf("}");
-  case DeclKind::ENUM:
-    printType(decl->type);
-    printf("{\n");
-    for (let field : DeclAST * = decl->fields; field != NULL;
-         field = field->next) {
-      printf("  ");
-      printDecl(field);
-    }
-    printf("} ");
-  case DeclKind::ENUM_FIELD:
-    printToken(decl->name);
-  case DeclKind::VAR:
-    printf("let ");
-    printToken(decl->name);
-    printf(" : ");
-    printType(decl->type);
-
-    if (decl->init != NULL) {
-      printf(" = ");
-      printExpr(decl->init);
-    }
-  case DeclKind::FUNC:
-    printf("func ");
-    printToken(decl->name);
-    printf("(");
-    for (let field : DeclAST * = decl->fields; field != NULL;
-         field = field->next) {
-      printf("  ");
-      printDecl(field);
-      if (field->next != NULL) {
-        printf(",");
-      }
-    }
-    printf(") -> ");
-    printType(decl->type);
-
-    if (decl->body != NULL) {
-      printStmt(decl->body);
-    }
-  case DeclKind::IMPORT:
-    printf("Import ");
-    printToken(decl->name);
-    printf("\n");
-  }
-  printf("\n");
-}
-
 func newExpr(kind : ExprKind) -> ExprAST * {
   let result : ExprAST * = calloc(1, sizeof(struct ExprAST));
   result->kind = kind;
@@ -613,6 +317,68 @@ func isAssign(tok : Token) -> i32 {
   }
 }
 
-// Implemented in bootstrap.c needed in sema for imports.
-// TODO: can parse parse the import?
-func parseFile(name : const i8 *) -> DeclAST *;
+func getBinOpPrecedence(tok : Token) -> i32 {
+  switch (tok.kind) {
+  case TokenKind::STAR, TokenKind::SLASH, TokenKind::PERCENT:
+    return 100;
+
+  case TokenKind::PLUS, TokenKind::MINUS:
+    return 90;
+
+  case TokenKind::LEFT_OP, TokenKind::RIGHT_OP:
+    return 80;
+
+  case TokenKind::LESS, TokenKind::GREATER, TokenKind::LE_OP, TokenKind::GE_OP:
+    return 70;
+
+  case TokenKind::EQ_OP, TokenKind::NE_OP:
+    return 60;
+
+  case TokenKind::AND:
+    return 50;
+  case TokenKind::HAT:
+    return 40;
+  case TokenKind::PIPE:
+    return 30;
+
+  case TokenKind::AND_OP:
+    return 20;
+  case TokenKind::OR_OP:
+    return 10;
+
+  default:
+    return -1;
+  }
+}
+
+func getExprPrecedence(expr : ExprAST *) -> i32 {
+  switch (expr->kind) {
+  case ExprKind::BINARY:
+    if (isAssign(expr->op)) {
+      return 5;
+    }
+    if (expr->op.kind == TokenKind::COMMA) {
+      return 1;
+    }
+    return getBinOpPrecedence(expr->op);
+
+  case ExprKind::UNARY:
+    // Unary postfix
+    if (expr->rhs == NULL) {
+      return 120;
+    }
+    return 110;
+
+  case ExprKind::CALL, ExprKind::INDEX, ExprKind::MEMBER, ExprKind::STRUCT,
+      ExprKind::ARRAY:
+    return 120;
+  case ExprKind::CAST, ExprKind::SIZEOF:
+    return 110;
+  case ExprKind::CONDITIONAL:
+    return 9;
+
+  case ExprKind::INT, ExprKind::STR, ExprKind::VARIABLE, ExprKind::SCOPE,
+      ExprKind::ARG_LIST, ExprKind::PAREN:
+    return 200;
+  }
+}

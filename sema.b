@@ -1,4 +1,6 @@
 import ast;
+import parse;
+import print_ast;
 
 struct DeclList {
   decl : DeclAST *;
@@ -648,6 +650,9 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
       printType(expr->type);
       failSemaExpr(expr, " Can't cast");
     }
+  case ExprKind::PAREN:
+    semaExpr(state, expr->lhs);
+    expr->type = expr->lhs->type;
   }
 }
 
