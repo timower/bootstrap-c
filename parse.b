@@ -733,6 +733,7 @@ func parseCompoundStmt(state : ParseState *) -> StmtAST * {
     cur->nextStmt = parseStmt(state);
     cur = cur->nextStmt;
   }
+  stmt->endLocation = getLocation(state);
   getNextToken(state); // eat }
 
   stmt->stmt = stmt->nextStmt;
@@ -748,6 +749,7 @@ func parseExprStmt(state : ParseState *) -> StmtAST * {
   }
 
   expect(state, TokenKind::SEMICOLON);
+  stmt->endLocation = getLocation(state);
   getNextToken(state);
 
   return stmt;
@@ -758,6 +760,8 @@ func parseDeclarationOrFunction(state : ParseState *) -> DeclAST *;
 func parseDeclStmt(state : ParseState *) -> StmtAST * {
   let stmt = newLocStmt(state, StmtKind::DECL);
   stmt->decl = parseDeclarationOrFunction(state);
+  stmt->endLocation = stmt->decl->endLocation;
+
   return stmt;
 }
 
@@ -780,6 +784,7 @@ func parseForStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state);
 
   stmt->stmt = parseStmt(state);
+  stmt->endLocation = stmt->stmt->endLocation;
 
   return stmt;
 }
@@ -797,10 +802,12 @@ func parseIfStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state);
 
   stmt->init = parseStmt(state);
+  stmt->endLocation = stmt->init->endLocation;
 
   if (match(state, TokenKind::ELSE)) {
     getNextToken(state);
     stmt->stmt = parseStmt(state);
+    stmt->endLocation = stmt->stmt->endLocation;
   }
 
   return stmt;
@@ -816,6 +823,7 @@ func parseReturnStmt(state : ParseState *) -> StmtAST * {
   }
 
   expect(state, TokenKind::SEMICOLON);
+  stmt->endLocation = getLocation(state);
   getNextToken(state);
   return stmt;
 }
@@ -876,6 +884,7 @@ func parseCaseOrDefault(state : ParseState *) -> StmtAST * {
 
   stmt->stmt = stmt->nextStmt;
   stmt->nextStmt = NULL;
+  stmt->endLocation = cur->endLocation;
 
   return stmt;
 }
@@ -903,6 +912,7 @@ func parseSwitchStmt(state : ParseState *) -> StmtAST * {
     cur->nextStmt = cse;
     cur = cse;
   }
+  stmt->endLocation = getLocation(state);
   getNextToken(state); // eat }
 
   stmt->stmt = stmt->nextStmt;
@@ -924,6 +934,7 @@ func parseWhileStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state);
 
   stmt->stmt = parseStmt(state);
+  stmt->endLocation = stmt->stmt->endLocation;
 
   return stmt;
 }
@@ -962,6 +973,7 @@ func parseStmt(state : ParseState *) -> StmtAST * {
     getNextToken(state);
 
     expect(state, TokenKind::SEMICOLON);
+    stmt->endLocation = getLocation(state);
     getNextToken(state);
 
     return stmt;
@@ -977,9 +989,10 @@ func parseInitializer(state : ParseState *) -> ExprAST * {
   if (!match(state, TokenKind::OPEN_BRACE)) {
     return parseAssignment(state);
   }
-  getNextToken(state);
 
   let expr = newLocExpr(state, ExprKind::ARRAY);
+  getNextToken(state);
+
   let cur = expr;
   while (1) {
     // Should be parseInitializer(state), but let's not support nested inits.
@@ -1024,6 +1037,7 @@ func parseNameTypePair(state : ParseState *) -> DeclAST * {
   getNextToken(state);
 
   decl->type = parseType(state);
+  decl->endLocation = getLocation(state);
 
   return decl;
 }
@@ -1050,6 +1064,7 @@ func parseLetDecl(state : ParseState *) -> DeclAST * {
   }
 
   expect(state, TokenKind::SEMICOLON);
+  decl->endLocation = getLocation(state);
   getNextToken(state);
 
   return decl;
@@ -1082,6 +1097,7 @@ func parseStruct(state : ParseState *) -> DeclAST * {
     getNextToken(state); // eat ;
     fields = fields->next;
   }
+  decl->endLocation = getLocation(state);
   getNextToken(state); // eat }
 
   fields->next = NULL;
@@ -1120,6 +1136,8 @@ func parseEnum(state : ParseState *) -> DeclAST * {
     fields->next = field;
     fields = field;
 
+    field->endLocation = getLocation(state);
+
     if (match(state, TokenKind::CLOSE_BRACE)) {
       break;
     }
@@ -1127,6 +1145,7 @@ func parseEnum(state : ParseState *) -> DeclAST * {
     expect(state, TokenKind::COMMA);
     getNextToken(state);
   }
+  decl->endLocation = getLocation(state);
   getNextToken(state); // eat }
 
   fields->next = NULL;
@@ -1191,8 +1210,10 @@ func parseFuncDecl(state : ParseState *) -> DeclAST * {
 
   if (match(state, TokenKind::OPEN_BRACE)) {
     decl->body = parseCompoundStmt(state);
+    decl->endLocation = decl->body->endLocation;
   } else {
     expect(state, TokenKind::SEMICOLON);
+    decl->endLocation = getLocation(state);
     getNextToken(state); // eat ;
   }
 
@@ -1237,6 +1258,7 @@ func parseImportDecl(state : ParseState *) -> DeclAST * {
   expect(state, TokenKind::IDENTIFIER);
   let name = getNextToken(state);
 
+  decl->endLocation = getLocation(state);
   expect(state, TokenKind::SEMICOLON);
   getNextToken(state);
 
