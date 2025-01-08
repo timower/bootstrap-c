@@ -181,6 +181,7 @@ struct DeclAST {
   hasDef : i32;
 
   location : SourceLoc;
+  endLocation : SourceLoc;
 };
 
 enum StmtKind {
@@ -218,6 +219,7 @@ struct StmtAST {
   nextStmt : StmtAST *;
 
   location : SourceLoc;
+  endLocation : SourceLoc;
 };
 
 // utils
