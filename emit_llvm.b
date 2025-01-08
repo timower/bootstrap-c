@@ -39,6 +39,15 @@ func failEmit(msg : const i8 *) {
   exit(1);
 }
 
+func failEmitLoc(loc : SourceLoc, msg : const i8 *) {
+  printf("%s:%d:%d: %s\n", loc.fileName, loc.line, loc.column, msg);
+  exit(1);
+}
+
+func failEmitExpr(expr : ExprAST *, msg : const i8 *) {
+  failEmitLoc(expr->location, msg);
+}
+
 func newEmitState(parent : EmitState *) -> EmitState {
   let state : EmitState = {0};
   state.tmpCounter = parent->tmpCounter;
@@ -198,7 +207,7 @@ func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
       array = emitAddr(state, expr->lhs);
     } else {
       // array = emitExpr(state, expr->lhs);
-      failEmit("Unsupported index on non array");
+      failEmitExpr(expr, "Unsupported index on non array");
     }
     let index = emitExpr(state, expr->rhs);
 
@@ -229,8 +238,7 @@ func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
     break;
   }
 
-  printExpr(expr);
-  failEmit(" Can't be use as lvalue");
+  failEmitExpr(expr, " Can't be use as lvalue");
 
   let v : Value;
   v.val = "undef";
@@ -378,7 +386,7 @@ func emitAssignment(state : EmitState *, expr : ExprAST *) -> Value {
   case TokenKind::OR_ASSIGN:
     op = TokenKind::PIPE;
   default:
-    failEmit("Invalid assign op");
+    failEmitExpr(expr, "Invalid assign op");
   }
 
   let res = emitBinary(state, expr->type, op, lval, expr->lhs->type, val,
@@ -554,7 +562,7 @@ func emitUnary(state : EmitState *, expr : ExprAST *) -> Value {
     upcast = 1;
 
   default:
-    failEmit("Invalid unary");
+    failEmitExpr(expr, "Invalid unary");
   }
 
   res.type = operand.type;
@@ -720,7 +728,7 @@ func emitCast(state : EmitState *, expr : ExprAST *) -> Value {
   }
 
   if (from->kind != TypeKind::INT || to->kind != TypeKind::INT) {
-    failEmit("Unsupported cast");
+    failEmitExpr(expr, "Unsupported cast");
   }
 
   // No-op, same size cast.
@@ -741,7 +749,7 @@ func emitCast(state : EmitState *, expr : ExprAST *) -> Value {
     }
   } else {
     // Is impossible due to the check above.
-    failEmit("Unsupported cast");
+    failEmitExpr(expr, "Unsupported cast");
   }
 
   return res;
@@ -799,7 +807,7 @@ func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
   case ExprKind::INT:
     if (expr->type->kind == TypeKind::POINTER) {
       if (expr->value != 0) {
-        failEmit("Only null ptr supported");
+        failEmitExpr(expr, "Only null ptr supported");
       }
       let v : Value;
       v.type = "ptr";
@@ -841,8 +849,7 @@ func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
     return emitStructExpr(state, expr);
 
   default:
-    printExpr(expr);
-    failEmit("Unsupported expr");
+    failEmitExpr(expr, "Unsupported expr");
   }
 
   let v : Value;
@@ -994,7 +1001,7 @@ func getCases(state
     let lhsCases = getCases(state, expr->lhs, cases, index);
     return getCases(state, expr->rhs, lhsCases, index);
   default:
-    failEmit("Unsupported case expr");
+    failEmitExpr(expr, "Unsupported case expr");
   }
 }
 
