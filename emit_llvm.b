@@ -1,6 +1,7 @@
 import libc;
 
 import ast;
+import print_ast;
 import util;
 
 struct EmitState {
@@ -234,6 +235,8 @@ func emitAddr(state : EmitState *, expr : ExprAST *) -> Value {
     if (expr->op.kind == TokenKind::STAR) {
       return emitExpr(state, expr->rhs);
     }
+  case ExprKind::PAREN:
+    return emitAddr(state, expr->lhs);
   default:
     break;
   }
@@ -786,7 +789,7 @@ func emitStructExpr(state : EmitState *, expr : ExprAST *) -> Value {
 
   let res : Value = {0};
   res.type = type;
-  res.val = "undef";
+  res.val = "zeroinitializer";
 
   for (let field = expr->rhs; field != NULL; field = field->rhs) {
     let fieldVal = emitExpr(state, field->lhs);
@@ -847,6 +850,8 @@ func emitExpr(state : EmitState *, expr : ExprAST *) -> Value {
 
   case ExprKind::STRUCT:
     return emitStructExpr(state, expr);
+  case ExprKind::PAREN:
+    return emitExpr(state, expr->lhs);
 
   default:
     failEmitExpr(expr, "Unsupported expr");

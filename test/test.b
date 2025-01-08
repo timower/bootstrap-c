@@ -74,6 +74,10 @@ func main(argc : i32, argv : i8 **) -> i32 {
   //   test(fn);
   // }
 
+  if (argc == 0) {
+    return 0;
+  }
+
   let x = Foo{kind = Kind::A, value = argc};
   switch (x.kind) {
   case Kind::A, Kind::B:
@@ -82,5 +86,5 @@ func main(argc : i32, argv : i8 **) -> i32 {
     puts("C");
   }
 
-  return 0;
+  return 5 + 2 * 3 / (5 - 1);
 }

@@ -1,5 +1,13 @@
 import ast;
+import print_ast;
 import util;
+
+struct ParseOptions {
+  // If set to true, build a concere syntax tree,
+  // preserving parens.
+  // TODO: preserve comments.
+  concrete : i32;
+};
 
 struct ParseState {
   // [start, end[ contains the current data buffer.
@@ -17,6 +25,8 @@ struct ParseState {
 
   line : i32;
   lineStart : i8 *;
+
+  options : ParseOptions;
 };
 
 // 1. parse
@@ -335,7 +345,14 @@ func parseParen(state : ParseState *) -> ExprAST * {
 
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state); // eat )
-  return expr;
+  if (!state->options.concrete) {
+    return expr;
+  }
+
+  let res = newExpr(ExprKind::PAREN);
+  res->lhs = expr;
+  res->location = expr->location; // TODO: fix?
+  return res;
 }
 
 // primary := identExpr
@@ -608,47 +625,13 @@ func parseCast(state : ParseState *) -> ExprAST * {
   return expr;
 }
 
-func getPrecedence(tok : Token) -> i32 {
-  switch (tok.kind) {
-  case TokenKind::STAR, TokenKind::SLASH, TokenKind::PERCENT:
-    return 100;
-
-  case TokenKind::PLUS, TokenKind::MINUS:
-    return 90;
-
-  case TokenKind::LEFT_OP, TokenKind::RIGHT_OP:
-    return 80;
-
-  case TokenKind::LESS, TokenKind::GREATER, TokenKind::LE_OP, TokenKind::GE_OP:
-    return 70;
-
-  case TokenKind::EQ_OP, TokenKind::NE_OP:
-    return 60;
-
-  case TokenKind::AND:
-    return 50;
-  case TokenKind::HAT:
-    return 40;
-  case TokenKind::PIPE:
-    return 30;
-
-  case TokenKind::AND_OP:
-    return 20;
-  case TokenKind::OR_OP:
-    return 10;
-
-  default:
-    return -1;
-  }
-}
-
 // binary_rhs := lhs ( op cast )*
 func parseBinOpRhs(state
                    : ParseState *, prec
                    : i32, lhs
                    : ExprAST *) -> ExprAST * {
   while (1) {
-    let curPred = getPrecedence(state->curToken);
+    let curPred = getBinOpPrecedence(state->curToken);
     if (curPred < prec) {
       return lhs;
     }
@@ -658,7 +641,7 @@ func parseBinOpRhs(state
 
     let rhs = parseCast(state);
 
-    let nextPred = getPrecedence(state->curToken);
+    let nextPred = getBinOpPrecedence(state->curToken);
     if (curPred < nextPred) {
       rhs = parseBinOpRhs(state, curPred + 1, rhs);
     }
@@ -1289,7 +1272,7 @@ func parseTopLevel(state : ParseState *) -> DeclAST * {
   return firstDecl;
 }
 
-func parseFile(name : const i8 *) -> DeclAST * {
+func parseFileOpts(name : const i8 *, options : ParseOptions) -> DeclAST * {
   let fd = open(name, 0); //  O_RDONLY
   if (fd == -1) {
     puts("open failed!");
@@ -1327,8 +1310,13 @@ func parseFile(name : const i8 *) -> DeclAST * {
       end = fileMem + size,
       line = 1,
       lineStart = fileMem,
+      options = options,
   };
   // clang-format on
 
   return parseTopLevel(&parseState);
+}
+
+func parseFile(name : const i8 *) -> DeclAST * {
+  return parseFileOpts(name, ParseOptions{});
 }

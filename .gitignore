@@ -1,4 +1,5 @@
 *.o
 *.ll
 bootstrap
+format
 stage*

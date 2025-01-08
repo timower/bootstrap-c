@@ -30,6 +30,12 @@ OBJ = $(BUILD_DIR)/$(MAIN_SRC:.b=.o)
 bootstrap: $(OBJ)
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
+format: $(BUILD_DIR)/format.o
+	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
+
+$(BUILD_DIR)/%.ll: %.b $(ALL_SRC)
+	./bootstrap $< > $@
+
 %.o: %.ll
 	llc $(LLCFLAGS) $< -o $@
 

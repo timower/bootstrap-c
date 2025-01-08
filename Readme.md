@@ -21,8 +21,8 @@ TODO
     * Index only for array & future slice types, or pointers to them.
     * Pointer to array can be converted to pointer to first elem for C interop.
  - [x] Switch statements that make sense.
- - [ ] Struct init and struct expressions.
-    * `Foo{.x = 1, .y = 2}`?
+ - [x] Struct init and struct expressions.
+    * `Foo{x = 1, y = 2}`?
  - [ ] Type safe unions.
  - [ ] Add slice type.
     * syntax: `[i8]`
