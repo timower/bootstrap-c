@@ -1,5 +1,15 @@
 import libc;
 
+struct SourceLoc {
+  line : i32;
+  column : i32;
+  fileName : i8 *;
+
+  // TODO: if needed:
+  // start: i8*;
+  // end: i8*;
+};
+
 enum TokenKind {
   TOK_EOF,
 
@@ -130,6 +140,8 @@ struct ExprAST {
   cond : ExprAST *;
 
   sizeofArg : Type *;
+
+  location : SourceLoc;
 };
 
 enum DeclKind {
@@ -165,6 +177,8 @@ struct DeclAST {
 
   // For function declarations that do have defs
   hasDef : i32;
+
+  location : SourceLoc;
 };
 
 enum StmtKind {
@@ -200,6 +214,8 @@ struct StmtAST {
 
   // To form linked list of compound stmts
   nextStmt : StmtAST *;
+
+  location : SourceLoc;
 };
 
 // utils
@@ -530,8 +546,9 @@ func newExpr(kind : ExprKind) -> ExprAST * {
   return result;
 }
 
-func newDecl() -> DeclAST * {
+func newDecl(kind : DeclKind) -> DeclAST * {
   let decl : DeclAST * = calloc(1, sizeof(struct DeclAST));
+  decl->kind = kind;
   return decl;
 }
 

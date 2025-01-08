@@ -14,6 +14,9 @@ struct ParseState {
 
   // current file name.
   fileName : i8 *;
+
+  line : i32;
+  lineStart : i8 *;
 };
 
 // 1. parse
@@ -23,19 +26,17 @@ let intTypes : const i8 *[] = {
 
 func iseol(c : i32) -> i32 { return c == '\n' || c == '\r'; }
 
-func failParseArg(state : ParseState *, msg : const i8 *, arg : const i8 *) {
-  let line = 1;
-  let column = 0;
-  for (let c = state->start; c < state->current && c < state->end; c++) {
-    if (iseol(*c as i32)) {
-      line++;
-      column = 0;
-    } else {
-      column++;
-    }
-  }
+func getLocation(state : ParseState *) -> SourceLoc {
+  return SourceLoc{
+      line = state->line,
+      column = (state->current - state->lineStart) as i32,
+      fileName = state->fileName,
+  };
+}
 
-  printf("%s:%d:%d: ", state->fileName, line, column);
+func failParseArg(state : ParseState *, msg : const i8 *, arg : const i8 *) {
+  let location = getLocation(state);
+  printf("%s:%d:%d: ", state->fileName, location.line, location.column);
   if (state->curToken.data < state->end) {
     printToken(state->curToken);
   }
@@ -55,6 +56,12 @@ func nextChar(state : ParseState *) -> i32 {
 
   let result = *state->current as i32;
   state->current++;
+
+  if (iseol(result)) {
+    state->line++;
+    state->lineStart = state->current;
+  }
+
   return result;
 }
 
@@ -218,9 +225,16 @@ func getNextToken(state : ParseState *) -> Token {
   return result;
 }
 
+func newLocExpr(state : ParseState *, kind : ExprKind) -> ExprAST * {
+  let res = newExpr(kind);
+  res->location = getLocation(state);
+  return res;
+}
+
 // number := [0-9]+ | '[\n\t\r\\'"]' | '.'
 func parseNumber(state : ParseState *) -> ExprAST * {
-  let result = newExpr(ExprKind::INT);
+  let result = newLocExpr(state, ExprKind::INT);
+  result->op = state->curToken;
 
   let start = state->curToken.data;
   if (*start == '\'') {
@@ -242,7 +256,7 @@ func parseNumber(state : ParseState *) -> ExprAST * {
 
 // string := '"' [^"]* '"'
 func parseString(state : ParseState *) -> ExprAST * {
-  let result = newExpr(ExprKind::STR);
+  let result = newLocExpr(state, ExprKind::STR);
   result->identifier = state->curToken;
   getNextToken(state);
   return result;
@@ -255,12 +269,12 @@ func parseConditional(state : ParseState *) -> ExprAST *;
 func parseStructInit(state : ParseState *, ident : Token) -> ExprAST * {
   getNextToken(state); // eat '{'
 
-  let expr = newExpr(ExprKind::STRUCT);
+  let expr = newLocExpr(state, ExprKind::STRUCT);
   expr->identifier = ident;
 
   let cur = expr;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
-    cur->rhs = newExpr(ExprKind::STRUCT); // dummy struct expr
+    cur->rhs = newLocExpr(state, ExprKind::STRUCT); // dummy struct expr
     cur = cur->rhs;
 
     expect(state, TokenKind::IDENTIFIER);
@@ -299,13 +313,13 @@ func parseIdentifierExpr(state : ParseState *) -> ExprAST * {
     getNextToken(state); // eat ::
     expect(state, TokenKind::IDENTIFIER);
 
-    let result = newExpr(ExprKind::SCOPE);
+    let result = newLocExpr(state, ExprKind::SCOPE);
     result->parent = ident;
     result->identifier = getNextToken(state);
     return result;
 
   default:
-    let result = newExpr(ExprKind::VARIABLE);
+    let result = newLocExpr(state, ExprKind::VARIABLE);
     result->identifier = ident;
     return result;
   }
@@ -348,7 +362,7 @@ func parsePrimary(state : ParseState *) -> ExprAST * {
 func parseIndex(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
   getNextToken(state); // eat [
 
-  let expr = newExpr(ExprKind::INDEX);
+  let expr = newLocExpr(state, ExprKind::INDEX);
   expr->lhs = lhs;
 
   expr->rhs = parseExpression(state);
@@ -363,7 +377,7 @@ func parseIndex(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
 func parseCall(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
   getNextToken(state); // eat (
 
-  let expr = newExpr(ExprKind::CALL);
+  let expr = newLocExpr(state, ExprKind::CALL);
 
   expr->lhs = lhs;
   expr->rhs = NULL;
@@ -375,7 +389,7 @@ func parseCall(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
 
   let cur = expr;
   while (1) {
-    cur->rhs = newExpr(ExprKind::ARG_LIST);
+    cur->rhs = newLocExpr(state, ExprKind::ARG_LIST);
     cur = cur->rhs;
 
     cur->lhs = parseAssignment(state);
@@ -395,7 +409,7 @@ func parseCall(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
 
 // member := lhs ['.' | '->'] identifier
 func parseMember(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
-  let expr = newExpr(ExprKind::MEMBER);
+  let expr = newLocExpr(state, ExprKind::MEMBER);
   expr->lhs = lhs;
 
   expr->op = state->curToken;
@@ -409,7 +423,7 @@ func parseMember(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
 
 // unary_postfix := lhs '++' | lhs '--'
 func parseUnaryPostfix(state : ParseState *, lhs : ExprAST *) -> ExprAST * {
-  let expr = newExpr(ExprKind::UNARY);
+  let expr = newLocExpr(state, ExprKind::UNARY);
   expr->lhs = lhs;
   expr->rhs = NULL;
 
@@ -546,7 +560,7 @@ func parseType(state : ParseState *) -> Type * {
 //        | sizeof '(' decl ')'
 func parseUnary(state : ParseState *) -> ExprAST * {
   if (isUnary(state->curToken)) {
-    let expr = newExpr(ExprKind::UNARY);
+    let expr = newLocExpr(state, ExprKind::UNARY);
     expr->op = state->curToken;
     getNextToken(state);
     expr->lhs = NULL;
@@ -556,7 +570,7 @@ func parseUnary(state : ParseState *) -> ExprAST * {
 
   if (match(state, TokenKind::SIZEOF)) {
     getNextToken(state);
-    let expr = newExpr(ExprKind::SIZEOF);
+    let expr = newLocExpr(state, ExprKind::SIZEOF);
 
     expect(state, TokenKind::OPEN_PAREN);
     getNextToken(state);
@@ -588,7 +602,7 @@ func parseCast(state : ParseState *) -> ExprAST * {
   }
   getNextToken(state);
 
-  let expr = newExpr(ExprKind::CAST);
+  let expr = newLocExpr(state, ExprKind::CAST);
   expr->lhs = lhs;
   expr->type = parseType(state);
   return expr;
@@ -649,7 +663,7 @@ func parseBinOpRhs(state
       rhs = parseBinOpRhs(state, curPred + 1, rhs);
     }
 
-    let newLhs = newExpr(ExprKind::BINARY);
+    let newLhs = newLocExpr(state, ExprKind::BINARY);
     newLhs->op = op;
     newLhs->lhs = lhs;
     newLhs->rhs = rhs;
@@ -678,7 +692,7 @@ func parseConditional(state : ParseState *) -> ExprAST * {
   getNextToken(state);
   let falseBranch = parseConditional(state);
 
-  let expr = newExpr(ExprKind::CONDITIONAL);
+  let expr = newLocExpr(state, ExprKind::CONDITIONAL);
   expr->cond = cond;
   expr->lhs = trueBranch;
   expr->rhs = falseBranch;
@@ -694,7 +708,7 @@ func parseAssignment(state : ParseState *) -> ExprAST * {
 
   let op = getNextToken(state);
   let rhs = parseAssignment(state);
-  let expr = newExpr(ExprKind::BINARY);
+  let expr = newLocExpr(state, ExprKind::BINARY);
   expr->op = op;
   expr->lhs = lhs;
   expr->rhs = rhs;
@@ -708,7 +722,7 @@ func parseExpression(state : ParseState *) -> ExprAST * {
     let op = getNextToken(state);
     let rhs = parseAssignment(state);
 
-    let new = newExpr(ExprKind::BINARY);
+    let new = newLocExpr(state, ExprKind::BINARY);
     new->lhs = expr;
     new->op = op;
     new->rhs = rhs;
@@ -718,12 +732,18 @@ func parseExpression(state : ParseState *) -> ExprAST * {
   return expr;
 }
 
+func newLocStmt(state : ParseState *, kind : StmtKind) -> StmtAST * {
+  let res = newStmt(kind);
+  res->location = getLocation(state);
+  return res;
+}
+
 func parseStmt(state : ParseState *) -> StmtAST *;
 
 func parseCompoundStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state); // eat {
 
-  let stmt = newStmt(StmtKind::COMPOUND);
+  let stmt = newLocStmt(state, StmtKind::COMPOUND);
 
   let cur = stmt;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
@@ -738,7 +758,7 @@ func parseCompoundStmt(state : ParseState *) -> StmtAST * {
 }
 
 func parseExprStmt(state : ParseState *) -> StmtAST * {
-  let stmt = newStmt(StmtKind::EXPR);
+  let stmt = newLocStmt(state, StmtKind::EXPR);
 
   if (!match(state, TokenKind::SEMICOLON)) {
     stmt->expr = parseExpression(state);
@@ -753,14 +773,14 @@ func parseExprStmt(state : ParseState *) -> StmtAST * {
 func parseDeclarationOrFunction(state : ParseState *) -> DeclAST *;
 
 func parseDeclStmt(state : ParseState *) -> StmtAST * {
-  let stmt = newStmt(StmtKind::DECL);
+  let stmt = newLocStmt(state, StmtKind::DECL);
   stmt->decl = parseDeclarationOrFunction(state);
   return stmt;
 }
 
 func parseForStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state); // eat for
-  let stmt = newStmt(StmtKind::FOR);
+  let stmt = newLocStmt(state, StmtKind::FOR);
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
@@ -787,7 +807,7 @@ func parseIfStmt(state : ParseState *) -> StmtAST * {
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  let stmt = newStmt(StmtKind::IF);
+  let stmt = newLocStmt(state, StmtKind::IF);
 
   stmt->expr = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
@@ -806,7 +826,7 @@ func parseIfStmt(state : ParseState *) -> StmtAST * {
 func parseReturnStmt(state : ParseState *) -> StmtAST * {
   getNextToken(state);
 
-  let stmt = newStmt(StmtKind::RETURN);
+  let stmt = newLocStmt(state, StmtKind::RETURN);
   // parse value
   if (!match(state, TokenKind::SEMICOLON)) {
     stmt->expr = parseExpression(state);
@@ -824,7 +844,7 @@ func parseCaseExpr(state : ParseState *) -> ExprAST * {
     let op = getNextToken(state);
     let rhs = parsePrimary(state);
 
-    let new = newExpr(ExprKind::BINARY);
+    let new = newLocExpr(state, ExprKind::BINARY);
     new->lhs = expr;
     new->op = op;
     new->rhs = rhs;
@@ -843,13 +863,13 @@ func parseCaseOrDefault(state : ParseState *) -> StmtAST * {
   if (match(state, TokenKind::CASE)) {
     getNextToken(state); // eat 'case'
 
-    stmt = newStmt(StmtKind::CASE);
+    stmt = newLocStmt(state, StmtKind::CASE);
     stmt->expr = parseCaseExpr(state);
 
   } else if (match(state, TokenKind::DEFAULT)) {
     getNextToken(state); // eat 'default'
 
-    stmt = newStmt(StmtKind::DEFAULT);
+    stmt = newLocStmt(state, StmtKind::DEFAULT);
   } else {
     failParse(state, "Expected case or default");
   }
@@ -884,7 +904,7 @@ func parseSwitchStmt(state : ParseState *) -> StmtAST * {
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  let stmt = newStmt(StmtKind::SWITCH);
+  let stmt = newLocStmt(state, StmtKind::SWITCH);
 
   stmt->expr = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
@@ -914,7 +934,7 @@ func parseWhileStmt(state : ParseState *) -> StmtAST * {
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  let stmt = newStmt(StmtKind::WHILE);
+  let stmt = newLocStmt(state, StmtKind::WHILE);
 
   stmt->expr = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
@@ -955,8 +975,8 @@ func parseStmt(state : ParseState *) -> StmtAST * {
   }
 
   if (match(state, TokenKind::BREAK)) {
+    let stmt = newLocStmt(state, StmtKind::BREAK);
     getNextToken(state);
-    let stmt = newStmt(StmtKind::BREAK);
 
     expect(state, TokenKind::SEMICOLON);
     getNextToken(state);
@@ -976,7 +996,7 @@ func parseInitializer(state : ParseState *) -> ExprAST * {
   }
   getNextToken(state);
 
-  let expr = newExpr(ExprKind::ARRAY);
+  let expr = newLocExpr(state, ExprKind::ARRAY);
   let cur = expr;
   while (1) {
     // Should be parseInitializer(state), but let's not support nested inits.
@@ -995,7 +1015,7 @@ func parseInitializer(state : ParseState *) -> ExprAST * {
       break;
     }
 
-    cur->rhs = newExpr(ExprKind::ARRAY);
+    cur->rhs = newLocExpr(state, ExprKind::ARRAY);
     cur = cur->rhs;
   }
   getNextToken(state); // eat }
@@ -1004,10 +1024,15 @@ func parseInitializer(state : ParseState *) -> ExprAST * {
   return expr;
 }
 
+func newLocDecl(state : ParseState *, kind : DeclKind) -> DeclAST * {
+  let res = newDecl(kind);
+  res->location = getLocation(state);
+  return res;
+}
+
 // type_name_pair := identifier ':' type
 func parseNameTypePair(state : ParseState *) -> DeclAST * {
-  let decl = newDecl();
-  decl->kind = DeclKind::VAR;
+  let decl = newLocDecl(state, DeclKind::VAR);
 
   expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
@@ -1024,8 +1049,7 @@ func parseNameTypePair(state : ParseState *) -> DeclAST * {
 func parseLetDecl(state : ParseState *) -> DeclAST * {
   getNextToken(state); // eat let
 
-  let decl = newDecl();
-  decl->kind = DeclKind::VAR;
+  let decl = newLocDecl(state, DeclKind::VAR);
 
   decl->name = getNextToken(state);
 
@@ -1049,8 +1073,8 @@ func parseLetDecl(state : ParseState *) -> DeclAST * {
 }
 
 // struct := 'struct' identifier '{' decl* '}'
-//         | 'struct' identifier
-func parseStruct(state : ParseState *, decl : DeclAST *) {
+func parseStruct(state : ParseState *) -> DeclAST * {
+  let decl = newLocDecl(state, DeclKind::STRUCT);
   getNextToken(state); // eat struct
   decl->type = newType(TypeKind::STRUCT);
 
@@ -1060,9 +1084,7 @@ func parseStruct(state : ParseState *, decl : DeclAST *) {
   decl->type->tag = getNextToken(state);
 
   // Just a 'struct Foo' ref.
-  if (!match(state, TokenKind::OPEN_BRACE)) {
-    return;
-  }
+  expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state); // eat {
 
   decl->kind = DeclKind::STRUCT;
@@ -1082,11 +1104,12 @@ func parseStruct(state : ParseState *, decl : DeclAST *) {
   fields->next = NULL;
   decl->fields = decl->next;
   decl->next = NULL;
+  return decl;
 }
 
 // enum := 'enum' identifier '{' identifier  (',' identifier )* ','? '}'
-//       | 'enum' identifier
-func parseEnum(state : ParseState *, decl : DeclAST *) {
+func parseEnum(state : ParseState *) -> DeclAST * {
+  let decl = newLocDecl(state, DeclKind::ENUM);
   getNextToken(state);
 
   decl->type = newType(TypeKind::ENUM);
@@ -1094,9 +1117,7 @@ func parseEnum(state : ParseState *, decl : DeclAST *) {
   expect(state, TokenKind::IDENTIFIER);
   decl->type->tag = getNextToken(state);
 
-  if (!match(state, TokenKind::OPEN_BRACE)) {
-    return;
-  }
+  expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);
 
   decl->kind = DeclKind::ENUM;
@@ -1107,8 +1128,7 @@ func parseEnum(state : ParseState *, decl : DeclAST *) {
   while (!match(state, TokenKind::CLOSE_BRACE)) {
     expect(state, TokenKind::IDENTIFIER);
 
-    let field = newDecl();
-    field->kind = DeclKind::ENUM_FIELD;
+    let field = newLocDecl(state, DeclKind::ENUM_FIELD);
     field->type = getInt32();
 
     field->name = getNextToken(state);
@@ -1129,6 +1149,7 @@ func parseEnum(state : ParseState *, decl : DeclAST *) {
   fields->next = NULL;
   decl->fields = decl->next;
   decl->next = NULL;
+  return decl;
 }
 
 // func_decl :=
@@ -1136,8 +1157,7 @@ func parseEnum(state : ParseState *, decl : DeclAST *) {
 func parseFuncDecl(state : ParseState *) -> DeclAST * {
   getNextToken(state); // eat func
 
-  let decl = newDecl();
-  decl->kind = DeclKind::FUNC;
+  let decl = newLocDecl(state, DeclKind::FUNC);
 
   expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
@@ -1206,8 +1226,7 @@ func parseDeclarationOrFunction(state : ParseState *) -> DeclAST * {
   }
 
   if (match(state, TokenKind::STRUCT)) {
-    let decl = newDecl();
-    parseStruct(state, decl);
+    let decl = parseStruct(state);
 
     expect(state, TokenKind::SEMICOLON);
     getNextToken(state);
@@ -1216,8 +1235,7 @@ func parseDeclarationOrFunction(state : ParseState *) -> DeclAST * {
   }
 
   if (match(state, TokenKind::ENUM)) {
-    let decl = newDecl();
-    parseEnum(state, decl);
+    let decl = parseEnum(state);
 
     expect(state, TokenKind::SEMICOLON);
     getNextToken(state);
@@ -1230,6 +1248,7 @@ func parseDeclarationOrFunction(state : ParseState *) -> DeclAST * {
 }
 
 func parseImportDecl(state : ParseState *) -> DeclAST * {
+  let decl = newLocDecl(state, DeclKind::IMPORT);
   getNextToken(state); // eat import
 
   expect(state, TokenKind::IDENTIFIER);
@@ -1238,8 +1257,6 @@ func parseImportDecl(state : ParseState *) -> DeclAST * {
   expect(state, TokenKind::SEMICOLON);
   getNextToken(state);
 
-  let decl = newDecl();
-  decl->kind = DeclKind::IMPORT;
   decl->name = name;
   return decl;
 }
@@ -1302,10 +1319,16 @@ func parseFile(name : const i8 *) -> DeclAST * {
     off += r;
   }
 
-  let parseState : ParseState = {0};
-  parseState.fileName = name;
-  parseState.current = parseState.start = fileMem;
-  parseState.end = fileMem + size;
+  // clang-format off
+  let parseState = ParseState{
+      fileName = name,
+      current = fileMem,
+      start = fileMem,
+      end = fileMem + size,
+      line = 1,
+      lineStart = fileMem,
+  };
+  // clang-format on
 
   return parseTopLevel(&parseState);
 }
