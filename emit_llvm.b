@@ -82,6 +82,12 @@ func convertType(type: Type*) -> const i8* {
       sprintf(buf, "%%struct.%.*s", len, type->tag.data);
       return buf;
 
+    case TypeKind::UNION:
+      let len = type->tag.end - type->tag.data;
+      let buf: i8* = malloc((len + 10) as u64);
+      sprintf(buf, "%%union.%.*s", len, type->tag.data);
+      return buf;
+
     case TypeKind::ARRAY:
       let buf: i8* = malloc(32);
       sprintf(buf, "[%d x %s]", type->size, convertType(type->arg));
@@ -1282,6 +1288,29 @@ func emitStruct(state: EmitState*, decl: DeclAST*) {
   printf(" }>\n");
 }
 
+func emitUnion(state: EmitState*, decl: DeclAST*) {
+  // emit nested structs
+  for (let tag = decl->fields; tag != NULL; tag = tag->next) {
+    if (tag->kind != DeclKind::STRUCT) {
+      failEmit("Expected struct tag in union");
+    }
+    emitStruct(state, tag);
+  }
+
+  printf("%s = type <{ ", convertType(decl->type));
+
+  // Add a kind tag in front as i32
+  printf("i32, ");
+
+  // Emit an array of i8s of the largest size set by sema
+  // TODO: this won't work for alignment reasons, should be fixed before moving 
+  // away from packed structs.
+  let size = decl->enumValue;
+  printf("[%d x i8]", size);
+
+  printf(" }>\n");
+}
+
 func emitGlobalVar(state: EmitState*, decl: DeclAST*) {
   let declSpec = decl->type->isConst ? "constant" as i8* : "global" as i8*;
 
@@ -1304,6 +1333,8 @@ func emitGlobalDecl(state: EmitState*, decl: DeclAST*) {
   switch (decl->kind) {
     case DeclKind::ENUM:
       return;
+    case DeclKind::UNION:
+      emitUnion(state, decl);
     case DeclKind::VAR:
       emitGlobalVar(state, decl);
     case DeclKind::STRUCT:

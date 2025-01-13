@@ -63,6 +63,10 @@ func printType(type: Type*) {
     case TypeKind::ENUM:
       printf("enum ");
       printStr(type->tag.data, type->tag.end);
+    case TypeKind::UNION:
+      printf("union ");
+      printStr(type->tag.data, type->tag.end);
+
     case TypeKind::TAG:
       printStr(type->tag.data, type->tag.end);
   }
@@ -204,6 +208,10 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       }
       printf("}");
     case ExprKind::STRUCT:
+      if (expr->parent.kind != TokenKind::TOK_EOF) {
+        printToken(expr->parent);
+        printf("::");
+      }
       printToken(expr->identifier);
       printf("{");
       if (expr->rhs != NULL) {
@@ -402,43 +410,58 @@ func printDeclNewlines(field: DeclAST*) {
   }
 }
 
+func printStructBody(
+    decl: DeclAST*,
+    indent: i32,
+    trailing: Comment*
+) -> Comment* {
+  printf(" {\n");
+  for (let field = decl->fields; field != NULL;
+       field = field->next) {
+    let comments = printComments(
+        field->comments,
+        indent + indent_width,
+        field->location.line);
+    printIndent(indent + indent_width);
+
+    // printf("%d: ", field->location.line);
+    printToken(field->name);
+    printf(": ");
+    printType(field->type);
+    printf(";");
+
+    printComments(comments, indent + indent_width, 0);
+
+    printDeclNewlines(field);
+  }
+  trailing = printComments(
+      trailing,
+      indent + indent_width,
+      decl->endLocation.line);
+  printIndent(indent);
+  printf("}");
+  return trailing;
+}
+
 func printDeclIndent(decl: DeclAST*, indent: i32) {
   let trailing = printComments(decl->comments, indent, decl->location.line);
 
   switch (decl->kind) {
     case DeclKind::STRUCT:
       printType(decl->type);
-      printf(" {\n");
-      for (let field: DeclAST* = decl->fields; field != NULL;
-           field = field->next) {
-        let comments = printComments(
-            field->comments,
-            indent + indent_width,
-            field->location.line);
-        printf("  ");
 
-        // printf("%d: ", field->location.line);
-        printToken(field->name);
-        printf(": ");
-        printType(field->type);
-        printf(";");
-
-        printComments(comments, indent + indent_width, 0);
-
-        printDeclNewlines(field);
-      }
-      trailing = printComments(trailing, indent + indent_width, decl->endLocation.line);
-      printf("};");
+      trailing = printStructBody(decl, indent, trailing);
+      printf(";");
     case DeclKind::ENUM:
       printType(decl->type);
       printf(" {\n");
-      for (let field: DeclAST* = decl->fields; field != NULL;
+      for (let field = decl->fields; field != NULL;
            field = field->next) {
         let comments = printComments(
             field->comments,
             indent + indent_width,
             field->location.line);
-        printf("  ");
+        printIndent(indent + indent_width);
 
         // printf("%d: ", field->location.line);
         printToken(field->name);
@@ -448,6 +471,19 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       }
       trailing = printComments(trailing, indent + indent_width, decl->endLocation.line);
       printf("};");
+    case DeclKind::UNION:
+      printType(decl->type);
+      printf(" {\n");
+
+      for (let tag = decl->fields; tag != NULL; tag = tag->next) {
+        printIndent(indent + indent_width);
+        printToken(tag->type->tag);
+        trailing = printStructBody(tag, indent + indent_width, trailing);
+        printf("\n");
+      }
+
+      printf("};");
+
     case DeclKind::ENUM_FIELD:
       printToken(decl->name);
     case DeclKind::VAR:

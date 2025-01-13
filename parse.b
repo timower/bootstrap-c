@@ -360,11 +360,9 @@ func parseConditional(state: ParseState*) -> ExprAST*;
 
 
 // structInit = '{' ( ident '=' cond ','  )* ','? '}'
-func parseStructInit(state: ParseState*, ident: Token) -> ExprAST* {
+func parseStructInit(state: ParseState*) -> ExprAST* {
   let expr = newLocExpr(state, ExprKind::STRUCT);
   getNextToken(state);  // eat '{'
-
-  expr->identifier = ident;
 
   let cur = expr;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
@@ -403,16 +401,29 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
 
   switch (state->curToken.kind) {
     case TokenKind::OPEN_BRACE:
-      return parseStructInit(state, ident);
+      let res = parseStructInit(state);
+      res->identifier = ident;
+      return res;
 
     case TokenKind::SCOPE:
       getNextToken(state);      // eat ::
-      expect(state, TokenKind::IDENTIFIER);
 
-      let result = newLocExpr(state, ExprKind::SCOPE);
-      result->parent = ident;
-      result->identifier = getNextToken(state);
-      return result;
+      expect(state, TokenKind::IDENTIFIER);
+      let loc = getLocation(state);
+      let member = getNextToken(state);
+
+      if (!match(state, TokenKind::OPEN_BRACE)) {
+        let result = newLocExpr(state, ExprKind::SCOPE);
+        result->location = loc;
+        result->parent = ident;
+        result->identifier = member;
+        return result;
+      }
+
+      let res = parseStructInit(state);
+      res->parent = ident;
+      res->identifier = member;
+      return res;
 
     default:
       let result = newLocExpr(state, ExprKind::VARIABLE);
@@ -1231,11 +1242,7 @@ func parseLetDecl(state: ParseState*) -> DeclAST* {
   return decl;
 }
 
-
-// struct := 'struct' identifier '{' decl* '}'
-func parseStruct(state: ParseState*) -> DeclAST* {
-  let decl = newLocDecl(state, DeclKind::STRUCT);
-  getNextToken(state);  // eat struct
+func parseSubStruct(state: ParseState*, decl: DeclAST*) {
   decl->type = newType(TypeKind::STRUCT);
 
   // (non)optional tag
@@ -1243,7 +1250,6 @@ func parseStruct(state: ParseState*) -> DeclAST* {
 
   decl->type->tag = getNextToken(state);
 
-  // Just a 'struct Foo' ref.
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);  // eat {
 
@@ -1267,6 +1273,14 @@ func parseStruct(state: ParseState*) -> DeclAST* {
   fields->next = NULL;
   decl->fields = decl->next;
   decl->next = NULL;
+}
+
+
+// struct := 'struct' identifier '{' decl* '}'
+func parseStruct(state: ParseState*) -> DeclAST* {
+  let decl = newLocDecl(state, DeclKind::STRUCT);
+  getNextToken(state);  // eat struct
+  parseSubStruct(state, decl);
   return decl;
 }
 
@@ -1283,8 +1297,6 @@ func parseEnum(state: ParseState*) -> DeclAST* {
 
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);
-
-  decl->kind = DeclKind::ENUM;
 
   // parse constants
   let fields = decl;
@@ -1319,6 +1331,38 @@ func parseEnum(state: ParseState*) -> DeclAST* {
   fields->next = NULL;
   decl->fields = decl->next;
   decl->next = NULL;
+  return decl;
+}
+
+func parseUnion(state: ParseState*) -> DeclAST* {
+  let decl = newLocDecl(state, DeclKind::UNION);
+  getNextToken(state);  // eat 'union'
+
+  decl->type = newType(TypeKind::UNION);
+
+  expect(state, TokenKind::IDENTIFIER);
+  decl->type->tag = getNextToken(state);
+
+  expect(state, TokenKind::OPEN_BRACE);
+  getNextToken(state);
+
+  let tags = decl;
+  while (!match(state, TokenKind::CLOSE_BRACE)) {
+    let tag = newLocDecl(state, DeclKind::STRUCT);
+    parseSubStruct(state, tag);
+
+    // TODO: trailing comments?
+    tags->next = tag;
+    tags = tag;
+  }
+
+  decl->endLocation = getLocation(state);
+  getNextToken(state);  // eat }
+
+  tags->next = NULL;
+  decl->fields = decl->next;
+  decl->next = NULL;
+
   return decl;
 }
 
@@ -1413,6 +1457,17 @@ func parseDeclarationOrFunction(state: ParseState*) -> DeclAST* {
 
   if (match(state, TokenKind::ENUM)) {
     let decl = parseEnum(state);
+
+    expect(state, TokenKind::SEMICOLON);
+    getNextToken(state);
+
+    addTrailingCommentsDecl(state, decl);
+
+    return decl;
+  }
+
+  if (match(state, TokenKind::UNION)) {
+    let decl = parseUnion(state);
 
     expect(state, TokenKind::SEMICOLON);
     getNextToken(state);
