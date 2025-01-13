@@ -30,6 +30,7 @@ enum TokenKind {
   CONST,
   WHILE,
   BREAK,
+  UNION,
   VOID,
   ENUM,
   CASE,
@@ -106,7 +107,7 @@ struct Comment {
 let tokens: const i8*[] = {
   "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
   "continue", "default", "sizeof", "struct", "switch", "return",
-  "import", "const", "while", "break", "void", "enum",
+  "import", "const", "while", "break", "union", "void", "enum",
   "case", "else", "func", "<<=", ">>=", "...",
   "for", "let", "::", "->", "++", "--",
   "<<", ">>", "<=", ">=", "==", "!=",
@@ -126,6 +127,7 @@ enum TypeKind {
   ARRAY,
   FUNC,
   ENUM,
+  UNION,
 
   TAG,  // For tagged structs / enums resolved in sema.
 };
@@ -217,6 +219,7 @@ enum DeclKind {
   FUNC,
   ENUM_FIELD,
   IMPORT,
+  UNION,
 };
 
 struct DeclAST {
@@ -249,6 +252,14 @@ struct DeclAST {
 
   // Only for concrete parsing.
   comments: Comment*;
+
+  subTypes: DeclList*;
+};
+
+struct DeclList {
+  decl: DeclAST*;
+
+  next: DeclList*;
 };
 
 enum StmtKind {
@@ -326,6 +337,12 @@ func newDecl(kind: DeclKind) -> DeclAST* {
   let decl: DeclAST* = calloc(1, sizeof(struct DeclAST));
   decl->kind = kind;
   return decl;
+}
+
+func newDeclList(decl: DeclAST*) -> DeclList* {
+  let res: DeclList* = calloc(1, sizeof(struct DeclList));
+  res->decl = decl;
+  return res;
 }
 
 func newStmt(kind: StmtKind) -> StmtAST* {

@@ -2,11 +2,6 @@ import ast;
 import parse;
 import print_ast;
 
-struct DeclList {
-  decl: DeclAST*;
-
-  next: DeclList*;
-};
 
 struct ImportList {
   name: Token;
@@ -84,7 +79,7 @@ func typeEq(one: Type*, two: Type*) -> i32 {
     case TypeKind::POINTER:
       return typeEq(one->arg, two->arg);
 
-    case TypeKind::STRUCT, TypeKind::ENUM:
+    case TypeKind::STRUCT, TypeKind::ENUM, TypeKind::UNION:
       return tokCmp(one->tag, two->tag);
 
     case TypeKind::FUNC:
@@ -192,11 +187,6 @@ func checkBool(expr: ExprAST*) {
   }
 }
 
-func newDeclList(decl: DeclAST*) -> DeclList* {
-  let res: DeclList* = calloc(1, sizeof(struct DeclList));
-  res->decl = decl;
-  return res;
-}
 
 func findType(types: DeclList*, tag: Token) -> DeclAST* {
   for (; types != NULL; types = types->next) {
@@ -215,8 +205,6 @@ func lookupType(state: SemaState*, tag: Token) -> DeclAST* {
     }
   }
 
-  printToken(tag);
-  failSema(SourceLoc{}, ": Unknown type for scope");
   return NULL;
 }
 
@@ -259,6 +247,16 @@ func findField(
   return NULL;
 }
 
+func getSize(state: SemaState*, type: Type*) -> i32;
+
+func getStructDeclSize(state: SemaState*, decl: DeclAST*) -> i32 {
+  let size = 0;
+  for (let field = decl->fields; field != NULL; field = field->next) {
+    size += getSize(state, field->type);
+  }
+  return size == 0 ? 1 : size;
+}
+
 func getSize(state: SemaState*, type: Type*) -> i32 {
   switch (type->kind) {
     case TypeKind::VOID:
@@ -283,11 +281,12 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
     // TODO: padding
     case TypeKind::STRUCT:
       let decl = lookupType(state, type->tag);
-      let size = 0;
-      for (let field = decl->fields; field != NULL; field = field->next) {
-        size += getSize(state, field->type);
+      if (decl == NULL) {
+        failSema(SourceLoc{}, "Unkown type to get size of");
       }
-      return size == 0 ? 1 : size;
+
+      return getStructDeclSize(state, decl);
+
     default:
       failSema(SourceLoc{}, "Unknown type for size");
       return 0;
@@ -454,6 +453,9 @@ func resolveTypeTags(state: SemaState*, type: Type*) {
 
   if (type->kind == TypeKind::TAG) {
     let typeDecl = lookupType(state, type->tag);
+    if (typeDecl == NULL) {
+      failSema(SourceLoc{}, "Can't resolve type tags, unknown type");
+    }
     type->kind = typeDecl->type->kind;
   }
 
@@ -520,6 +522,9 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         structDecl = lookupType(state, expr->lhs->type->tag);
       } else {
         failSemaExpr(expr, "Unknown member op");
+      }
+      if (structDecl == NULL) {
+        failSemaExpr(expr, "Unkown type for member expression");
       }
       let fieldDecl = findField(structDecl, expr->identifier, &expr->value);
       if (fieldDecl == NULL) {
@@ -732,6 +737,19 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
       }
     case DeclKind::ENUM:
       break;
+    case DeclKind::UNION:
+      let maxSize = 0;
+      for (let tag = decl->fields; tag != NULL; tag = tag->next) {
+        // sema the 'tag' which is a struct.
+        semaDecl(state, tag);
+
+        let size = getStructDeclSize(state, tag);
+        if (size > maxSize) {
+          maxSize = size;
+        }
+      }
+      decl->enumValue = maxSize;
+      break;
     case DeclKind::FUNC:
       addLocalDecl(state, decl);
       if (decl->body != NULL) {
@@ -875,6 +893,9 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
 
   if (isEnum && fieldBitSet != -1) {
     let decl = lookupType(state, stmt->expr->type->tag);
+    if (decl == NULL) {
+      failSemaStmt(stmt, "Couldn't find enum decl");
+    }
     let size = getFieldCount(decl);
     if ((1 << size) - 1 != fieldBitSet) {
       failSemaStmt(stmt, "Switch is not exhaustive");
@@ -956,6 +977,17 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
       let type = newDeclList(decl);
       type->next = state->types;
       state->types = type;
+    case DeclKind::UNION:
+      if (findType(state->types, decl->type->tag) != NULL) {
+        failSemaDecl(decl, ": Type redef");
+      }
+
+      let type = newDeclList(decl);
+      type->next = state->types;
+      state->types = type;
+
+      // TODO: Add a namespaced struct type for each nested tag
+      break;
     default:
       break;
   }
