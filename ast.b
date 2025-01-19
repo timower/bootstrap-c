@@ -6,8 +6,7 @@ struct SourceLoc {
   fileName : i8 *;
 
   // TODO: if needed:
-  // start: i8*;
-  // end: i8*;
+  // ptr: i8*;
 };
 
 enum TokenKind {
@@ -15,7 +14,7 @@ enum TokenKind {
 
   // clang-format off
   // constants
-  IDENTIFIER, CONSTANT, STRING_LITERAL, INT2,
+  IDENTIFIER, CONSTANT, STRING_LITERAL, INT2, COMMENT,
 
   // keywords
   CONTINUE, DEFAULT, SIZEOF, STRUCT, SWITCH, RETURN, IMPORT, CONST,
@@ -39,8 +38,14 @@ struct Token {
   end : i8 *;
 };
 
+struct Comment {
+  location : SourceLoc;
+  value : Token;
+  next : Comment *;
+};
+
 let tokens : const i8 *[] = {
-                 "EOF",      "IDENT",   "CONST",  "STR",    "INT",
+                 "EOF",      "IDENT",   "CONST",  "STR",    "INT",    "COMMENT",
 
                  "continue", "default", "sizeof", "struct", "switch", "return",
                  "import",   "const",   "while",  "break",  "void",   "enum",
@@ -182,6 +187,9 @@ struct DeclAST {
 
   location : SourceLoc;
   endLocation : SourceLoc;
+
+  // Only for concrete parsing.
+  comments : Comment *;
 };
 
 enum StmtKind {
@@ -220,6 +228,7 @@ struct StmtAST {
 
   location : SourceLoc;
   endLocation : SourceLoc;
+  comments : Comment *;
 };
 
 // utils
@@ -246,6 +255,7 @@ func tokCmpStr(one : Token, str : const i8 *) -> i32 {
 
   return memcmp(one.data, str, len1 as u64) == 0;
 }
+
 func newExpr(kind : ExprKind) -> ExprAST * {
   let result : ExprAST * = calloc(1, sizeof(struct ExprAST));
   result->kind = kind;
@@ -268,6 +278,12 @@ func newType(kind : TypeKind) -> Type * {
   let type : Type * = calloc(1, sizeof(struct Type));
   type->kind = kind;
   return type;
+}
+
+func newComment(token : Token) -> Comment * {
+  let comment : Comment * = calloc(1, sizeof(struct Comment));
+  comment->value = token;
+  return comment;
 }
 
 func getCharType() -> Type * {

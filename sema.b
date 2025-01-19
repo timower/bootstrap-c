@@ -233,8 +233,6 @@ func lookupLocal(state : SemaState *, name : Token) -> DeclAST * {
     }
   }
 
-  printToken(name);
-  failSema(SourceLoc{}, "Unknown local");
   return NULL;
 }
 
@@ -443,6 +441,21 @@ func semaString(state : SemaState *, expr : ExprAST *) {
   expr->rhs = varRef;
 }
 
+func resolveTypeTags(state : SemaState *, type : Type *) {
+  if (type == NULL) {
+    return;
+  }
+
+  if (type->kind == TypeKind::TAG) {
+    let typeDecl = lookupType(state, type->tag);
+    type->kind = typeDecl->type->kind;
+  }
+
+  resolveTypeTags(state, type->result);
+  resolveTypeTags(state, type->arg);
+  resolveTypeTags(state, type->argNext);
+}
+
 func semaExpr(state : SemaState *, expr : ExprAST *) {
   switch (expr->kind) {
   case ExprKind::ARG_LIST:
@@ -567,6 +580,9 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
 
   case ExprKind::VARIABLE:
     let local = lookupLocal(state, expr->identifier);
+    if (local == NULL) {
+      failSemaExpr(expr, "Couldn't find variable in scope");
+    }
 
     // enum value, transform this expr to an i32.
     if (local->kind == DeclKind::ENUM_FIELD) {
@@ -640,6 +656,7 @@ func semaExpr(state : SemaState *, expr : ExprAST *) {
     expr->kind = ExprKind::INT;
     expr->type = getUPtr();
   case ExprKind::CAST:
+    resolveTypeTags(state, expr->type);
     semaExpr(state, expr->lhs);
     if (expr->type == NULL) {
       failSemaExpr(expr, "Cast without type?");
@@ -674,21 +691,6 @@ func addLocalDecl(state : SemaState *, decl : DeclAST *) {
   let newLocal = newDeclList(decl);
   newLocal->next = state->locals;
   state->locals = newLocal;
-}
-
-func resolveTypeTags(state : SemaState *, type : Type *) {
-  if (type == NULL) {
-    return;
-  }
-
-  if (type->kind == TypeKind::TAG) {
-    let typeDecl = lookupType(state, type->tag);
-    type->kind = typeDecl->type->kind;
-  }
-
-  resolveTypeTags(state, type->result);
-  resolveTypeTags(state, type->arg);
-  resolveTypeTags(state, type->argNext);
 }
 
 // TODO: do this on 'doConvert'?

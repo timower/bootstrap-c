@@ -259,14 +259,15 @@ func emitLoad(state : EmitState *, addr : Value, type : const i8 *) -> Value {
   return val;
 }
 
-func emitBinary(state
-                : EmitState *, resType
-                : Type *, opKind
-                : TokenKind, lhs
-                : Value, lhsType
-                : Type *, rhs
-                : Value, rhsType
-                : Type *) -> Value {
+func emitBinary(
+    state: EmitState *,
+    resType: Type *,
+    opKind: TokenKind,
+    lhs: Value,
+    lhsType: Type *,
+    rhs: Value,
+    rhsType: Type *
+) -> Value {
 
   // ptr - ptr -> i32
   let lhsPointer = lhsType->kind == TypeKind::POINTER;
@@ -1192,8 +1193,9 @@ func emitGlobalVar(state : EmitState *, decl : DeclAST *) {
     let init = emitExpr(state, decl->init); // TODO: emit constant
     printf("%s = %s %s %s\n", val.val, declSpec, init.type, init.val);
   } else {
-    let init = decl->type->kind == TypeKind::STRUCT ? "zeroinitializer" as i8 *
-                                                    : "null" as i8 *;
+    let init = decl->type->kind == TypeKind::STRUCT
+        ? "zeroinitializer" as i8 *
+        : "null" as i8 *;
     printf("%s = %s %s %s\n", val.val, declSpec, val.type, init);
   }
 
