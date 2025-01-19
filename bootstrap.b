@@ -1,11 +1,10 @@
 import libc;
-
 import ast;
 import parse;
 import sema;
 import emit_llvm;
 
-func main(argc : i32, argv : i8 **) -> i32 {
+func main(argc: i32, argv: i8**) -> i32 {
   if (argc != 2) {
     puts("Usage: compile file.c");
     return -1;
@@ -21,7 +20,6 @@ func main(argc : i32, argv : i8 **) -> i32 {
   decls = semaTopLevel(&semaState, decls);
 
   // printTopLevel(decls);
-
   emitTopLevel(decls);
 
   return 0;
