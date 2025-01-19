@@ -1,10 +1,8 @@
 import libc;
-
 import ast;
 import parse;
 
 func readStdin() -> Buf {
-
   let bufSize: u64 = 1024;
   let mem: i8* = calloc(1, bufSize);
 
@@ -23,21 +21,22 @@ func readStdin() -> Buf {
     return Buf{};
   }
 
-  return Buf {
+  return Buf{
     mem = mem,
     size = offset as i64,
   };
 }
 
-func main(argc : i32, argv : i8 **) -> i32 {
+func main(argc: i32, argv: i8**) -> i32 {
   if (argc > 2) {
     puts("Usage: compile file.c");
     return -1;
   }
 
-  let parseOpts = ParseOptions{concrete = 1};
+  let parseOpts = ParseOptions{
+    concrete = 1,
+  };
 
-  
   let name: i8* = "stdin";
   let buf = Buf{};
   if (argc == 2) {
