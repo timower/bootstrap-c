@@ -33,7 +33,7 @@ bootstrap: $(OBJ)
 format: $(BUILD_DIR)/format.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
-$(BUILD_DIR)/%.ll: %.b $(ALL_SRC)
+$(BUILD_DIR)/%.ll: %.b $(ALL_SRC) bootstrap
 	./bootstrap $< > $@
 
 %.o: %.ll
@@ -66,7 +66,12 @@ $(BUILD_DIR)/stage2.ll: stage1
 stage%: $(BUILD_DIR)/stage%.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
-.PHONY: distclean clean self test
+format-all: format
+	for source in $(ALL_SRC); do \
+		./format $$source > /tmp/file.b ; cp /tmp/file.b $$source ; \
+	done
+
+.PHONY: distclean clean self test format-all
 clean:
 	rm -f build/* bootstrap stage*
 

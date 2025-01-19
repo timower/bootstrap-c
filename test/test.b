@@ -1,10 +1,25 @@
-import libc;
+// test libc
+import libc; // test libc 2
 
-enum Kind { A, B, C };
+enum Kind {
+  A, // A comment
 
+  // Also b
+  B, // B comment
+
+  // C comment
+  C, // C also
+};
+
+// 0
 struct Foo {
-  kind : Kind;
-  value : i32;
+  // a
+  kind : Kind; // b
+
+  // c
+  value : i32; // d
+
+  // e
 };
 
 // union Type {
@@ -76,10 +91,16 @@ func main(argc : i32, argv : i8 **) -> i32 {
 
   if (argc == 0) {
     return 0;
+
+    // test
   }
 
-  let x = Foo{kind = Kind::A, value = argc};
-  switch (x.kind) {
+  let x = malloc(sizeof(struct Foo)) as Foo *; // should be calloc
+
+  // a comment
+  x->kind = Kind::C; // b comment
+
+  switch (x->kind) {
   case Kind::A, Kind::B:
     puts("A or B");
   case Kind::C:
@@ -87,4 +108,10 @@ func main(argc : i32, argv : i8 **) -> i32 {
   }
 
   return 5 + 2 * 3 / (5 - 1);
+
+  // some trailing comment;
 }
+
+// and a final one
+
+// test

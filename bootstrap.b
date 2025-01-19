@@ -20,9 +20,7 @@ func main(argc : i32, argv : i8 **) -> i32 {
   let semaState = initSemaState();
   decls = semaTopLevel(&semaState, decls);
 
-  // for (let decl = decls; decl != NULL; decl = decl->next) {
-  //   printDecl(decl);
-  // }
+  // printTopLevel(decls);
 
   emitTopLevel(decls);
 
