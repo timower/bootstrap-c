@@ -31,7 +31,7 @@ struct SemaState {
 
 // 2. sema
 func failSema(loc: SourceLoc, msg: const i8*) {
-  printf("%s:%d:%d: %s\n", loc.fileName, loc.line, loc.column, msg);
+  printf("%s:%d:%d: sema error: %s\n", loc.fileName, loc.line, loc.column, msg);
   exit(1);
 }
 
@@ -84,14 +84,42 @@ func typeEq(one: Type*, two: Type*) -> i32 {
 
     case TypeKind::FUNC:
       failSema(SourceLoc{}, "TODO: type eq func");
-    case TypeKind::TAG:
+    case TypeKind::TAG, TypeKind::MEMBER_TAG:
       failSema(SourceLoc{}, "Type tag not resolved before eq");
   }
 
   return 1;
 }
 
-func doConvert(expr: ExprAST*, to: Type*) -> ExprAST* {
+func findTypeIdx(types: DeclList*, tag: Token, idxOut: i32*) -> DeclAST* {
+  let idx = 0;
+  for (; types != NULL; types = types->next, idx++) {
+    if (tokCmp(tag, types->decl->type->tag)) {
+      if (idxOut != NULL) {
+        *idxOut = idx;
+      }
+      return types->decl;
+    }
+  }
+  return NULL;
+}
+
+func findType(types: DeclList*, tag: Token) -> DeclAST* {
+  return findTypeIdx(types, tag, NULL);
+}
+
+func lookupType(state: SemaState*, tag: Token) -> DeclAST* {
+  for (; state != NULL; state = state->parent) {
+    let type = findType(state->types, tag);
+    if (type != NULL) {
+      return type;
+    }
+  }
+
+  return NULL;
+}
+
+func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
   let from = expr->type;
 
   if (typeEq(from, to)) {
@@ -101,6 +129,7 @@ func doConvert(expr: ExprAST*, to: Type*) -> ExprAST* {
   // Allow integer expression casting
   if (to->kind == TypeKind::INT && expr->kind == ExprKind::INT) {
     let res = newExpr(ExprKind::INT);
+    res->location = expr->location;
     res->value = expr->value;
     res->type = to;
     return res;
@@ -121,10 +150,70 @@ func doConvert(expr: ExprAST*, to: Type*) -> ExprAST* {
     return expr;
   }
 
+  // A union member can be converted to the union type by inserting the kind.
+  if (from->kind == TypeKind::STRUCT && to->kind == TypeKind::UNION) {
+    let unionDecl = lookupType(state, to->tag);
+    if (unionDecl == NULL) {
+      failSemaExpr(expr, "Can't find union decl to cast to");
+    }
+
+    let idx = 0;
+    let structDecl = findTypeIdx(unionDecl->subTypes, from->tag, &idx);
+    if (structDecl == NULL) {
+      failSemaExpr(expr, "No way to convert struct to unrelated union");
+    }
+
+    let castExpr = newExpr(ExprKind::CAST);
+    castExpr->location = expr->location;
+    castExpr->lhs = expr;
+    castExpr->type = to;
+    castExpr->value = idx;
+    return castExpr;
+  }
+
   return NULL;
 }
 
-func canCast(expr: ExprAST*, to: Type*) -> i32 {
+func resolveTypeTags(state: SemaState*, type: Type*) {
+  if (type == NULL) {
+    return;
+  }
+
+  if (type->kind == TypeKind::TAG) {
+    let typeDecl = lookupType(state, type->tag);
+    if (typeDecl == NULL) {
+      failSema(SourceLoc{}, "Can't resolve type tags, unknown type");
+    }
+    type->kind = typeDecl->type->kind;
+  } else if (type->kind == TypeKind::MEMBER_TAG) {
+    let parentDecl = lookupType(state, type->parentTag);
+    if (parentDecl == NULL) {
+      failSema(SourceLoc{}, "Can't resolve type tags, unknown parent type");
+    }
+
+    let tagDecl = findType(parentDecl->subTypes, type->tag);
+    if (tagDecl == NULL) {
+      failSema(SourceLoc{}, "Can't resolve type tags, unknown sub type");
+    }
+
+    // TODO: share more?
+    type->kind = tagDecl->type->kind;
+    type->tag = tagDecl->type->tag;
+  }
+
+  resolveTypeTags(state, type->result);
+  resolveTypeTags(state, type->arg);
+  resolveTypeTags(state, type->argNext);
+}
+
+func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
+  resolveTypeTags(state, castExpr->type);
+  if (castExpr->type == NULL) {
+    failSemaExpr(castExpr, "Cast without type?");
+  }
+
+  let to = castExpr->type;
+  let expr = castExpr->lhs;
   let from = expr->type;
 
   if (typeEq(from, to)) {
@@ -166,6 +255,38 @@ func canCast(expr: ExprAST*, to: Type*) -> i32 {
     return 1;
   }
 
+  if (from->kind == TypeKind::STRUCT && to->kind == TypeKind::UNION) {
+    let unionDecl = lookupType(state, to->tag);
+    if (unionDecl == NULL) {
+      failSemaExpr(expr, "Can't find union decl to cast to");
+    }
+
+    let idx = 0;
+    let structDecl = findTypeIdx(unionDecl->subTypes, from->tag, &idx);
+    if (structDecl == NULL) {
+      failSemaExpr(expr, "No way to convert struct to unrelated union");
+    }
+    castExpr->value = idx;
+    return 1;
+  }
+
+  if (from->kind == TypeKind::POINTER && from->arg->kind == TypeKind::UNION
+      && to->kind == TypeKind::POINTER && to->arg->kind == TypeKind::STRUCT) {
+    let unionDecl = lookupType(state, from->arg->tag);
+    if (unionDecl == NULL) {
+      failSemaExpr(expr, "Can't find union decl to cast from");
+    }
+
+    let idx = 0;
+    let structDecl = findTypeIdx(unionDecl->subTypes, to->arg->tag, &idx);
+    if (structDecl == NULL) {
+      failSemaExpr(expr, "No way to convert union to unrelated struct");
+    }
+
+    castExpr->value = idx;
+    return 1;
+  }
+
   return 0;
 }
 
@@ -185,27 +306,6 @@ func checkBool(expr: ExprAST*) {
   if (expr->type->kind != TypeKind::INT) {
     failSemaExpr(expr, ": Expected bool!");
   }
-}
-
-
-func findType(types: DeclList*, tag: Token) -> DeclAST* {
-  for (; types != NULL; types = types->next) {
-    if (tokCmp(tag, types->decl->type->tag)) {
-      return types->decl;
-    }
-  }
-  return NULL;
-}
-
-func lookupType(state: SemaState*, tag: Token) -> DeclAST* {
-  for (; state != NULL; state = state->parent) {
-    let type = findType(state->types, tag);
-    if (type != NULL) {
-      return type;
-    }
-  }
-
-  return NULL;
 }
 
 func findLocal(local: DeclList*, name: Token) -> DeclAST* {
@@ -309,10 +409,10 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
     case TokenKind::LESS, TokenKind::GREATER, TokenKind::LE_OP, TokenKind::GE_OP,
          TokenKind::EQ_OP, TokenKind::NE_OP:
       if (!typeEq(expr->lhs->type, expr->rhs->type)) {
-        let lhsConv = doConvert(expr->lhs, expr->rhs->type);
+        let lhsConv = doConvert(state, expr->lhs, expr->rhs->type);
 
         if (lhsConv == NULL) {
-          let rhsConv = doConvert(expr->rhs, expr->lhs->type);
+          let rhsConv = doConvert(state, expr->rhs, expr->lhs->type);
           if (rhsConv == NULL) {
             failSemaExpr(expr, ": Binary op on different types");
           }
@@ -365,7 +465,7 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
   }
 
   if (isAssign(expr->op)) {
-    let conv = doConvert(expr->rhs, expr->lhs->type);
+    let conv = doConvert(state, expr->rhs, expr->lhs->type);
     if (conv == NULL) {
       failSemaExpr(expr, ": Assign doesn't match");
     }
@@ -375,9 +475,9 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
   }
 
   if (!typeEq(expr->lhs->type, expr->rhs->type)) {
-    let lhsConv = doConvert(expr->lhs, expr->rhs->type);
+    let lhsConv = doConvert(state, expr->lhs, expr->rhs->type);
     if (lhsConv == NULL) {
-      let rhsConv = doConvert(expr->rhs, expr->lhs->type);
+      let rhsConv = doConvert(state, expr->rhs, expr->lhs->type);
       if (rhsConv == NULL) {
         failSemaExpr(expr, ": type mismatch");
       }
@@ -446,22 +546,19 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   expr->rhs = varRef;
 }
 
-func resolveTypeTags(state: SemaState*, type: Type*) {
-  if (type == NULL) {
-    return;
-  }
 
-  if (type->kind == TypeKind::TAG) {
-    let typeDecl = lookupType(state, type->tag);
-    if (typeDecl == NULL) {
-      failSema(SourceLoc{}, "Can't resolve type tags, unknown type");
+// Finds a struct type in the state. Correctly looks for unions tags as well.
+func lookupStruct(state: SemaState*, type: Type*) -> DeclAST* {
+  // Check for union as parent
+  if (type->arg != NULL) {
+    let unionDecl = lookupType(state, type->arg->tag);
+    if (unionDecl == NULL) {
+      return NULL;
     }
-    type->kind = typeDecl->type->kind;
-  }
 
-  resolveTypeTags(state, type->result);
-  resolveTypeTags(state, type->arg);
-  resolveTypeTags(state, type->argNext);
+    return findType(unionDecl->subTypes, type->tag);
+  }
+  return lookupType(state, type->tag);
 }
 
 func semaExpr(state: SemaState*, expr: ExprAST*) {
@@ -470,7 +567,16 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       failSemaExpr(expr, "Arg list shouldn't occur");
 
     case ExprKind::STRUCT:
-      let typeDecl = lookupType(state, expr->identifier);
+      let typeDecl: DeclAST* = NULL;
+      if (expr->parent.kind != TokenKind::TOK_EOF) {
+        let parentType = lookupType(state, expr->parent);
+        if (parentType == NULL || parentType->type->kind != TypeKind::UNION) {
+          failSemaExpr(expr, "Expected uninion type");
+        }
+        typeDecl = findType(parentType->subTypes, expr->identifier);
+      } else {
+        typeDecl = lookupType(state, expr->identifier);
+      }
       if (typeDecl == NULL || typeDecl->type->kind != TypeKind::STRUCT) {
         failSemaExpr(expr, "Expected struct type for struct init expression");
       }
@@ -483,9 +589,12 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         }
 
         semaExpr(state, field->lhs);
-        let conv = doConvert(field->lhs, fieldDecl->type);
+        let conv = doConvert(state, field->lhs, fieldDecl->type);
         if (conv == NULL) {
-          failSemaExpr(field, "cannot convert to field type");
+          printType(field->lhs->type);
+          printf("\n");
+          printType(fieldDecl->type);
+          failSemaExpr(field->lhs, "cannot convert to field type");
         }
         field->lhs = conv;
       }
@@ -508,28 +617,32 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
     case ExprKind::MEMBER:
       semaExpr(state, expr->lhs);
+
       let structDecl = NULL;
       if (expr->op.kind == TokenKind::PTR_OP) {
         if (expr->lhs->type->kind != TypeKind::POINTER
             || expr->lhs->type->arg->kind != TypeKind::STRUCT) {
           failSemaExpr(expr, ": Expected pointer to struct type for -> expr");
         }
-        structDecl = lookupType(state, expr->lhs->type->arg->tag);
+        structDecl = lookupStruct(state, expr->lhs->type->arg);
       } else if (expr->op.kind == TokenKind::DOT) {
         if (expr->lhs->type->kind != TypeKind::STRUCT) {
           failSemaExpr(expr, "Expected struct type for . expr");
         }
-        structDecl = lookupType(state, expr->lhs->type->tag);
+        structDecl = lookupStruct(state, expr->lhs->type);
       } else {
         failSemaExpr(expr, "Unknown member op");
       }
+
       if (structDecl == NULL) {
         failSemaExpr(expr, "Unkown type for member expression");
       }
+
       let fieldDecl = findField(structDecl, expr->identifier, &expr->value);
       if (fieldDecl == NULL) {
         failSemaExpr(expr, " Cannot find field");
       }
+
       expr->type = fieldDecl->type;
     case ExprKind::CALL:
       semaExpr(state, expr->lhs);
@@ -544,7 +657,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         semaExpr(state, cur->lhs);
 
         if (curArgTy != NULL) {
-          let conv = doConvert(cur->lhs, curArgTy);
+          let conv = doConvert(state, cur->lhs, curArgTy);
           if (conv == NULL) {
             printType(curArgTy);
             failSemaExpr(expr, " Arg type mismatch");
@@ -668,12 +781,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       expr->kind = ExprKind::INT;
       expr->type = getUPtr();
     case ExprKind::CAST:
-      resolveTypeTags(state, expr->type);
       semaExpr(state, expr->lhs);
-      if (expr->type == NULL) {
-        failSemaExpr(expr, "Cast without type?");
-      }
-      if (!canCast(expr->lhs, expr->type)) {
+      if (!semaCast(state, expr)) {
         printType(expr->lhs->type);
         printf(" -> ");
         printType(expr->type);
@@ -739,11 +848,11 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
       break;
     case DeclKind::UNION:
       let maxSize = 0;
-      for (let tag = decl->fields; tag != NULL; tag = tag->next) {
+      for (let tag = decl->subTypes; tag != NULL; tag = tag->next) {
         // sema the 'tag' which is a struct.
-        semaDecl(state, tag);
+        semaDecl(state, tag->decl);
 
-        let size = getStructDeclSize(state, tag);
+        let size = getStructDeclSize(state, tag->decl);
         if (size > maxSize) {
           maxSize = size;
         }
@@ -778,7 +887,7 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
             failSemaDecl(decl, "Currently only zero init supported");
           }
           decl->init->type = decl->type;
-        } else if (decl->init = doConvert(decl->init, decl->type),
+        } else if (decl->init = doConvert(state, decl->init, decl->type),
             decl->init == NULL) {
           failSemaDecl(decl, ": Decl init type doesn't match");
         }
@@ -831,8 +940,14 @@ func newState(parent: SemaState*) -> SemaState {
 func getFieldCount(decl: DeclAST*) -> i32 {
   let count = 0;
 
-  for (let field = decl->fields; field != NULL; field = field->next) {
-    count++;
+  if (decl->kind == DeclKind::ENUM) {
+    for (let field = decl->fields; field != NULL; field = field->next) {
+      count++;
+    }
+  } else if (decl->kind == DeclKind::UNION) {
+    for (let tag = decl->subTypes; tag != NULL; tag = tag->next) {
+      count++;
+    }
   }
 
   return count;
@@ -842,7 +957,7 @@ func getFieldCount(decl: DeclAST*) -> i32 {
 // Semas the expression, and returns a bitset of matched field indexes.
 func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
   switch (expr->kind) {
-    case ExprKind::SCOPE:
+    case ExprKind::SCOPE, ExprKind::MEMBER:
       return 1 << expr->value;
     case ExprKind::BINARY:
       if (expr->op.kind != TokenKind::COMMA) {
@@ -854,30 +969,104 @@ func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
   }
 }
 
+func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
+  switch (expr->kind) {
+    case ExprKind::MEMBER:
+      let scopeExpr = expr->lhs;
+      let varName = expr->identifier;
+
+      if (scopeExpr->kind != ExprKind::SCOPE) {
+        failSemaExpr(scopeExpr, "Expected :: expression");
+      }
+
+      let unionName = scopeExpr->parent;
+      let tagName = scopeExpr->identifier;
+
+      let unionDecl = lookupType(state, unionName);
+      if (unionDecl == NULL) {
+        failSemaExpr(expr, "Unknown union");
+      }
+
+      let tagIdx = 0;
+      let tagDecl = findTypeIdx(unionDecl->subTypes, tagName, &tagIdx);
+      if (tagDecl == NULL) {
+        failSemaExpr(expr, "Unkown tag in union");
+      }
+
+      expr->type = unionDecl->type;
+      expr->value = tagIdx;
+
+      // Make a new variable declaration.
+      let varDecl = newDecl(DeclKind::VAR);
+      varDecl->type = tagDecl->type;
+      varDecl->name = varName;
+
+      addLocalDecl(state, varDecl);
+
+    case ExprKind::SCOPE:
+      let decl = lookupType(state, expr->parent);
+      if (decl == NULL) {
+        failSemaExpr(expr, "Couldn't find type");
+      }
+
+      if (decl->type->kind == TypeKind::ENUM) {
+        let fieldDecl = findField(decl, expr->identifier, &expr->value);
+        if (fieldDecl == NULL) {
+          failSemaExpr(expr, " Cannot find field");
+        }
+
+        expr->type = newType(TypeKind::ENUM);
+        expr->type->tag = decl->type->tag;
+      } else if (decl->type->kind == TypeKind::UNION) {
+        let tagDecl = findTypeIdx(
+            decl->subTypes,
+            expr->identifier,
+            &expr->value);
+        if (tagDecl == NULL) {
+          failSemaExpr(expr, "Cannot find tag");
+        }
+
+        expr->type = decl->type;
+      } else {
+        failSemaExpr(
+            expr,
+            "Expected union or enum parent for member case expr");
+      }
+
+      break;
+
+    default:
+      semaExpr(state, expr);
+  }
+
+  if (!typeEq(expr->type, switchType)) {
+    failSemaExpr(expr, "case expr must match switch type");
+  }
+}
+
 func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
   semaExpr(state, stmt->expr);
   let switchType = stmt->expr->type;
 
-  let isEnum = switchType->kind == TypeKind::ENUM;
-  if (switchType->kind != TypeKind::INT && !isEnum) {
+  let exhaustive =
+      switchType->kind == TypeKind::ENUM
+      || switchType->kind == TypeKind::UNION;
+
+  if (switchType->kind != TypeKind::INT && !exhaustive) {
     printType(stmt->expr->type);
-    failSemaExpr(stmt->expr, "Switch expr must be integer or enum");
+    failSemaExpr(stmt->expr, "Switch expr must be integer, enum or union");
   }
 
   let fieldBitSet = 0;
 
   for (let caseStmt = stmt->stmt; caseStmt != NULL;
        caseStmt = caseStmt->nextStmt) {
+    let subState = newState(state);
     if (caseStmt->kind == StmtKind::CASE) {
-      semaExpr(state, caseStmt->expr);
+      semaCaseExpr(&subState, switchType, caseStmt->expr);
 
-      if (!typeEq(caseStmt->expr->type, switchType)) {
-        printType(switchType);
-        failSemaStmt(caseStmt, "case expr must match switch type");
-      }
-
-      if (isEnum) {
-        fieldBitSet |= getFieldBitset(state, caseStmt->expr);
+      if (exhaustive) {
+        fieldBitSet |= getFieldBitset(&subState, caseStmt->expr);
       }
     } else if (caseStmt->kind == StmtKind::DEFAULT) {
       fieldBitSet = -1;
@@ -885,14 +1074,14 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
       failSemaStmt(caseStmt, "Unknown switch case statement");
     }
 
-    let subState = newState(state);
     for (let cur = caseStmt->stmt; cur != NULL; cur = cur->nextStmt) {
       semaStmt(&subState, cur);
     }
   }
 
-  if (isEnum && fieldBitSet != -1) {
-    let decl = lookupType(state, stmt->expr->type->tag);
+  if (exhaustive && fieldBitSet != -1) {
+    let typeTag = switchType->tag;
+    let decl = lookupType(state, typeTag);
     if (decl == NULL) {
       failSemaStmt(stmt, "Couldn't find enum decl");
     }
@@ -921,7 +1110,7 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
       }
       if (stmt->expr != NULL) {
         semaExpr(state, stmt->expr);
-        let conv = doConvert(stmt->expr, state->result);
+        let conv = doConvert(state, stmt->expr, state->result);
         if (conv == NULL) {
           failSemaStmt(stmt, "Return type mismatch");
         }

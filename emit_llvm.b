@@ -8,6 +8,7 @@ struct EmitState {
   vars: LocalVar*;
 
   curBreakLabel: i8*;
+  switchUnionAddr: Value;
 
   parent: EmitState*;
 };
@@ -41,7 +42,7 @@ func failEmit(msg: const i8*) {
 }
 
 func failEmitLoc(loc: SourceLoc, msg: const i8*) {
-  printf("%s:%d:%d: %s\n", loc.fileName, loc.line, loc.column, msg);
+  printf("%s:%d:%d: emit error: %s\n", loc.fileName, loc.line, loc.column, msg);
   exit(1);
 }
 
@@ -53,7 +54,10 @@ func newEmitState(parent: EmitState*) -> EmitState {
   let state: EmitState = { 0,};
   state.tmpCounter = parent->tmpCounter;
   state.parent = parent;
+
   state.curBreakLabel = parent->curBreakLabel;
+  state.switchUnionAddr = parent->switchUnionAddr;
+
   return state;
 }
 
@@ -111,11 +115,20 @@ func convertType(type: Type*) -> const i8* {
     case TypeKind::ENUM:
       return "i32";
 
-    case TypeKind::TAG:
+    case TypeKind::TAG, TypeKind::MEMBER_TAG:
       failEmit("Unknown type to emit");
   }
 
   return NULL;
+}
+
+func getConcreteUnion(tag: Type*) -> const i8* {
+  let buf: i8* = malloc(64);
+
+  // TODO: add alignment when moving away from packed structs.
+  sprintf(buf, "<{ i32, %s }>", convertType(tag));
+
+  return buf;
 }
 
 func newLocal(name: Token, val: Value) -> LocalVar* {
@@ -208,6 +221,23 @@ func lookupVar(state: EmitState*, tok: Token) -> Value {
   return v;
 }
 
+func emitStructGEP(
+    state: EmitState*,
+    aggType: Type*,
+    agg: Value,
+    idx: i32
+) -> Value {
+  let gep = getNextTemp(state);
+  gep.type = "ptr";
+  printf(
+      "  %s = getelementptr inbounds %s, ptr %s, i32 0, i32 %d\n",
+      gep.val,
+      convertType(aggType),
+      agg.val,
+      idx);
+  return gep;
+}
+
 func emitAddr(state: EmitState*, expr: ExprAST*) -> Value {
   switch (expr->kind) {
     case ExprKind::VARIABLE:
@@ -236,20 +266,14 @@ func emitAddr(state: EmitState*, expr: ExprAST*) -> Value {
       return gep;
 
     case ExprKind::MEMBER:
-      let agg = expr->op.kind == TokenKind::DOT ? emitAddr(state, expr->lhs)
+      let agg = expr->op.kind == TokenKind::DOT
+           ? emitAddr(state, expr->lhs)
            : emitExpr(state, expr->lhs);
-      let aggType = expr->op.kind == TokenKind::DOT ? expr->lhs->type
+      let aggType = expr->op.kind == TokenKind::DOT
+           ? expr->lhs->type
            : expr->lhs->type->arg;
 
-      let gep = getNextTemp(state);
-      gep.type = "ptr";
-      printf(
-          "  %s = getelementptr inbounds %s, ptr %s, i32 0, i32 %d\n",
-          gep.val,
-          convertType(aggType),
-          agg.val,
-          expr->value);
-      return gep;
+      return emitStructGEP(state, aggType, agg, expr->value);
 
     case ExprKind::UNARY:
       if (expr->op.kind == TokenKind::STAR) {
@@ -548,7 +572,8 @@ func emitBinOp(state: EmitState*, expr: ExprAST*) -> Value {
   }
 
   // TODO: not needed anymore?
-  if ((expr->op.kind == TokenKind::PLUS || expr->op.kind == TokenKind::MINUS
+  if ((expr->op.kind == TokenKind::PLUS
+        || expr->op.kind == TokenKind::MINUS
         || expr->op.kind == TokenKind::ADD_ASSIGN
         || expr->op.kind == TokenKind::SUB_ASSIGN)
       && (expr->lhs->type->kind == TypeKind::POINTER
@@ -784,7 +809,72 @@ func emitCast(state: EmitState*, expr: ExprAST*) -> Value {
   let from = expr->lhs->type;
   let to = expr->type;
   if (from->kind == TypeKind::POINTER && to->kind == TypeKind::POINTER) {
-    return v;
+    if (from->arg->kind == TypeKind::VOID || to->arg->kind == TypeKind::VOID) {
+      return v;
+    }
+
+    if (from->arg->kind == TypeKind::ARRAY
+        && to->arg->kind == from->arg->arg->kind) {
+      return v;
+    }
+  }
+
+  if (from->kind == TypeKind::STRUCT && to->kind == TypeKind::UNION) {
+    let type = getConcreteUnion(expr->lhs->type);
+
+    let res = Value{};
+    res.type = type;
+    res.val = "zeroinitializer";
+
+    // Insert kind
+    let next = getNextTemp(state);
+    next.type = res.type;
+    printf(
+        "  %s = insertvalue %s %s, i32 %d, 0\n",
+        next.val,
+        type,
+        res.val,
+        expr->value);
+
+    // Insert value
+    let final = getNextTemp(state);
+    final.type = res.type;
+    printf(
+        "  %s = insertvalue %s %s, %s %s, 1\n",
+        final.val,
+        type,
+        next.val,
+        v.type,
+        v.val);
+
+    return final;
+  }
+
+  if (from->kind == TypeKind::POINTER && from->arg->kind == TypeKind::UNION
+      && to->kind == TypeKind::POINTER && to->arg->kind == TypeKind::STRUCT) {
+    let kindGep = emitStructGEP(state, from->arg, v, 0);
+    let kind = emitLoad(state, kindGep, "i32");
+    let valGep = emitStructGEP(state, from->arg, v, 1);
+
+    // cmpRes = kind == expr->value;
+    let cmpRes = getNextTemp(state);
+    printf(
+        "  %s = icmp eq %s %s, %d\n",
+        cmpRes.val,
+        kind.type,
+        kind.val,
+        expr->value);
+
+    // res = select cmpRes, valGep, null
+    let res = getNextTemp(state);
+    res.type = convertType(to);
+    printf(
+        "  %s = select i1 %s, %s %s, ptr null\n",
+        res.val,
+        cmpRes.val,
+        valGep.type,
+        valGep.val);
+    return res;
   }
 
   if (from->kind == TypeKind::ENUM && to->kind == TypeKind::INT) {
@@ -870,7 +960,7 @@ func emitCond(state: EmitState*, expr: ExprAST*) -> Value {
 func emitStructExpr(state: EmitState*, expr: ExprAST*) -> Value {
   let type = convertType(expr->type);
 
-  let res: Value = { 0,};
+  let res = Value{};
   res.type = type;
   res.val = "zeroinitializer";
 
@@ -1098,15 +1188,36 @@ func getCases(
 ) -> Case* {
   switch (expr->kind) {
     case ExprKind::SCOPE, ExprKind::INT:
-      let constExpr = emitExpr(state, expr);
       let cse: Case* = calloc(1, sizeof(struct Case));
       cse->n = index;
-      cse->val = constExpr;
+      if (expr->type->kind == TypeKind::UNION) {
+        cse->val = intToVal(expr->value, getInt32());
+      } else {
+        cse->val = emitExpr(state, expr);
+      }
       cse->next = cases;
       return cse;
+
     case ExprKind::BINARY:
       let lhsCases = getCases(state, expr->lhs, cases, index);
       return getCases(state, expr->rhs, lhsCases, index);
+
+    case ExprKind::MEMBER:
+      if (state->switchUnionAddr.val == NULL) {
+        failEmitExpr(expr, "case as on non union type?");
+      }
+
+      let val = emitStructGEP(state, expr->type, state->switchUnionAddr, 1);
+      let local = newLocal(expr->identifier, val);
+      local->next = state->vars;
+      state->vars = local;
+
+      let cse: Case* = calloc(1, sizeof(struct Case));
+      cse->n = index;
+      cse->val = intToVal(expr->value, getInt32());
+      cse->next = cases;
+      return cse;
+
     default:
       failEmitExpr(expr, "Unsupported case expr");
   }
@@ -1121,7 +1232,26 @@ func emitSwitch(state: EmitState*, stmt: StmtAST*) {
   sprintf(buf, "cont.%d", switchIdx);
   switchState.curBreakLabel = buf;
 
-  let expr = emitExpr(&switchState, stmt->expr);
+  let switchExpr = stmt->expr;
+  let isPointer = switchExpr->type->kind == TypeKind::POINTER;
+  let isUnion =
+      switchExpr->type->kind == TypeKind::UNION
+      || (isPointer && switchExpr->type->arg->kind == TypeKind::UNION);
+
+  let expr = Value{};
+  if (isUnion) {
+    let unionAddr = isPointer
+         ? emitExpr(&switchState, switchExpr)
+         : emitAddr(&switchState, switchExpr);
+    let unionType = isPointer ? switchExpr->type->arg : switchExpr->type;
+
+    // Load the first element, which is the i32 kind.
+    let gep = emitStructGEP(&switchState, unionType, unionAddr, 0);
+    expr = emitLoad(&switchState, gep, "i32");    // TODO: don't hardcode type.
+    switchState.switchUnionAddr = unionAddr;
+  } else {
+    expr = emitExpr(&switchState, switchExpr);
+  }
   printf("  br label %%switch.%d\n", switchIdx);
 
   let cases: Case* = NULL;
@@ -1131,19 +1261,20 @@ func emitSwitch(state: EmitState*, stmt: StmtAST*) {
        caseStmt = caseStmt->nextStmt) {
     // Jump to end of switch at the end of the previous case.
     printf("  br label %%cont.%d\n", switchIdx);
+    let caseState = newEmitState(&switchState);
 
     if (caseStmt->kind == StmtKind::CASE) {
-      let caseIdx = getCount(state);
+      let caseIdx = getCount(&caseState);
 
       printf("case.%d:\n", caseIdx);
 
-      cases = getCases(state, caseStmt->expr, cases, caseIdx);
+      cases = getCases(&caseState, caseStmt->expr, cases, caseIdx);
     } else if (caseStmt->kind == StmtKind::DEFAULT) {
       if (defaultLabel != NULL) {
         failEmit("Multiple default");
       }
 
-      let defaultIdx = getCount(state);
+      let defaultIdx = getCount(&caseState);
       defaultLabel = malloc(32);
       sprintf(defaultLabel, "default.%d", defaultIdx);
 
@@ -1152,7 +1283,6 @@ func emitSwitch(state: EmitState*, stmt: StmtAST*) {
       failEmit("Unsupported switch stmt");
     }
 
-    let caseState = newEmitState(&switchState);
     for (let cur = caseStmt->stmt; cur != NULL; cur = cur->nextStmt) {
       emitStmt(&caseState, cur);
     }
@@ -1164,7 +1294,11 @@ func emitSwitch(state: EmitState*, stmt: StmtAST*) {
   printf("switch.%d:\n", switchIdx);
 
   if (defaultLabel != NULL) {
-    printf("  switch %s %s, label %%%s [\n", expr.type, expr.val, defaultLabel);
+    printf(
+        "  switch %s %s, label %%%s [\n",
+        expr.type,
+        expr.val,
+        defaultLabel);
   } else {
     printf(
         "  switch %s %s, label %%cont.%d [\n",
@@ -1290,11 +1424,11 @@ func emitStruct(state: EmitState*, decl: DeclAST*) {
 
 func emitUnion(state: EmitState*, decl: DeclAST*) {
   // emit nested structs
-  for (let tag = decl->fields; tag != NULL; tag = tag->next) {
-    if (tag->kind != DeclKind::STRUCT) {
+  for (let tag = decl->subTypes; tag != NULL; tag = tag->next) {
+    if (tag->decl->kind != DeclKind::STRUCT) {
       failEmit("Expected struct tag in union");
     }
-    emitStruct(state, tag);
+    emitStruct(state, tag->decl);
   }
 
   printf("%s = type <{ ", convertType(decl->type));

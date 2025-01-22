@@ -69,6 +69,10 @@ func printType(type: Type*) {
 
     case TypeKind::TAG:
       printStr(type->tag.data, type->tag.end);
+    case TypeKind::MEMBER_TAG:
+      printStr(type->parentTag.data, type->parentTag.end);
+      printf("::");
+      printStr(type->tag.data, type->tag.end);
   }
 }
 
@@ -154,7 +158,14 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       printf(")");
     case ExprKind::MEMBER:
       printExprPrec(expr->lhs, curPrec, indent);
+      let isAs = expr->op.kind == TokenKind::AS;
+      if (isAs) {
+        printf(" ");
+      }
       printToken(expr->op);
+      if (isAs) {
+        printf(" ");
+      }
       printToken(expr->identifier);
     case ExprKind::UNARY:
       if (expr->lhs != NULL) {
@@ -475,10 +486,14 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printType(decl->type);
       printf(" {\n");
 
-      for (let tag = decl->fields; tag != NULL; tag = tag->next) {
+      for (let subType = decl->subTypes; subType != NULL;
+           subType = subType->next) {
         printIndent(indent + indent_width);
-        printToken(tag->type->tag);
-        trailing = printStructBody(tag, indent + indent_width, trailing);
+        printToken(subType->decl->type->tag);
+        trailing = printStructBody(
+            subType->decl,
+            indent + indent_width,
+            trailing);
         printf("\n");
       }
 
