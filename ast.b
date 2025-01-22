@@ -130,6 +130,7 @@ enum TypeKind {
   UNION,
 
   TAG,  // For tagged structs / enums resolved in sema.
+  MEMBER_TAG,  // For A::B types, will resolve during sema.
 };
 
 struct Type {
@@ -138,10 +139,14 @@ struct Type {
   // For tagged structs / enums.
   tag: Token;
 
+  // For MEMBER_TAG types
+  parentTag: Token;
+
   result: Type*;
 
   // For pointers / arrays, the contained type
   // For functions, linked list of arg types.
+  // For structs, the optional union.
   arg: Type*;
   argNext: Type*;
 
@@ -179,7 +184,7 @@ enum ExprKind {
 
   BINARY,  // a + b, ...
 
-  CAST,  // (type)lhs
+  CAST,  // lhs as type
 
   PAREN,  // (lhs)
 };
@@ -213,13 +218,18 @@ struct ExprAST {
 };
 
 enum DeclKind {
+  // Local & Global decls
   VAR,
+
+  // Global decls
   STRUCT,
   ENUM,
   FUNC,
-  ENUM_FIELD,
   IMPORT,
   UNION,
+
+  // Specials
+  ENUM_FIELD,
 };
 
 struct DeclAST {

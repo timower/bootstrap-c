@@ -18,10 +18,6 @@ struct Token {
 union Type {
   Void {
   }
-  Int {
-    size: i32;
-    isSigned: i32;
-  }
   Pointer {
     arg: Type*;
     isConst: i32;
@@ -30,74 +26,71 @@ union Type {
     arg: Type*;
     size: i32;
   }
-  Struct {
-    tag: Token;
-    fields: TypeList*;
-  }
   Func {
     result: Type*;
     args: TypeList*;
   }
-  Enum {
-    tag: Token;
-  }
-  Tag {
-    tag: Token;    // foo
-  }
 };
-
 
 struct TypeList {
   type: Type*;
   next: TypeList*;
 };
 
-
-//
-// func test(fn : Type::Func *) { puts("Func"); }
-func main(argc: i32, argv: i8**) -> i32 {
-  let foo = Type::Void{};
-
-  // let bar = Type::Array{arg = &foo, size = 2};
-  // let ptr = &bar;
-  // switch (bar) {
-  // case Type::Array as array:
-  //   printf("size: %d\n", array.size);
-  // case Type::Pointer as ptr:
-  //   puts("pointer");
-  // case Type::Void:
-  //   puts("Void!");
-  // case Type::Func as fn:
-  //   test(&fn);
-  // }
-  // switch (ptr) {
-  // case Type::Array as array:
-  //   printf("size: %d\n", array->size);
-  // case Type::Pointer as ptr:
-  //   puts("pointer");
-  // case Type::Void:
-  //   puts("Void!");
-  // case Type::Func as fn:
-  //   test(fn);
-  // }
-  if (argc == 0) {
-    return 0;
-      // test
+func test(fn: Type::Func*) {
+  puts("Func");
 }
 
-  let x = malloc(sizeof(struct Foo)) as Foo*;   // should be calloc
 
-  // a comment
-  x->kind = Kind::C;  // b comment
+// TODO:
+// func getType() -> Type {
+//   return Type::Void{};
+// }
+func main(argc: i32, argv: i8**) -> i32 {
+  let foo: Type = Type::Void{};
 
-  switch (x->kind) {
-    case Kind::A, Kind::B:
-      puts("A or B");
-    case Kind::C:
-      puts("C");
+  let bar: Type = Type::Func{
+    result = &foo,
+  };
+
+  let ptr = &bar;
+  switch (bar) {
+    case Type::Array as array:
+      printf("size: %d\n", array.size);
+    case Type::Pointer as ptr:
+      puts("pointer");
+    case Type::Void:
+      puts("Void!");
+    case Type::Func as fn:
+      test(&fn);
   }
 
-  return 5 + 2 * 3 / (5 - 1);
-  // some trailing comment;
-} // and a final one
-// test
+  switch (*ptr) {
+    case Type::Array as array:
+      printf("size: %d\n", array.size);
+    case Type::Pointer as ptr:
+      puts("pointer");
+    case Type::Void:
+      puts("Void!");
+    case Type::Func as fn:
+      test(&fn);
+  }
+
+  let buz = Type::Void{} as Type;
+
+  let vptr = &buz as Type::Void*;
+  if (vptr == NULL) {
+    puts("Null");
+  } else {
+    puts("Void!");
+  }
+
+  let nptr = &buz as Type::Func*;
+  if (nptr == NULL) {
+    puts("Null");
+  } else {
+    puts("Func!");
+  }
+
+  return 0;
+}

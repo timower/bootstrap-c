@@ -637,6 +637,15 @@ func parseType(state: ParseState*) -> Type* {
     return NULL;
   }
 
+  if (match(state, TokenKind::SCOPE)) {
+    getNextToken(state);
+    expect(state, TokenKind::IDENTIFIER);
+
+    type->kind = TypeKind::MEMBER_TAG;
+    type->parentTag = type->tag;
+    type->tag = getNextToken(state);
+  }
+
   // parse type suffixes (pointers & arrays)
   while (1) {
     if (match(state, TokenKind::STAR)) {
@@ -716,7 +725,7 @@ func parseUnary(state: ParseState*) -> ExprAST* {
 }
 
 
-// cast := unary | unary 'as' decl
+// cast := unary | unary 'as' type
 func parseCast(state: ParseState*) -> ExprAST* {
   let lhs = parseUnary(state);
 
@@ -969,8 +978,22 @@ func parseReturnStmt(state: ParseState*) -> StmtAST* {
 
 
 // case_expr := primary_expr (',' primary_expr)*
+//            | primary_expr 'as' identifier
 func parseCaseExpr(state: ParseState*) -> ExprAST* {
   let expr = parsePrimary(state);
+
+  if (match(state, TokenKind::AS)) {
+    // TODO: this isn't really a member expr.
+    let res = newLocExpr(state, ExprKind::MEMBER);
+    res->op = getNextToken(state);
+    res->lhs = expr;
+
+    expect(state, TokenKind::IDENTIFIER);
+    res->identifier = getNextToken(state);
+
+    return res;
+  }
+
   while (match(state, TokenKind::COMMA)) {
     let op = getNextToken(state);
     let rhs = parsePrimary(state);
@@ -1346,22 +1369,22 @@ func parseUnion(state: ParseState*) -> DeclAST* {
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);
 
-  let tags = decl;
+  let declListPtr = &decl->subTypes;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
     let tag = newLocDecl(state, DeclKind::STRUCT);
     parseSubStruct(state, tag);
 
+    // Use 'arg' of the struct type to point to the parent type.
+    tag->type->arg = decl->type;
+
     // TODO: trailing comments?
-    tags->next = tag;
-    tags = tag;
+    let newList = newDeclList(tag);
+    *declListPtr = newList;
+    declListPtr = &newList->next;
   }
 
   decl->endLocation = getLocation(state);
   getNextToken(state);  // eat }
-
-  tags->next = NULL;
-  decl->fields = decl->next;
-  decl->next = NULL;
 
   return decl;
 }

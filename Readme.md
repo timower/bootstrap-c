@@ -23,19 +23,20 @@ TODO
  - [x] Switch statements that make sense.
  - [x] Struct init and struct expressions.
     * `Foo{x = 1, y = 2}`?
+ - [ ] Avoid aggregates in LLVM registers.
  - [ ] Type safe unions.
+ - [ ] Rename `NULL` to `null`
+ - [ ] Add references?
  - [ ] Add slice type.
     * syntax: `[i8]`
     * stored as `{ ptr: T*, len: isize }`
     * arrays become `[1, 2, 3]`
     * array to slice: `array[start:end]` start & end are optional
-    * array or pointer to it? can be converted to slice implictly
+    * array or pointer to it? can be converted to slice implicitly
  - [ ] Require extern for external functions.
  - [ ] Remove function declarations, supporting use before define.
+ - [ ] Fix relative imports, split source to `src/sema/...`
  - [ ] Actual constant expressions and decls.
- - [ ] Remove statement and expression distinction.
- - [ ] Add tuples
- - [ ] Add Unit type, remove void.
  - [ ] Correctly padded structs.
  - [ ] Add target pointer size, Add iptr and uptr types.
  - [ ] Universal function call syntax
@@ -44,3 +45,12 @@ TODO
  - [ ] Model LLVM IR.
  - [ ] armv7 or aarch64 backend
  - [ ] continue statement.
+
+Formatter TODO
+--------------
+
+ - [ ] Fix trailing comments in block scopes.
+ - [ ] Preserve newline between comments, and comments & code.
+ - [ ] Fix newline bugs
+   `let x = y + z` Don't split after `=` if `+` is moved to new line.
+ - [ ] Auto split based on max line length (88 chars?)
