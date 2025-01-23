@@ -24,6 +24,11 @@ TODO
  - [x] Struct init and struct expressions.
     * `Foo{x = 1, y = 2}`?
  - [ ] Avoid aggregates in LLVM registers.
+    * Aggregates are represented as `ptr` to them on stack. 
+    * Except for function args, returns, struct members.
+    * `a = b` for aggregate creates memcpy.
+    * `Foo{a = 1}` generates `alloca`
+    * Function args need to be stored somehow?
  - [ ] Type safe unions.
  - [ ] Rename `NULL` to `null`
  - [ ] Add references?

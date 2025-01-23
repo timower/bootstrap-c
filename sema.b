@@ -196,9 +196,7 @@ func resolveTypeTags(state: SemaState*, type: Type*) {
       failSema(SourceLoc{}, "Can't resolve type tags, unknown sub type");
     }
 
-    // TODO: share more?
-    type->kind = tagDecl->type->kind;
-    type->tag = tagDecl->type->tag;
+    *type = *tagDecl->type;
   }
 
   resolveTypeTags(state, type->result);
@@ -386,6 +384,17 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
       }
 
       return getStructDeclSize(state, decl);
+
+    case TypeKind::UNION:
+      let maxSize = 0;
+      let decl = lookupType(state, type->tag);
+      for (let sub = decl->subTypes; sub != NULL; sub = sub->next) {
+        let size = getStructDeclSize(state, sub->decl);
+        if (size > maxSize) {
+          maxSize = size;
+        }
+      }
+      return maxSize + 4;      // i32 tag.
 
     default:
       failSema(SourceLoc{}, "Unknown type for size");
@@ -635,7 +644,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
 
       if (structDecl == NULL) {
-        failSemaExpr(expr, "Unkown type for member expression");
+        failSemaExpr(expr, "Unknown type for member expression");
       }
 
       let fieldDecl = findField(structDecl, expr->identifier, &expr->value);
@@ -862,9 +871,10 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
     case DeclKind::FUNC:
       addLocalDecl(state, decl);
       if (decl->body != NULL) {
-        let funcState: SemaState = { 0,};
-        funcState.parent = state;
-        funcState.result = decl->type->result;
+        let funcState = SemaState{
+          parent = state,
+          result = decl->type->result,
+        };
 
         // Generate a local for each arg.
         for (let field = decl->fields; field != NULL; field = field->next) {
@@ -880,13 +890,6 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
 
         if (decl->type == NULL) {
           decl->type = decl->init->type;
-        } else if (decl->type->kind == TypeKind::STRUCT
-            && decl->init->kind == ExprKind::ARRAY) {
-          // TODO: verify match?
-          if (decl->init->rhs != NULL || decl->init->lhs->kind != ExprKind::INT) {
-            failSemaDecl(decl, "Currently only zero init supported");
-          }
-          decl->init->type = decl->type;
         } else if (decl->init = doConvert(state, decl->init, decl->type),
             decl->init == NULL) {
           failSemaDecl(decl, ": Decl init type doesn't match");
@@ -931,9 +934,10 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
 }
 
 func newState(parent: SemaState*) -> SemaState {
-  let state: SemaState = { 0,};
-  state.parent = parent;
-  state.result = parent->result;
+  let state = SemaState{
+    parent = parent,
+    result = parent->result,
+  };
   return state;
 }
 
@@ -1206,7 +1210,7 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
 }
 
 func initSemaState() -> SemaState {
-  let semaState: SemaState = { 0,};
+  let semaState = SemaState{};
   let nullTok: Token;
   nullTok.kind = TokenKind::IDENTIFIER;
   nullTok.data = "NULL";

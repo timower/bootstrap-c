@@ -51,7 +51,7 @@ func main(argc: i32, argv: i8**) -> i32 {
     return 1;
   }
 
-  let decls = parseBufOpts(*(argv + 1), buf, parseOpts);
+  let decls = parseBufOpts(name, buf, parseOpts);
 
   printTopLevel(decls);
 

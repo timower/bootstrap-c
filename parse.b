@@ -582,7 +582,11 @@ func parsePostfix(state: ParseState*) -> ExprAST* {
 func isDecl(tok: Token) -> i32 {
   // We don't support typedef, so this is easy
   switch (tok.kind) {
-    case TokenKind::STRUCT, TokenKind::ENUM, TokenKind::LET, TokenKind::FUNC:
+    case TokenKind::STRUCT,
+         TokenKind::ENUM,
+         TokenKind::LET,
+         TokenKind::FUNC,
+         TokenKind::UNION:
       return 1;
     default:
       return 0;
@@ -627,6 +631,11 @@ func parseType(state: ParseState*) -> Type* {
   } else if (match(state, TokenKind::ENUM)) {
     getNextToken(state);
     type->kind = TypeKind::ENUM;
+    expect(state, TokenKind::IDENTIFIER);
+    type->tag = getNextToken(state);
+  } else if (match(state, TokenKind::UNION)) {
+    getNextToken(state);
+    type->kind = TypeKind::UNION;
     expect(state, TokenKind::IDENTIFIER);
     type->tag = getNextToken(state);
   } else if (match(state, TokenKind::IDENTIFIER)) {
