@@ -1,8 +1,8 @@
-CC ?= clang
+CC, ?= clang
 CFLAGS ?= -g -Wall -fsanitize=address
 LDFLAGS ?= -fsanitize=address
 
-LLCFLAGS = --relocation-model=pic -filetype=obj
+LLCFLAGS = -O0 --relocation-model=pic -filetype=obj
 
 export ASAN_OPTIONS=detect_leaks=0
 
@@ -19,7 +19,6 @@ PARENT_STAGE = $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 # Sources of the compiler
 # TODO: when bootstrap can emit dep files, we can just list the main src here.
 ALL_SRC = $(wildcard *.b)
-TEST_SRC = test/test.b
 
 # We call the bootstrap compiler on the first source file.
 MAIN_SRC = bootstrap.b
@@ -53,12 +52,16 @@ $(PARENT_STAGE):
 self: bootstrap
 	./bootstrap $(MAIN_SRC)
 
-test: bootstrap
-	./bootstrap $(TEST_SRC)
+test: lit lit-stage2
+
+lit: bootstrap 
+	lit -v test/
+
+lit-stage%: stage%
+	env BOOTSTRAP=$< lit -v test/
 
 $(BUILD_DIR)/stage1.ll: bootstrap
 	./bootstrap $(MAIN_SRC) > $@
-
 
 $(BUILD_DIR)/stage2.ll: stage1
 	./stage1 $(MAIN_SRC) > $@
@@ -71,7 +74,7 @@ format-all: format
 		./format $$source > /tmp/file.b ; cp /tmp/file.b $$source ; \
 	done
 
-.PHONY: distclean clean self test format-all
+.PHONY: distclean clean self test lit lit-stage% format-all
 clean:
 	rm -f build/* bootstrap stage*
 

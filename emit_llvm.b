@@ -51,18 +51,22 @@ func failEmitExpr(expr: ExprAST*, msg: const i8*) {
 }
 
 func newEmitState(parent: EmitState*) -> EmitState {
-  let state: EmitState = { 0,};
-  state.tmpCounter = parent->tmpCounter;
-  state.parent = parent;
-
-  state.curBreakLabel = parent->curBreakLabel;
-  state.switchUnionAddr = parent->switchUnionAddr;
+  let state = EmitState{
+    tmpCounter = parent->tmpCounter,
+    parent = parent,
+    curBreakLabel = parent->curBreakLabel,
+    switchUnionAddr = parent->switchUnionAddr,
+  };
 
   return state;
 }
 
 func getCount(state: EmitState*) -> i32 {
   return (*state->tmpCounter)++;
+}
+
+func isAggregate(type: Type*) -> i32 {
+  return type->kind == TypeKind::STRUCT || type->kind == TypeKind::UNION;
 }
 
 
@@ -82,8 +86,21 @@ func convertType(type: Type*) -> const i8* {
 
     case TypeKind::STRUCT:
       let len = type->tag.end - type->tag.data;
-      let buf: i8* = malloc((len + 10) as u64);
-      sprintf(buf, "%%struct.%.*s", len, type->tag.data);
+      let buf: i8* = NULL;
+      if (type->arg != NULL) {
+        let parentLen = type->arg->tag.end - type->arg->tag.data;
+        buf = malloc((len + parentLen + 10) as u64);
+        sprintf(
+            buf,
+            "%%struct.%.*s.%.*s",
+            parentLen,
+            type->arg->tag.data,
+            len,
+            type->tag.data);
+      } else {
+        buf = malloc((len + 10) as u64);
+        sprintf(buf, "%%struct.%.*s", len, type->tag.data);
+      }
       return buf;
 
     case TypeKind::UNION:
@@ -122,14 +139,6 @@ func convertType(type: Type*) -> const i8* {
   return NULL;
 }
 
-func getConcreteUnion(tag: Type*) -> const i8* {
-  let buf: i8* = malloc(64);
-
-  // TODO: add alignment when moving away from packed structs.
-  sprintf(buf, "<{ i32, %s }>", convertType(tag));
-
-  return buf;
-}
 
 func newLocal(name: Token, val: Value) -> LocalVar* {
   let local: LocalVar* = calloc(1, sizeof(struct LocalVar));
@@ -281,6 +290,12 @@ func emitAddr(state: EmitState*, expr: ExprAST*) -> Value {
       }
     case ExprKind::PAREN:
       return emitAddr(state, expr->lhs);
+    case ExprKind::CALL:
+      if (!isAggregate(expr->type)) {
+        break;
+      }
+      return emitExpr(state, expr);
+
     default:
       break;
   }
@@ -292,16 +307,63 @@ func emitAddr(state: EmitState*, expr: ExprAST*) -> Value {
   return v;
 }
 
-func emitStore(addr: Value, val: Value) {
-  printf("  store %s %s, ptr %s\n", val.type, val.val, addr.val);
+func getLLVMSize(type: Type*) -> Value {
+  let res = Value{};
+  res.val = malloc(128);
+  sprintf(
+      res.val,
+      "ptrtoint (ptr getelementptr (%s, ptr null, i32 1) to i32)",
+      convertType(type));
+  res.type = "i32";
+  return res;
 }
 
-func emitLoad(state: EmitState*, addr: Value, type: const i8*) -> Value {
+func emitMemcpy(addr: Value, val: Value, type: Type*) {
+  let size = getLLVMSize(type);
+  printf(
+      "  call void @llvm.memcpy.p0.p0.i32(ptr %s, ptr %s, %s %s, i1 0)\n",
+      addr.val,
+      val.val,
+      size.type,
+      size.val);
+}
+
+func emitStore(addr: Value, val: Value, type: Type*) {
+  if (isAggregate(type)) {
+    emitMemcpy(addr, val, type);
+  } else {
+    printf("  store %s %s, ptr %s\n", val.type, val.val, addr.val);
+  }
+}
+
+func emitRawLoad(state: EmitState*, addr: Value, type: Type*) -> Value {
   let val = getNextTemp(state);
-  val.type = type;
+  val.type = convertType(type);
   printf("  %s = load %s, ptr %s\n", val.val, val.type, addr.val);
   return val;
 }
+
+func emitLoad(state: EmitState*, addr: Value, type: Type*) -> Value {
+  // Funcs and arrays are implictly converted to pointers here.
+  if (type->kind == TypeKind::FUNC || type->kind == TypeKind::ARRAY) {
+    return addr;
+  }
+
+  // Structs are stored on stack
+  if (isAggregate(type)) {
+    return addr;
+  }
+
+  return emitRawLoad(state, addr, type);
+}
+
+func emitAlloca(state: EmitState*, type: Type*) -> Value {
+  let res = getNextTemp(state);
+  res.type = "ptr";
+  printf("  %s = alloca %s\n", res.val, convertType(type));
+  return res;
+}
+
 
 func emitBinary(
     state: EmitState*,
@@ -409,11 +471,11 @@ func emitAssignment(state: EmitState*, expr: ExprAST*) -> Value {
   let val = emitExpr(state, expr->rhs);
 
   if (expr->op.kind == TokenKind::EQ) {
-    emitStore(addr, val);
+    emitStore(addr, val, expr->rhs->type);
     return val;
   }
 
-  let lval = emitLoad(state, addr, convertType(expr->lhs->type));
+  let lval = emitLoad(state, addr, expr->lhs->type);
 
   let op: TokenKind;
   switch (expr->op.kind) {
@@ -450,7 +512,7 @@ func emitAssignment(state: EmitState*, expr: ExprAST*) -> Value {
       val,
       expr->rhs->type);
 
-  emitStore(addr, res);
+  emitStore(addr, res, expr->type);
   return res;
 }
 
@@ -599,20 +661,15 @@ func emitBinOp(state: EmitState*, expr: ExprAST*) -> Value {
 }
 
 func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
-  if (expr->op.kind == TokenKind::AND) {
-    let res = emitAddr(state, expr->rhs);
-    res.type = "ptr";
-    return res;
-  }
-
+  // Use emitBinary to handle the inc/dec, as it'll handle pointer 
+  // types correctly.
   if (expr->op.kind == TokenKind::INC_OP
       || expr->op.kind == TokenKind::DEC_OP) {
     let opExpr = expr->lhs == NULL ? expr->rhs : expr->lhs;
     let operand = emitAddr(state, opExpr);
 
-    let val = emitLoad(state, operand, convertType(opExpr->type));
+    let val = emitLoad(state, operand, opExpr->type);
 
-    // Use emitBinary to handle the inc/dec
     let type =
         opExpr->type->kind == TypeKind::POINTER ? getInt32() : opExpr->type;
     let one = intToVal(expr->op.kind == TokenKind::INC_OP ? 1 : -1, type);
@@ -624,7 +681,7 @@ func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
         opExpr->type,
         one,
         type);
-    emitStore(operand, res);
+    emitStore(operand, res, opExpr->type);
 
     if (expr->lhs != NULL) {
       return val;
@@ -641,11 +698,6 @@ func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
   switch (expr->op.kind) {
     case TokenKind::PLUS:
       return operand;
-
-    case TokenKind::STAR:
-      res.type = convertType(expr->type);
-      printf("  %s = load %s, ptr %s\n", res.val, res.type, operand.val);
-      return res;
 
     case TokenKind::MINUS:
       instr = "sub";
@@ -676,22 +728,6 @@ func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
   }
 
   return res;
-}
-
-func emitVarRef(state: EmitState*, expr: ExprAST*) -> Value {
-  let addr = emitAddr(state, expr);
-
-  // Funcs and arrays are implictly converted to pointers here.
-  if (expr->type->kind == TypeKind::FUNC
-      || expr->type->kind == TypeKind::ARRAY) {
-    addr.type = "ptr";
-    return addr;
-  }
-
-  let val = getNextTemp(state);
-  val.type = convertType(expr->type);
-  printf("  %s = load %s, ptr %s\n", val.val, val.type, addr.val);
-  return val;
 }
 
 func getStrConst(type: Type*, tok: Token) -> Value {
@@ -735,10 +771,6 @@ func emitStrRef(state: EmitState*, expr: ExprAST*) -> Value {
 func emitArray(state: EmitState*, expr: ExprAST*) -> Value {
   let res: Value;
   res.type = convertType(expr->type);
-  if (expr->type->kind == TypeKind::STRUCT) {
-    res.val = "zeroinitializer";
-    return res;
-  }
 
   let buf: i8* = malloc(64 * expr->type->size as u64);
   res.val = buf;
@@ -764,6 +796,10 @@ func emitCall(state: EmitState*, expr: ExprAST*) -> Value {
   for (let arg = expr->rhs; arg != NULL; arg = arg->rhs) {
     let eof: Token;
     let argVal = emitExpr(state, arg->lhs);
+
+    if (isAggregate(arg->lhs->type)) {
+      argVal = emitRawLoad(state, argVal, arg->lhs->type);
+    }
 
     let nextArg = newLocal(eof, argVal);
     if (args == NULL) {
@@ -792,15 +828,15 @@ func emitCall(state: EmitState*, expr: ExprAST*) -> Value {
       printf(", ");
     }
   }
-
   printf(")\n");
 
-  return res;
-}
+  if (!isAggregate(expr->type)) {
+    return res;
+  }
 
-func emitMemberOrIndex(state: EmitState*, expr: ExprAST*) -> Value {
-  let addr = emitAddr(state, expr);
-  return emitLoad(state, addr, convertType(expr->type));
+  let alloc = emitAlloca(state, expr->type);
+  printf("  store %s %s, ptr %s\n", res.type, res.val, alloc.val);
+  return alloc;
 }
 
 func emitCast(state: EmitState*, expr: ExprAST*) -> Value {
@@ -820,40 +856,22 @@ func emitCast(state: EmitState*, expr: ExprAST*) -> Value {
   }
 
   if (from->kind == TypeKind::STRUCT && to->kind == TypeKind::UNION) {
-    let type = getConcreteUnion(expr->lhs->type);
+    let res = emitAlloca(state, to);
 
-    let res = Value{};
-    res.type = type;
-    res.val = "zeroinitializer";
+    let kindAddr = emitStructGEP(state, to, res, 0);
+    let kindType = getInt32();
+    emitStore(kindAddr, intToVal(expr->value, kindType), kindType);
 
-    // Insert kind
-    let next = getNextTemp(state);
-    next.type = res.type;
-    printf(
-        "  %s = insertvalue %s %s, i32 %d, 0\n",
-        next.val,
-        type,
-        res.val,
-        expr->value);
+    let valAddr = emitStructGEP(state, to, res, 1);
+    emitMemcpy(valAddr, v, from);
 
-    // Insert value
-    let final = getNextTemp(state);
-    final.type = res.type;
-    printf(
-        "  %s = insertvalue %s %s, %s %s, 1\n",
-        final.val,
-        type,
-        next.val,
-        v.type,
-        v.val);
-
-    return final;
+    return res;
   }
 
   if (from->kind == TypeKind::POINTER && from->arg->kind == TypeKind::UNION
       && to->kind == TypeKind::POINTER && to->arg->kind == TypeKind::STRUCT) {
     let kindGep = emitStructGEP(state, from->arg, v, 0);
-    let kind = emitLoad(state, kindGep, "i32");
+    let kind = emitLoad(state, kindGep, getInt32());
     let valGep = emitStructGEP(state, from->arg, v, 1);
 
     // cmpRes = kind == expr->value;
@@ -958,26 +976,13 @@ func emitCond(state: EmitState*, expr: ExprAST*) -> Value {
 }
 
 func emitStructExpr(state: EmitState*, expr: ExprAST*) -> Value {
-  let type = convertType(expr->type);
-
-  let res = Value{};
-  res.type = type;
-  res.val = "zeroinitializer";
-
+  let res = emitAlloca(state, expr->type);
+  printf("  store %s zeroinitializer, ptr %s\n", convertType(expr->type), res.val);
   for (let field = expr->rhs; field != NULL; field = field->rhs) {
     let fieldVal = emitExpr(state, field->lhs);
-    let next = getNextTemp(state);
-    next.type = type;
-    printf(
-        "  %s = insertvalue %s %s, %s %s, %d\n",
-        next.val,
-        type,
-        res.val,
-        fieldVal.type,
-        fieldVal.val,
-        field->value);
+    let fieldGep = emitStructGEP(state, expr->type, res, field->value);
 
-    res = next;
+    emitStore(fieldGep, fieldVal, field->lhs->type);
   }
 
   return res;
@@ -1002,10 +1007,27 @@ func emitExpr(state: EmitState*, expr: ExprAST*) -> Value {
       return intToVal(expr->value, expr->type);
     case ExprKind::BINARY:
       return emitBinOp(state, expr);
+
     case ExprKind::UNARY:
+      if (expr->op.kind == TokenKind::AND) {
+        let res = emitAddr(state, expr->rhs);
+        res.type = "ptr";
+        return res;
+      }
+
+      if (expr->op.kind == TokenKind::STAR) {
+        let res = emitExpr(state, expr->rhs);
+        return emitLoad(state, res, expr->type);
+      }
+
       return emitUnary(state, expr);
+
     case ExprKind::VARIABLE:
-      return emitVarRef(state, expr);
+      let addr = emitAddr(state, expr);
+      return emitLoad(state, addr, expr->type);
+    case ExprKind::INDEX, ExprKind::MEMBER:
+      let addr = emitAddr(state, expr);
+      return emitLoad(state, addr, expr->type);
 
     case ExprKind::STR:
       if (expr->type->kind == TypeKind::ARRAY) {
@@ -1018,9 +1040,6 @@ func emitExpr(state: EmitState*, expr: ExprAST*) -> Value {
 
     case ExprKind::CALL:
       return emitCall(state, expr);
-
-    case ExprKind::INDEX, ExprKind::MEMBER:
-      return emitMemberOrIndex(state, expr);
 
     case ExprKind::CAST:
       return emitCast(state, expr);
@@ -1044,15 +1063,23 @@ func emitExpr(state: EmitState*, expr: ExprAST*) -> Value {
 }
 
 func emitReturn(state: EmitState*, stmt: StmtAST*) {
-  if (stmt->expr != NULL) {
-    let v = emitExpr(state, stmt->expr);
-    if (stmt->expr->type->kind != TypeKind::VOID) {
-      printf("  ret %s %s\n", v.type, v.val);
-      return;
-    }
+  if (stmt->expr == NULL) {
+    printf("  ret void\n");
+    return;
+  }
+  let expr = stmt->expr;
+
+  let v = emitExpr(state, expr);
+  if (expr->type->kind == TypeKind::VOID) {
+    printf("  ret void\n");
+    return;
   }
 
-  printf("  ret void\n");
+  if (isAggregate(expr->type)) {
+    v = emitRawLoad(state, v, expr->type);
+  }
+
+  printf("  ret %s %s\n", v.type, v.val);
 }
 
 func addLocal(state: EmitState*, name: Token, val: Value) {
@@ -1062,11 +1089,7 @@ func addLocal(state: EmitState*, name: Token, val: Value) {
 }
 
 func emitLocalVar(state: EmitState*, decl: DeclAST*) -> Value {
-  let val = getNextTemp(state);
-  val.type = "ptr";
-
-  let type = convertType(decl->type);
-  printf("  %s = alloca %s\n", val.val, type);
+  let val = emitAlloca(state, decl->type);
 
   let local = newLocal(decl->name, val);
   local->next = state->vars;
@@ -1074,7 +1097,7 @@ func emitLocalVar(state: EmitState*, decl: DeclAST*) -> Value {
 
   if (decl->init != NULL) {
     let init = emitExpr(state, decl->init);
-    emitStore(val, init);
+    emitStore(val, init, decl->init->type);
   }
 
   return val;
@@ -1247,7 +1270,9 @@ func emitSwitch(state: EmitState*, stmt: StmtAST*) {
 
     // Load the first element, which is the i32 kind.
     let gep = emitStructGEP(&switchState, unionType, unionAddr, 0);
-    expr = emitLoad(&switchState, gep, "i32");    // TODO: don't hardcode type.
+
+    // TODO: don't hardcode type.
+    expr = emitLoad(&switchState, gep, getInt32());
     switchState.switchUnionAddr = unionAddr;
   } else {
     expr = emitExpr(&switchState, switchExpr);
@@ -1483,9 +1508,10 @@ func emitGlobalDecl(state: EmitState*, decl: DeclAST*) {
 }
 
 func emitTopLevel(decl: DeclAST*) {
-  let state: EmitState = { 0,};
   let rootCounter = 0;
-  state.tmpCounter = &rootCounter;
+  let state = EmitState{
+    tmpCounter = &rootCounter,
+  };
 
   while (decl != NULL) {
     emitGlobalDecl(&state, decl);
