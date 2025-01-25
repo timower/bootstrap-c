@@ -1390,13 +1390,11 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   return decl;
 }
 
-func initSemaState() -> SemaState {
-  let semaState = SemaState {};
-
+func getNullDecl(name: i8*) -> DeclAST* {
   let nullTok: Token;
   nullTok.kind = TokenKind::IDENTIFIER;
-  nullTok.data = "NULL";
-  nullTok.end = nullTok.data + 4;
+  nullTok.data = name;
+  nullTok.end = name + strlen(name);
 
   // Add null as a nullptr
   let nullDecl = newDecl(DeclKind::ENUM_FIELD);
@@ -1405,7 +1403,16 @@ func initSemaState() -> SemaState {
   nullDecl->type = newType(TypeKind::Pointer {
     pointee = newType(TypeKind::Void {}),
   });
+}
+
+func initSemaState() -> SemaState {
+  let semaState = SemaState {};
+
+  let nullDecl = getNullDecl("NULL");
+  let nullDecl2 = getNullDecl("null");
 
   semaState.locals = newDeclList(nullDecl);
+  semaState.locals->next = newDeclList(nullDecl2);
+
   return semaState;
 }

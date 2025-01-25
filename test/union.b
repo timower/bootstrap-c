@@ -76,12 +76,12 @@ func main() -> i32 {
   baz = bar;
 
   let zero = &foo as Foo::A*;
-  if (zero != NULL) {
+  if (zero != null) {
     return 1;
   }
 
   let bptr = &bar as Bar::B*;
-  if (bptr == NULL || bptr->z != 'c') {
+  if (bptr == null || bptr->z != 'c') {
     return 2;
   }
   bptr->z = 12;
@@ -89,7 +89,7 @@ func main() -> i32 {
   consume(&baz);
 
   let cptr = &getBar() as Bar::A*;
-  if (cptr != NULL) {
+  if (cptr != null) {
     return 3;
   }
 
@@ -97,7 +97,7 @@ func main() -> i32 {
     x = 55,
   });
 
-  if (f as Foo::B* != NULL) {
+  if (f as Foo::B* != null) {
     return 4;
   }
   printf("f: %d\n", (f as Foo::A*)->x);
