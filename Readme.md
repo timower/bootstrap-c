@@ -23,13 +23,15 @@ TODO
  - [x] Switch statements that make sense.
  - [x] Struct init and struct expressions.
     * `Foo{x = 1, y = 2}`?
- - [ ] Avoid aggregates in LLVM registers.
+ - [x] Avoid aggregates in LLVM registers.
     * Aggregates are represented as `ptr` to them on stack. 
     * Except for function args, returns, struct members.
     * `a = b` for aggregate creates memcpy.
     * `Foo{a = 1}` generates `alloca`
-    * Function args need to be stored somehow?
- - [ ] Type safe unions.
+    * Function args and ret need to be store/loaded.
+ - [x] Type safe unions.
+ - [ ] `is` expression.
+ - [ ] `if (let a = x as foo)` support.
  - [ ] Rename `NULL` to `null`
  - [ ] Add references?
  - [ ] Add slice type.
@@ -54,6 +56,7 @@ TODO
 Formatter TODO
 --------------
 
+ - [ ] Preserve char constants.
  - [ ] Fix trailing comments in block scopes.
  - [ ] Preserve newline between comments, and comments & code.
  - [ ] Fix newline bugs

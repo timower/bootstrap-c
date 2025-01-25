@@ -6,7 +6,7 @@
 // CHECK-NEXT: B 99
 // CHECK-NEXT: f: 55
 // CHECK-NEXT: DONE
-func printf(format: const i8*, ...) -> i32;
+func printf(format: i8*, ...) -> i32;
 
 func malloc(size: u64) -> void*;
 
@@ -32,8 +32,8 @@ union Bar {
 };
 
 func getBar() -> Bar {
-  return Bar::B{
-    z = 99,
+  return Bar::B {
+    z = 'c',
   };
 }
 
@@ -64,12 +64,12 @@ func consume(b: union Bar*) {
 }
 
 func main() -> i32 {
-  let foo: Foo = Foo::Void{};
+  let foo: Foo = Foo::Void {};
   let bar: Bar = getBar();
 
   test(foo);
   consume(&bar);
-  let baz: Bar = Bar::A{
+  let baz: Bar = Bar::A {
     w = 55,
   };
   consume(&baz);
@@ -81,8 +81,8 @@ func main() -> i32 {
   }
 
   let bptr = &bar as Bar::B*;
-  if (bptr == NULL || bptr->z != 99) {
-    return 1;
+  if (bptr == NULL || bptr->z != 'c') {
+    return 2;
   }
   bptr->z = 12;
   consume(&bar);
@@ -90,15 +90,15 @@ func main() -> i32 {
 
   let cptr = &getBar() as Bar::A*;
   if (cptr != NULL) {
-    return 1;
+    return 3;
   }
 
-  let f = getFoo(Foo::A{
+  let f = getFoo(Foo::A {
     x = 55,
   });
 
   if (f as Foo::B* != NULL) {
-    return 1;
+    return 4;
   }
   printf("f: %d\n", (f as Foo::A*)->x);
 

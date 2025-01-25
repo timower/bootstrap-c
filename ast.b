@@ -119,47 +119,50 @@ let tokens: const i8*[] = {
   "%", "<", ">", "^", "|", "?",
 };
 
-enum TypeKind {
-  VOID,
-  INT,
-  STRUCT,
-  POINTER,
-  ARRAY,
-  FUNC,
-  ENUM,
-  UNION,
-
-  TAG,  // For tagged structs / enums resolved in sema.
-  MEMBER_TAG,  // For A::B types, will resolve during sema.
+union TypeKind {
+  Void {
+  }
+  Int {
+    size: i32;
+    isSigned: i32;
+  }
+  Enum {
+    tag: Token;
+  }
+  Pointer {
+    pointee: Type*;
+  }
+  Array {
+    element: Type*;
+    size: i32;
+  }
+  Func {
+    result: Type*;
+    args: Type*;
+    isVarargs: i32;
+  }
+  Struct {
+    tag: Token;
+    parent: Type*;
+  }
+  Union {
+    tag: Token;
+  }
+  Tag {
+    tag: Token;
+    parent: Token;    // optional, EOF if not used.
+  }
 };
 
 struct Type {
   kind: TypeKind;
 
-  // For tagged structs / enums.
-  tag: Token;
-
-  // For MEMBER_TAG types
-  parentTag: Token;
-
-  result: Type*;
-
-  // For pointers / arrays, the contained type
-  // For functions, linked list of arg types.
-  // For structs, the optional union.
-  arg: Type*;
-  argNext: Type*;
-
+  // Intrinsic list for function arguments.
+  next: Type*;
   isConst: i32;
-
-  // For array or integer types
-  size: i32;
-
-  isSigned: i32;
-
-  // For funcs
-  isVarargs: i32;
+  // TODO: Source loc
 };
+
 
 enum ExprKind {
   INT,  // value
@@ -189,6 +192,18 @@ enum ExprKind {
   PAREN,  // (lhs)
 };
 
+enum CastKind {
+  Noop,
+
+  StructUnion,
+  UnionStructPtr,
+
+  // Int casts
+  Trunc,
+  Sext,
+  Zext,
+};
+
 
 // Represents an expression in the AST.
 struct ExprAST {
@@ -213,6 +228,8 @@ struct ExprAST {
   cond: ExprAST*;
 
   sizeofArg: Type*;
+
+  castKind: CastKind;
 
   location: SourceLoc;
 };
@@ -361,6 +378,7 @@ func newStmt(kind: StmtKind) -> StmtAST* {
   return stmt;
 }
 
+
 func newType(kind: TypeKind) -> Type* {
   let type: Type* = calloc(1, sizeof(struct Type));
   type->kind = kind;
@@ -374,31 +392,33 @@ func newComment(token: Token) -> Comment* {
 }
 
 func getCharType() -> Type* {
-  let type: Type* = newType(TypeKind::INT);
-  type->isSigned = 1;
-  type->size = 8;
-  return type;
+  return newType(TypeKind::Int {
+    size = 8,
+    isSigned = 1,
+  });
 }
 
 func getInt32() -> Type* {
-  let type: Type* = newType(TypeKind::INT);
-  type->isSigned = 1;
-  type->size = 32;
-  return type;
+  return newType(TypeKind::Int {
+    size = 32,
+    isSigned = 1,
+  });
 }
 
 func getIPtr() -> Type* {
-  let type: Type* = newType(TypeKind::INT);
-  type->isSigned = 1;
-  type->size = 64;  // TODO: target dependent
-  return type;
+  // TODO: target dependent
+  return newType(TypeKind::Int {
+    size = 64,
+    isSigned = 1,
+  });
 }
 
 func getUPtr() -> Type* {
-  let type: Type* = newType(TypeKind::INT);
-  type->isSigned = 0;
-  type->size = 64;  // TODO: target dependent
-  return type;
+  // TODO: target dependent
+  return newType(TypeKind::Int {
+    size = 64,
+    isSigned = 0,
+  });
 }
 
 func isAssign(tok: Token) -> i32 {
