@@ -25,54 +25,55 @@ func printType(type: Type*) {
   if (type->isConst) {
     printf("const ");
   }
+
   switch (type->kind) {
-    case TypeKind::INT:
-      if (type->isSigned) {
-        printf("i%d", type->size);
+    case TypeKind::Int as int:
+      if (int.isSigned) {
+        printf("i%d", int.size);
       } else {
-        printf("u%d", type->size);
+        printf("u%d", int.size);
       }
-    case TypeKind::VOID:
+    case TypeKind::Void:
       printf("void");
-    case TypeKind::POINTER:
-      printType(type->arg);
+    case TypeKind::Pointer as ptr:
+      printType(ptr.pointee);
       printf("*");
-    case TypeKind::ARRAY:
-      printType(type->arg);
-      if (type->size < 0) {
+    case TypeKind::Array as array:
+      printType(array.element);
+      if (array.size < 0) {
         printf("[]");
       } else {
-        printf("[%d]", type->size);
+        printf("[%d]", array.size);
       }
-    case TypeKind::STRUCT:
+    case TypeKind::Struct as s:
       printf("struct ");
-      printStr(type->tag.data, type->tag.end);
-    case TypeKind::FUNC:
+      printStr(s.tag.data, s.tag.end);
+    case TypeKind::Func as fn:
       printf("(");
-      for (let arg: Type* = type->arg; arg != NULL; arg = arg->argNext) {
+      for (let arg = fn.args; arg != NULL; arg = arg->next) {
         printType(arg);
-        if (arg->argNext != NULL) {
+        if (arg->next != NULL) {
           printf(",");
         }
       }
-      if (type->isVarargs) {
+      if (fn.isVarargs) {
         printf("  ...");
       }
       printf(") -> ");
-      printType(type->result);
-    case TypeKind::ENUM:
+      printType(fn.result);
+    case TypeKind::Enum as e:
       printf("enum ");
-      printStr(type->tag.data, type->tag.end);
-    case TypeKind::UNION:
+      printStr(e.tag.data, e.tag.end);
+    case TypeKind::Union as un:
       printf("union ");
-      printStr(type->tag.data, type->tag.end);
+      printStr(un.tag.data, un.tag.end);
 
-    case TypeKind::TAG:
-      printStr(type->tag.data, type->tag.end);
-    case TypeKind::MEMBER_TAG:
-      printStr(type->parentTag.data, type->parentTag.end);
-      printf("::");
-      printStr(type->tag.data, type->tag.end);
+    case TypeKind::Tag as tag:
+      if (tag.parent.kind != TokenKind::TOK_EOF) {
+        printStr(tag.parent.data, tag.parent.end);
+        printf("::");
+      }
+      printStr(tag.tag.data, tag.tag.end);
   }
 }
 
@@ -99,7 +100,10 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
     case ExprKind::VARIABLE:
       printToken(expr->identifier);
     case ExprKind::INT:
-      printf("%d", expr->value);
+      printStr(expr->op.data, expr->op.end);
+
+    // printf("%d", expr->value);
+    // printToken(expr->op);
     case ExprKind::STR:
       printf("\"");
       printStr(expr->identifier.data, expr->identifier.end);
@@ -224,7 +228,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
         printf("::");
       }
       printToken(expr->identifier);
-      printf("{");
+      printf(" {");
       if (expr->rhs != NULL) {
         printf("\n");
         for (let field = expr->rhs; field != NULL; field = field->rhs) {
@@ -489,7 +493,8 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       for (let subType = decl->subTypes; subType != NULL;
            subType = subType->next) {
         printIndent(indent + indent_width);
-        printToken(subType->decl->type->tag);
+        let structType = &subType->decl->type->kind as TypeKind::Struct*;
+        printToken(structType->tag);
         trailing = printStructBody(
             subType->decl,
             indent + indent_width,
@@ -526,7 +531,8 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printToken(decl->name);
       printf("(");
 
-      let isVarargs = decl->type->isVarargs;
+      let fnType = &decl->type->kind as TypeKind::Func*;
+      let isVarargs = fnType->isVarargs;
       let split = 0;
 
       for (let field: DeclAST* = decl->fields; field != NULL;
@@ -563,9 +569,9 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         printf("\n");
       }
       printf(")");
-      if (decl->type->result->kind != TypeKind::VOID) {
+      if (&fnType->result->kind as TypeKind::Void* == NULL) {
         printf(" -> ");
-        printType(decl->type->result);
+        printType(fnType->result);
       }
 
       if (decl->body != NULL) {

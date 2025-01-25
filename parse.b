@@ -607,7 +607,7 @@ func isUnary(tok: Token) -> i32 {
 // base_type := int2 | 'void' | 'struct' ident | 'enum' ident | ident
 // type := const? base_type ('*' | '[' int? ']' )*
 func parseType(state: ParseState*) -> Type* {
-  let type = newType(TypeKind::INT);
+  let type = newType(TypeKind::Void{});
 
   if (match(state, TokenKind::CONST)) {
     getNextToken(state);
@@ -615,32 +615,38 @@ func parseType(state: ParseState*) -> Type* {
   }
 
   if (match(state, TokenKind::INT2)) {
-    type->kind = TypeKind::INT;
-    type->isSigned = *state->curToken.data == 105;
+    let isSigned = *state->curToken.data == 105;
     let end = state->curToken.end;
-    type->size = strtol(state->curToken.data + 1, &end, 10) as i32;
+    let size = strtol(state->curToken.data + 1, &end, 10) as i32;
     getNextToken(state);
+    type->kind = TypeKind::Int{
+      size = size,
+      isSigned = isSigned,
+    };
   } else if (match(state, TokenKind::VOID)) {
     getNextToken(state);
-    type->kind = TypeKind::VOID;
   } else if (match(state, TokenKind::STRUCT)) {
     getNextToken(state);
-    type->kind = TypeKind::STRUCT;
     expect(state, TokenKind::IDENTIFIER);
-    type->tag = getNextToken(state);
+    type->kind = TypeKind::Struct{
+      tag = getNextToken(state),
+    };
   } else if (match(state, TokenKind::ENUM)) {
     getNextToken(state);
-    type->kind = TypeKind::ENUM;
     expect(state, TokenKind::IDENTIFIER);
-    type->tag = getNextToken(state);
+    type->kind = TypeKind::Enum{
+      tag = getNextToken(state),
+    };
   } else if (match(state, TokenKind::UNION)) {
     getNextToken(state);
-    type->kind = TypeKind::UNION;
     expect(state, TokenKind::IDENTIFIER);
-    type->tag = getNextToken(state);
+    type->kind = TypeKind::Union{
+      tag = getNextToken(state),
+    };
   } else if (match(state, TokenKind::IDENTIFIER)) {
-    type->kind = TypeKind::TAG;
-    type->tag = getNextToken(state);
+    type->kind = TypeKind::Tag{
+      tag = getNextToken(state),
+    };
   } else {
     failParse(state, "Unknown type");
     return NULL;
@@ -650,30 +656,32 @@ func parseType(state: ParseState*) -> Type* {
     getNextToken(state);
     expect(state, TokenKind::IDENTIFIER);
 
-    type->kind = TypeKind::MEMBER_TAG;
-    type->parentTag = type->tag;
-    type->tag = getNextToken(state);
+    let tagPtr = &type->kind as TypeKind::Tag*;
+    tagPtr->parent = tagPtr->tag;
+    tagPtr->tag = getNextToken(state);
   }
 
   // parse type suffixes (pointers & arrays)
   while (1) {
     if (match(state, TokenKind::STAR)) {
       getNextToken(state);
-      let ptrType = newType(TypeKind::POINTER);
-      ptrType->arg = type;
+      let ptrType = newType(TypeKind::Pointer{
+        pointee = type,
+      });
       type = ptrType;
     } else if (match(state, TokenKind::OPEN_BRACKET)) {
       getNextToken(state);
 
-      let arrayType = newType(TypeKind::ARRAY);
-      arrayType->arg = type;
-
+      let size = -1;
       if (match(state, TokenKind::CONSTANT)) {
         let numExpr = parseNumber(state);
-        arrayType->size = numExpr->value;
-      } else {
-        arrayType->size = -1;
+        size = numExpr->value;
       }
+
+      let arrayType = newType(TypeKind::Array{
+        size = size,
+        element = type,
+      });
 
       expect(state, TokenKind::CLOSE_BRACKET);
       getNextToken(state);
@@ -1275,12 +1283,12 @@ func parseLetDecl(state: ParseState*) -> DeclAST* {
 }
 
 func parseSubStruct(state: ParseState*, decl: DeclAST*) {
-  decl->type = newType(TypeKind::STRUCT);
-
   // (non)optional tag
   expect(state, TokenKind::IDENTIFIER);
 
-  decl->type->tag = getNextToken(state);
+  decl->type = newType(TypeKind::Struct{
+    tag = getNextToken(state),
+  });
 
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);  // eat {
@@ -1322,10 +1330,11 @@ func parseEnum(state: ParseState*) -> DeclAST* {
   let decl = newLocDecl(state, DeclKind::ENUM);
   getNextToken(state);
 
-  decl->type = newType(TypeKind::ENUM);
-
   expect(state, TokenKind::IDENTIFIER);
-  decl->type->tag = getNextToken(state);
+
+  decl->type = newType(TypeKind::Enum{
+    tag = getNextToken(state),
+  });
 
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);
@@ -1370,10 +1379,10 @@ func parseUnion(state: ParseState*) -> DeclAST* {
   let decl = newLocDecl(state, DeclKind::UNION);
   getNextToken(state);  // eat 'union'
 
-  decl->type = newType(TypeKind::UNION);
-
   expect(state, TokenKind::IDENTIFIER);
-  decl->type->tag = getNextToken(state);
+  decl->type = newType(TypeKind::Union{
+    tag = getNextToken(state),
+  });
 
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);
@@ -1384,7 +1393,8 @@ func parseUnion(state: ParseState*) -> DeclAST* {
     parseSubStruct(state, tag);
 
     // Use 'arg' of the struct type to point to the parent type.
-    tag->type->arg = decl->type;
+    let structType = &tag->type->kind as TypeKind::Struct*;
+    structType->parent = decl->type;
 
     // TODO: trailing comments?
     let newList = newDeclList(tag);
@@ -1409,13 +1419,13 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
   expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
 
-  let funcType = newType(TypeKind::FUNC);
-  decl->type = funcType;
+  decl->type = newType(TypeKind::Func{});
+  let funcType = &decl->type->kind as TypeKind::Func*;
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);  // eat (
 
-  let curType = funcType;
+  let curType = decl->type;
   let curDecl = decl;
   while (!match(state, TokenKind::CLOSE_PAREN)) {
     if (match(state, TokenKind::ELLIPSIS)) {
@@ -1429,7 +1439,7 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
     let param = parseNameTypePair(state);
     curDecl->next = param;
     curDecl = param;
-    curType->argNext = param->type;
+    curType->next = param->type;
     curType = param->type;
 
     if (match(state, TokenKind::CLOSE_PAREN)) {
@@ -1443,14 +1453,15 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
 
   decl->fields = decl->next;
   decl->next = NULL;
-  funcType->arg = funcType->argNext;
-  funcType->argNext = NULL;
+
+  funcType->args = decl->type->next;
+  decl->type->next = NULL;
 
   if (match(state, TokenKind::PTR_OP)) {
     getNextToken(state);    // eat ->
-    decl->type->result = parseType(state);
+    funcType->result = parseType(state);
   } else {
-    decl->type->result = newType(TypeKind::VOID);
+    funcType->result = newType(TypeKind::Void{});
   }
 
   if (match(state, TokenKind::OPEN_BRACE)) {
