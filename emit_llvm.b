@@ -150,7 +150,10 @@ func newLocal(name: Token, val: Value) -> LocalVar* {
 }
 
 func intToVal(num: i32, type: Type*) -> Value {
-  if (&type->kind as TypeKind::Pointer* != null) {
+  if (let ptrType = &type->kind as TypeKind::Pointer*) {
+    if (num != 0) {
+      failEmit("expected null pointer");
+    }
     return Value {
       type = "ptr",
       val = "null",
@@ -255,27 +258,24 @@ func emitAddr(state: EmitState*, expr: ExprAST*) -> Value {
       return lookupVar(state, expr->identifier);
 
     case ExprKind::INDEX:
-      let array = Value {};
-      let arrayType = &expr->lhs->type->kind as TypeKind::Array*;
-      if (arrayType != null) {
-        array = emitAddr(state, expr->lhs);
+      if (let arrayType = &expr->lhs->type->kind as TypeKind::Array*) {
+        let array = emitAddr(state, expr->lhs);
+        let index = emitExpr(state, expr->rhs);
+
+        let gep = getNextTemp(state);
+        gep.type = "ptr";
+
+        printf(
+            "  %s = getelementptr inbounds %s, ptr %s, %s %s\n",
+            gep.val,
+            convertType(arrayType->element),
+            array.val,
+            index.type,
+            index.val);
+        return gep;
       } else {
-        // array = emitExpr(state, expr->lhs);
         failEmitExpr(expr, "Unsupported index on non array");
       }
-      let index = emitExpr(state, expr->rhs);
-
-      let gep = getNextTemp(state);
-      gep.type = "ptr";
-
-      printf(
-          "  %s = getelementptr inbounds %s, ptr %s, %s %s\n",
-          gep.val,
-          convertType(arrayType->element),
-          array.val,
-          index.type,
-          index.val);
-      return gep;
 
     case ExprKind::MEMBER:
       let agg = expr->op.kind == TokenKind::DOT
@@ -800,6 +800,7 @@ func emitCall(state: EmitState*, expr: ExprAST*) -> Value {
 
   res.type = convertType(expr->type);
   printf("call %s %s(", convertType(expr->lhs->type), fn.val);
+
   for (; args != null; args = args->next) {
     printf("%s %s", args->value.type, args->value.val);
     if (args->next != null) {
@@ -1405,7 +1406,7 @@ func emitGlobalVar(state: EmitState*, decl: DeclAST*) {
   let val = getGlobal(decl->name);
   val.type = convertType(decl->type);
   if (decl->init != null) {
-    let init = emitExpr(state, decl->init);     // TODO: emit constant
+    let init = emitExpr(state, decl->init);    // TODO: emit constant
     printf("%s = %s %s %s\n", val.val, declSpec, init.type, init.val);
   } else {
     let init = &decl->type->kind as TypeKind::Struct* != null
