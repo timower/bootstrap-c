@@ -11,7 +11,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   let decls = parseFile(*(argv + 1));
-  if (decls == NULL) {
+  if (decls == null) {
     puts("Failed to parse file");
     return -1;
   }

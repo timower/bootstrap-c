@@ -19,10 +19,10 @@ func readStdin() -> Buf {
 
   if (res != 0) {
     puts("Read Failed");
-    return Buf{};
+    return Buf {};
   }
 
-  return Buf{
+  return Buf {
     mem = mem,
     size = offset as i64,
   };
@@ -34,12 +34,12 @@ func main(argc: i32, argv: i8**) -> i32 {
     return -1;
   }
 
-  let parseOpts = ParseOptions{
+  let parseOpts = ParseOptions {
     concrete = 1,
   };
 
   let name: i8* = "stdin";
-  let buf = Buf{};
+  let buf = Buf {};
   if (argc == 2) {
     name = *(argv + 1);
     buf = readFile(name);
@@ -47,7 +47,7 @@ func main(argc: i32, argv: i8**) -> i32 {
     buf = readStdin();
   }
 
-  if (buf.mem == NULL) {
+  if (buf.mem == null) {
     return 1;
   }
 

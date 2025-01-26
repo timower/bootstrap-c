@@ -24,15 +24,28 @@ TODO
  - [x] Struct init and struct expressions.
     * `Foo{x = 1, y = 2}`?
  - [x] Avoid aggregates in LLVM registers.
-    * Aggregates are represented as `ptr` to them on stack. 
+    * Aggregates are represented as `ptr` to them on stack.
     * Except for function args, returns, struct members.
     * `a = b` for aggregate creates memcpy.
     * `Foo{a = 1}` generates `alloca`
     * Function args and ret need to be store/loaded.
  - [x] Type safe unions.
- - [ ] `is` expression.
- - [ ] `if (let a = x as foo)` support.
- - [ ] Rename `NULL` to `null`
+ - [x] Rename `NULL` to `null`
+ - [ ] Let expressions, `if (let a = x as foo)` support.
+ - [ ] Auto `&` on union -> struct ptr casts?
+ - [ ] Require extern for external functions.
+ - [ ] Remove function declarations, supporting use before define.
+ - [ ] Move decl, stmt and expr to Unions.
+ - [ ] `bool` (i1) type.
+
+ - [ ] Generics.
+     * `func foo<T>(a: T, b: T) -> T { return a + b; }`
+
+ - [ ] `is<T>(uinion) -> bool` function.
+     * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`
+
+ - [ ] Fix relative imports, split source to `src/sema/...`
+ - [ ] Model LLVM IR.
  - [ ] Add references?
  - [ ] Add slice type.
     * syntax: `[i8]`
@@ -40,16 +53,11 @@ TODO
     * arrays become `[1, 2, 3]`
     * array to slice: `array[start:end]` start & end are optional
     * array or pointer to it? can be converted to slice implicitly
- - [ ] Require extern for external functions.
- - [ ] Remove function declarations, supporting use before define.
- - [ ] Fix relative imports, split source to `src/sema/...`
  - [ ] Actual constant expressions and decls.
  - [ ] Correctly padded structs.
- - [ ] Add target pointer size, Add iptr and uptr types.
  - [ ] Universal function call syntax
     * `a.foo(...)` -> `foo(a, ...)`
- - [ ] Generics.
- - [ ] Model LLVM IR.
+ - [ ] Add target pointer size, Add iptr and uptr types.
  - [ ] armv7 or aarch64 backend
  - [ ] continue statement.
 
