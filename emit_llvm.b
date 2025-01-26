@@ -151,51 +151,46 @@ func newLocal(name: Token, val: Value) -> LocalVar* {
 
 func intToVal(num: i32, type: Type*) -> Value {
   if (&type->kind as TypeKind::Pointer* != null) {
-    let v: Value;
-    v.type = "ptr";
-    v.val = "null";
-    return v;
+    return Value {
+      type = "ptr",
+      val = "null",
+    };
   }
-
-  let val: Value;
-  val.type = convertType(type);
 
   let buf: i8* = malloc(16);
   sprintf(buf, "%d", num);
-  val.val = buf;
-
-  return val;
+  return Value {
+    type = convertType(type),
+    val = buf,
+  };
 }
 
 func getNextTemp(state: EmitState*) -> Value {
-  let val: Value;
-
   let buf: i8* = malloc(16);
   sprintf(buf, "%%tmp%d", getCount(state));
-  val.val = buf;
 
-  return val;
+  return Value {
+    val = buf,
+  };
 }
 
 func getGlobal(ident: Token) -> Value {
-  let val: Value;
-
   let len = ident.end - ident.data;
   let buf: i8* = malloc((len + 2) as u64);
   sprintf(buf, "@%.*s", len, ident.data);
-  val.val = buf;
 
-  return val;
+  return Value {
+    val = buf,
+  };
 }
 
 func getTempGlobal(state: EmitState*, prefix: const i8*) -> Value {
-  let val: Value;
-
   let buf: i8* = malloc(64);
   sprintf(buf, "@%s%d", prefix, getCount(state));
-  val.val = buf;
 
-  return val;
+  return Value {
+    val = buf,
+  };
 }
 
 func emitExpr(state: EmitState*, expr: ExprAST*) -> Value;
@@ -234,9 +229,7 @@ func lookupVar(state: EmitState*, tok: Token) -> Value {
 
   printToken(tok);
   failEmit("Unkown variable!");
-  let v: Value;
-  v.val = "undef";
-  return v;
+  return Value {};
 }
 
 func emitStructGEP(
@@ -262,7 +255,7 @@ func emitAddr(state: EmitState*, expr: ExprAST*) -> Value {
       return lookupVar(state, expr->identifier);
 
     case ExprKind::INDEX:
-      let array: Value;
+      let array = Value {};
       let arrayType = &expr->lhs->type->kind as TypeKind::Array*;
       if (arrayType != null) {
         array = emitAddr(state, expr->lhs);
@@ -315,10 +308,7 @@ func emitAddr(state: EmitState*, expr: ExprAST*) -> Value {
   }
 
   failEmitExpr(expr, " Can't be use as lvalue");
-
-  let v: Value;
-  v.val = "undef";
-  return v;
+  return Value {};
 }
 
 func getLLVMSize(type: Type*) -> Value {
@@ -456,7 +446,7 @@ func emitBinary(
     return Value {};
   }
 
-  let instr: const i8*;
+  let instr: const i8* = null;
   let upcast = 0;
   switch (opKind) {
     default:
@@ -522,7 +512,7 @@ func emitAssignment(state: EmitState*, expr: ExprAST*) -> Value {
 
   let lval = emitLoad(state, addr, expr->lhs->type);
 
-  let op: TokenKind;
+  let op = TokenKind::TOK_EOF;
   switch (expr->op.kind) {
     case TokenKind::ADD_ASSIGN:
       op = TokenKind::PLUS;
@@ -641,7 +631,7 @@ func emitBinOp(state: EmitState*, expr: ExprAST*) -> Value {
 }
 
 func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
-  // Use emitBinary to handle the inc/dec, as it'll handle pointer 
+  // Use emitBinary to handle the inc/dec, as it'll handle pointer
   // types correctly.
   if (expr->op.kind == TokenKind::INC_OP
       || expr->op.kind == TokenKind::DEC_OP) {
@@ -676,8 +666,8 @@ func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
   let operand = emitExpr(state, expr->rhs);
   let res = getNextTemp(state);
 
-  let instr: const i8*;
-  let constop: const i8*;
+  let instr: const i8* = null;
+  let constop: const i8* = null;
   let upcast = 0;
   switch (expr->op.kind) {
     case TokenKind::PLUS:
@@ -732,10 +722,10 @@ func getStrConst(type: Type*, tok: Token) -> Value {
   }
   cur += sprintf(cur, "\\00\"");
 
-  let res: Value;
-  res.type = convertType(type);
-  res.val = val;
-  return res;
+  return Value {
+    type = convertType(type),
+    val = val,
+  };
 }
 
 func emitStrRef(state: EmitState*, expr: ExprAST*) -> Value {
@@ -754,8 +744,9 @@ func emitStrRef(state: EmitState*, expr: ExprAST*) -> Value {
 }
 
 func emitArray(state: EmitState*, expr: ExprAST*) -> Value {
-  let res: Value;
-  res.type = convertType(expr->type);
+  let res = Value {
+    type = convertType(expr->type),
+  };
 
   let arrayType = &expr->type->kind as TypeKind::Array*;
   let buf: i8* = malloc((64 * arrayType->size as i64) as u64);
@@ -780,7 +771,7 @@ func emitCall(state: EmitState*, expr: ExprAST*) -> Value {
   let argsTail: LocalVar* = null;
 
   for (let arg = expr->rhs; arg != null; arg = arg->rhs) {
-    let eof: Token;
+    let eof = Token {};
     let argVal = emitExpr(state, arg->lhs);
 
     if (isAggregate(arg->lhs->type)) {
@@ -797,7 +788,7 @@ func emitCall(state: EmitState*, expr: ExprAST*) -> Value {
   }
   let fn = emitExpr(state, expr->lhs);
 
-  let res: Value;
+  let res = Value {};
 
   if (&expr->type->kind as TypeKind::Void* == null) {
     res = getNextTemp(state);
@@ -942,6 +933,23 @@ func emitStructExpr(state: EmitState*, expr: ExprAST*) -> Value {
 }
 
 
+func addLocal(state: EmitState*, name: Token, val: Value) {
+  let local = newLocal(name, val);
+  local->next = state->vars;
+  state->vars = local;
+}
+
+func emitLocalVar(state: EmitState*, decl: DeclAST*) -> Value {
+  let val = emitAlloca(state, decl->type);
+
+  let local = newLocal(decl->name, val);
+  local->next = state->vars;
+  state->vars = local;
+
+  return val;
+}
+
+
 // \returns The register name or value of the expr
 func emitExpr(state: EmitState*, expr: ExprAST*) -> Value {
   switch (expr->kind) {
@@ -996,14 +1004,20 @@ func emitExpr(state: EmitState*, expr: ExprAST*) -> Value {
     case ExprKind::PAREN:
       return emitExpr(state, expr->lhs);
 
-    default:
-      failEmitExpr(expr, "Unsupported expr");
+    case ExprKind::LET:
+      let addr = emitLocalVar(state, expr->decl);
+      let init = emitExpr(state, expr->decl->init);
+      emitStore(addr, init, expr->decl->init->type);
+      return init;
+
+    case ExprKind::ARG_LIST, ExprKind::SIZEOF:
+      failEmitExpr(expr, "Shouldn't happen");
   }
 
-  let v: Value;
-  v.type = "i32";
-  v.val = "undef";
-  return v;
+  return Value {
+    type = "i32",
+    val = "undef",
+  };
 }
 
 func emitReturn(state: EmitState*, stmt: StmtAST*) {
@@ -1026,36 +1040,6 @@ func emitReturn(state: EmitState*, stmt: StmtAST*) {
   printf("  ret %s %s\n", v.type, v.val);
 }
 
-func addLocal(state: EmitState*, name: Token, val: Value) {
-  let local = newLocal(name, val);
-  local->next = state->vars;
-  state->vars = local;
-}
-
-func emitLocalVar(state: EmitState*, decl: DeclAST*) -> Value {
-  let val = emitAlloca(state, decl->type);
-
-  let local = newLocal(decl->name, val);
-  local->next = state->vars;
-  state->vars = local;
-
-  if (decl->init != null) {
-    let init = emitExpr(state, decl->init);
-    emitStore(val, init, decl->init->type);
-  }
-
-  return val;
-}
-
-func emitLocalDecl(state: EmitState*, decl: DeclAST*) {
-  switch (decl->kind) {
-    case DeclKind::VAR:
-      emitLocalVar(state, decl);
-
-    default:
-      failEmit("Local Unsupported");
-  }
-}
 
 func emitStmt(state: EmitState*, stmt: StmtAST*);
 
@@ -1291,8 +1275,6 @@ func emitStmt(state: EmitState*, stmt: StmtAST*) {
       }
     case StmtKind::RETURN:
       emitReturn(state, stmt);
-    case StmtKind::DECL:
-      emitLocalDecl(state, stmt->decl);
     case StmtKind::COMPOUND:
       let newState = newEmitState(state);
       for (let cur = stmt->stmt; cur != null; cur = cur->nextStmt) {
@@ -1409,7 +1391,7 @@ func emitUnion(state: EmitState*, decl: DeclAST*) {
   printf("i32, ");
 
   // Emit an array of i8s of the largest size set by sema
-  // TODO: this won't work for alignment reasons, should be fixed before moving 
+  // TODO: this won't work for alignment reasons, should be fixed before moving
   // away from packed structs.
   let size = decl->enumValue;
   printf("[%d x i8]", size);

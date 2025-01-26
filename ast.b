@@ -190,6 +190,8 @@ enum ExprKind {
   CAST,  // lhs as type
 
   PAREN,  // (lhs)
+
+  LET,  // decl.
 };
 
 enum CastKind {
@@ -228,6 +230,8 @@ struct ExprAST {
   cond: ExprAST*;
 
   sizeofArg: Type*;
+
+  decl: DeclAST*;  // for let expressions.
 
   castKind: CastKind;
 
@@ -290,7 +294,6 @@ struct DeclList {
 };
 
 enum StmtKind {
-  DECL,
   COMPOUND,
   EXPR,
 
@@ -307,8 +310,6 @@ enum StmtKind {
 
 struct StmtAST {
   kind: StmtKind;
-
-  decl: DeclAST*;
 
   // For for
   init: StmtAST*;
@@ -504,7 +505,7 @@ func getExprPrecedence(expr: ExprAST*) -> i32 {
       return 9;
 
     case ExprKind::INT, ExprKind::STR, ExprKind::VARIABLE, ExprKind::SCOPE,
-         ExprKind::ARG_LIST, ExprKind::PAREN:
+         ExprKind::ARG_LIST, ExprKind::PAREN, ExprKind::LET:
       return 200;
   }
 }

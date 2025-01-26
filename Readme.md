@@ -31,7 +31,7 @@ TODO
     * Function args and ret need to be store/loaded.
  - [x] Type safe unions.
  - [x] Rename `NULL` to `null`
- - [ ] Let expressions, `if (let a = x as foo)` support.
+ - [x] Let expressions, `if (let a = x as foo)` support.
  - [ ] Auto `&` on union -> struct ptr casts?
  - [ ] Require extern for external functions.
  - [ ] Remove function declarations, supporting use before define.

@@ -728,6 +728,8 @@ func lookupStruct(state: SemaState*, type: TypeKind::Struct*) -> DeclAST* {
   return lookupType(state, type->tag);
 }
 
+func semaDecl(state: SemaState*, decl: DeclAST*);
+
 func semaExpr(state: SemaState*, expr: ExprAST*) {
   switch (expr->kind) {
     case ExprKind::ARG_LIST:
@@ -814,6 +816,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
 
       expr->type = fieldDecl->type;
+
     case ExprKind::CALL:
       semaExpr(state, expr->lhs);
 
@@ -844,6 +847,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(expr, "Function call arg length mismatch");
       }
       expr->type = funType->result;
+
     case ExprKind::CONDITIONAL:
       semaExpr(state, expr->cond);
       checkBool(expr->cond);
@@ -854,6 +858,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(expr, "?: lhs and rhs should have same type");
       }
       expr->type = expr->lhs->type;
+
     case ExprKind::ARRAY:
       let size = 0;
       let elementType: Type* = null;
@@ -966,6 +971,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
       expr->kind = ExprKind::INT;
       expr->type = getUPtr();
+
     case ExprKind::CAST:
       semaExpr(state, expr->lhs);
       if (!semaCast(state, expr)) {
@@ -974,9 +980,20 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         printType(expr->type);
         failSemaExpr(expr, " Can't cast");
       }
+
     case ExprKind::PAREN:
       semaExpr(state, expr->lhs);
       expr->type = expr->lhs->type;
+
+    case ExprKind::LET:
+      if (expr->decl->kind != DeclKind::VAR) {
+        failSemaExpr(expr, "Only let expressions allowed");
+      }
+      if (expr->decl->init == null) {
+        failSemaExpr(expr, "Let expression must have an init");
+      }
+      semaDecl(state, expr->decl);
+      expr->type = expr->decl->type;
   }
 }
 
@@ -1277,17 +1294,27 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
   }
 }
 
+func makeNullCmp(expr: ExprAST*) -> ExprAST* {
+  let cmpExpr = newExpr(ExprKind::BINARY);
+  cmpExpr->op = Token {
+    kind = TokenKind::NE_OP,
+  };
+  cmpExpr->lhs = expr;
+  cmpExpr->rhs = newExpr(ExprKind::INT);
+  cmpExpr->rhs->type = expr->type;
+  cmpExpr->rhs->value = 0;
+
+  cmpExpr->type = getInt32();  // TODO: Bool.
+
+  return cmpExpr;
+}
+
 func semaStmt(state: SemaState*, stmt: StmtAST*) {
   switch (stmt->kind) {
     case StmtKind::EXPR:
       if (stmt->expr != null) {
         semaExpr(state, stmt->expr);
       }
-    case StmtKind::DECL:
-      if (stmt->decl->kind != DeclKind::VAR) {
-        failSemaStmt(stmt, "Only var decls allowed in local scope");
-      }
-      return semaDecl(state, stmt->decl);
 
     case StmtKind::RETURN:
       if (stmt->expr == null && &state->result->kind as TypeKind::Void* == null) {
@@ -1310,6 +1337,14 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
 
     case StmtKind::IF:
       semaExpr(state, stmt->expr);
+
+      // Add != null for let expressions.
+      if (stmt->expr->kind == ExprKind::LET) {
+        let ptrType = &stmt->expr->type->kind as TypeKind::Pointer*;
+        if (ptrType != null) {
+          stmt->expr = makeNullCmp(stmt->expr);
+        }
+      }
       checkBool(stmt->expr);
 
       semaStmt(state, stmt->init);
@@ -1391,7 +1426,7 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
 }
 
 func getNullDecl(name: i8*) -> DeclAST* {
-  let nullTok: Token;
+  let nullTok = Token {};
   nullTok.kind = TokenKind::IDENTIFIER;
   nullTok.data = name;
   nullTok.end = name + strlen(name);

@@ -83,6 +83,29 @@ func printIndent(indent: i32) {
   }
 }
 
+func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32);
+
+func printLet(decl: DeclAST*, indent: i32) {
+  printf("let ");
+  printToken(decl->name);
+
+  if (decl->type != null) {
+    printf(": ");
+    printType(decl->type);
+  }
+
+  if (decl->init != null) {
+    printf(" =");
+    if (decl->init->location.line != decl->location.line) {
+      printf("\n");
+      printIndent(indent + indent_width * 2);
+    } else {
+      printf(" ");
+    }
+    printExprPrec(decl->init, -1, indent);
+  }
+}
+
 func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
   if (expr == null) {
     printf("ERROR: null expr");
@@ -97,6 +120,9 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
   let nextPrec = curPrec + 1;
 
   switch (expr->kind) {
+    case ExprKind::LET:
+      printLet(expr->decl, indent);
+
     case ExprKind::VARIABLE:
       if (tokCmpStr(expr->identifier, "NULL")) {
         printf("null");
@@ -328,9 +354,6 @@ func printStmtIndent(stmt: StmtAST*, indent: i32) {
   let trailing = printComments(stmt->comments, indent, stmt->location.line);
 
   switch (stmt->kind) {
-    case StmtKind::DECL:
-      printIndent(indent);
-      printDeclIndent(stmt->decl, indent);
     case StmtKind::COMPOUND:
       // printIndent(indent);
       printf("{\n");
@@ -513,25 +536,9 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printToken(decl->name);
 
     case DeclKind::VAR:
-      printf("let ");
-      printToken(decl->name);
-
-      if (decl->type != null) {
-        printf(": ");
-        printType(decl->type);
-      }
-
-      if (decl->init != null) {
-        printf(" =");
-        if (decl->init->location.line != decl->location.line) {
-          printf("\n");
-          printIndent(indent + indent_width * 2);
-        } else {
-          printf(" ");
-        }
-        printExprIndent(decl->init, indent);
-      }
+      printLet(decl, indent);
       printf(";");
+
     case DeclKind::FUNC:
       printf("func ");
       printToken(decl->name);

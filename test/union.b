@@ -5,6 +5,7 @@
 // CHECK-NEXT: B 12
 // CHECK-NEXT: B 99
 // CHECK-NEXT: f: 55
+// CHECK-NEXT: B 65
 // CHECK-NEXT: DONE
 func printf(format: i8*, ...) -> i32;
 
@@ -101,6 +102,11 @@ func main() -> i32 {
     return 4;
   }
   printf("f: %d\n", (f as Foo::A*)->x);
+
+  if (let ptr = &bar as Bar::B*) {
+    ptr->z = 'A';
+  }
+  consume(&bar);
 
   printf("DONE\n");
   return 0;
