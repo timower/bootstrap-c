@@ -150,7 +150,7 @@ func getToken(state: ParseState*) -> Token {
   let tokenStart = state->current;
   let lastChar = nextChar(state);
 
-  let token: Token;
+  let token = Token {};
 
   // TODO: const expressions and make these global
   // TODO: typeof(array[0])
@@ -822,8 +822,25 @@ func parseConditional(state: ParseState*) -> ExprAST* {
 }
 
 
-// assignment := conditional | conditional '=' assignment
+func parseLetDecl(state: ParseState*) -> DeclAST*;
+
+
+// let_expr := 'let' identifier (':' type)? '=' assignment
+func parseLetExpr(state: ParseState*) -> ExprAST* {
+  let expr = newLocExpr(state, ExprKind::LET);
+
+  expr->decl = parseLetDecl(state);
+
+  return expr;
+}
+
+
+// assignment := let_expr | conditional | conditional '=' assignment
 func parseAssignment(state: ParseState*) -> ExprAST* {
+  if (match(state, TokenKind::LET)) {
+    return parseLetExpr(state);
+  }
+
   let lhs = parseConditional(state);
   if (!isAssign(state->curToken)) {
     return lhs;
@@ -920,14 +937,6 @@ func parseExprStmt(state: ParseState*) -> StmtAST* {
 
 func parseDeclarationOrFunction(state: ParseState*) -> DeclAST*;
 
-func parseDeclStmt(state: ParseState*) -> StmtAST* {
-  let stmt = newLocStmt(state, StmtKind::DECL);
-  stmt->decl = parseDeclarationOrFunction(state);
-  stmt->endLocation = stmt->decl->endLocation;
-
-  return stmt;
-}
-
 func parseForStmt(state: ParseState*) -> StmtAST* {
   getNextToken(state);  // eat for
   let stmt = newLocStmt(state, StmtKind::FOR);
@@ -935,11 +944,7 @@ func parseForStmt(state: ParseState*) -> StmtAST* {
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  if (isDecl(state->curToken)) {
-    stmt->init = parseDeclStmt(state);
-  } else {
-    stmt->init = parseExprStmt(state);
-  }
+  stmt->init = parseExprStmt(state);
   stmt->cond = parseExprStmt(state);
   stmt->expr = parseExpression(state);
 
@@ -1124,10 +1129,6 @@ func parseWhileStmt(state: ParseState*) -> StmtAST* {
 }
 
 func parseStmt(state: ParseState*) -> StmtAST* {
-  if (isDecl(state->curToken)) {
-    return parseDeclStmt(state);
-  }
-
   if (match(state, TokenKind::OPEN_BRACE)) {
     return parseCompoundStmt(state);
   }
@@ -1254,10 +1255,10 @@ func parseNameTypePair(state: ParseState*) -> DeclAST* {
 
 // let_decl := 'let' identifier [':' type] ['=' initializer] ';'
 func parseLetDecl(state: ParseState*) -> DeclAST* {
+  let decl = newLocDecl(state, DeclKind::VAR);
   getNextToken(state);  // eat let
 
-  let decl = newLocDecl(state, DeclKind::VAR);
-
+  expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
 
   if (match(state, TokenKind::COLON)) {
@@ -1273,11 +1274,7 @@ func parseLetDecl(state: ParseState*) -> DeclAST* {
     decl->init = parseInitializer(state);
   }
 
-  expect(state, TokenKind::SEMICOLON);
   decl->endLocation = getLocation(state);
-  getNextToken(state);
-
-  addTrailingCommentsDecl(state, decl);
 
   return decl;
 }
@@ -1480,7 +1477,13 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
 
 func parseDeclarationOrFunction(state: ParseState*) -> DeclAST* {
   if (match(state, TokenKind::LET)) {
-    return parseLetDecl(state);
+    let decl = parseLetDecl(state);
+
+    expect(state, TokenKind::SEMICOLON);
+    getNextToken(state);
+
+    addTrailingCommentsDecl(state, decl);
+    return decl;
   }
 
   if (match(state, TokenKind::FUNC)) {
