@@ -17,7 +17,7 @@ func printToken(token: Token) {
 }
 
 func printType(type: Type*) {
-  if (type == NULL) {
+  if (type == null) {
     printf("nullType ");
     return;
   }
@@ -50,9 +50,9 @@ func printType(type: Type*) {
       printStr(s.tag.data, s.tag.end);
     case TypeKind::Func as fn:
       printf("(");
-      for (let arg = fn.args; arg != NULL; arg = arg->next) {
+      for (let arg = fn.args; arg != null; arg = arg->next) {
         printType(arg);
-        if (arg->next != NULL) {
+        if (arg->next != null) {
           printf(",");
         }
       }
@@ -84,7 +84,7 @@ func printIndent(indent: i32) {
 }
 
 func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
-  if (expr == NULL) {
+  if (expr == null) {
     printf("ERROR: null expr");
     return;
   }
@@ -98,7 +98,12 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
 
   switch (expr->kind) {
     case ExprKind::VARIABLE:
-      printToken(expr->identifier);
+      if (tokCmpStr(expr->identifier, "NULL")) {
+        printf("null");
+      } else {
+        printToken(expr->identifier);
+      }
+
     case ExprKind::INT:
       printStr(expr->op.data, expr->op.end);
 
@@ -141,18 +146,18 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       printExprPrec(expr->lhs, nextPrec, indent);
       printf("(");
       let split = 0;
-      for (let cur = expr->rhs; cur != NULL; cur = cur->rhs) {
-        if (cur->rhs != NULL && cur->location.line != cur->rhs->location.line) {
+      for (let cur = expr->rhs; cur != null; cur = cur->rhs) {
+        if (cur->rhs != null && cur->location.line != cur->rhs->location.line) {
           split = 1;
         }
       }
-      for (let cur: ExprAST* = expr->rhs; cur != NULL; cur = cur->rhs) {
+      for (let cur: ExprAST* = expr->rhs; cur != null; cur = cur->rhs) {
         if (split) {
           printf("\n");
           printIndent(indent + indent_width * 2);
         }
         printExprPrec(cur->lhs, -1, indent);
-        if (cur->rhs != NULL) {
+        if (cur->rhs != null) {
           printf(",");
           if (!split) {
             printf(" ");
@@ -172,16 +177,16 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       }
       printToken(expr->identifier);
     case ExprKind::UNARY:
-      if (expr->lhs != NULL) {
+      if (expr->lhs != null) {
         printExprPrec(expr->lhs, curPrec, indent);
       }
       printToken(expr->op);
-      if (expr->rhs != NULL) {
+      if (expr->rhs != null) {
         printExprPrec(expr->rhs, nextPrec, indent);
       }
     case ExprKind::SIZEOF:
       printf("sizeof(");
-      if (expr->sizeofArg != NULL) {
+      if (expr->sizeofArg != null) {
         printType(expr->sizeofArg);
       } else {
         printExprPrec(expr->rhs, nextPrec, indent);
@@ -204,8 +209,8 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
     case ExprKind::ARRAY:
       printf("{");
       let hasSplit = 0;
-      for (; expr != NULL; expr = expr->rhs) {
-        if (expr->rhs != NULL
+      for (; expr != null; expr = expr->rhs) {
+        if (expr->rhs != null
             && expr->rhs->location.line != expr->location.line) {
           printf("\n");
           printIndent(indent + indent_width);
@@ -229,9 +234,9 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       }
       printToken(expr->identifier);
       printf(" {");
-      if (expr->rhs != NULL) {
+      if (expr->rhs != null) {
         printf("\n");
-        for (let field = expr->rhs; field != NULL; field = field->rhs) {
+        for (let field = expr->rhs; field != null; field = field->rhs) {
           printIndent(indent + indent_width);
           printToken(field->identifier);
           printf(" = ");
@@ -276,28 +281,28 @@ func printStmtIndent(stmt: StmtAST*, indent: i32);
 
 func printIfStmt(stmt: StmtAST*, indent: i32) {
   printIndent(indent);
-  for (; stmt != NULL && stmt->kind == StmtKind::IF; stmt = stmt->stmt) {
+  for (; stmt != null && stmt->kind == StmtKind::IF; stmt = stmt->stmt) {
     printf("if (");
     printExprIndent(stmt->expr, indent);
     printf(") ");
     printStmtIndent(stmt->init, indent);
-    if (stmt->stmt != NULL) {
+    if (stmt->stmt != null) {
       printf(" else ");
     }
   }
 
-  if (stmt != NULL) {
+  if (stmt != null) {
     printStmtIndent(stmt, indent);
   }
 }
 
 func printComments(comment: Comment*, indent: i32, line: i32) -> Comment* {
-  for (; comment != NULL && (line == 0 || comment->location.line < line);
+  for (; comment != null && (line == 0 || comment->location.line < line);
        comment = comment->next) {
     printIndent(indent);
     printStr(comment->value.data, comment->value.end);
 
-    if (line != 0 || comment->next != NULL) {
+    if (line != 0 || comment->next != null) {
       printf("\n");
     }
   }
@@ -305,10 +310,10 @@ func printComments(comment: Comment*, indent: i32, line: i32) -> Comment* {
 }
 
 func printStmtList(stmt: StmtAST*, indent: i32) {
-  for (let cur: StmtAST* = stmt; cur != NULL; cur = cur->nextStmt) {
+  for (let cur: StmtAST* = stmt; cur != null; cur = cur->nextStmt) {
     printStmtIndent(cur, indent + indent_width);
 
-    if (cur->nextStmt != NULL) {
+    if (cur->nextStmt != null) {
       let lineDiff = cur->nextStmt->location.line - cur->endLocation.line;
       if (lineDiff > 1) {
         printf("\n\n");
@@ -336,7 +341,7 @@ func printStmtIndent(stmt: StmtAST*, indent: i32) {
       printf("}");
     case StmtKind::EXPR:
       printIndent(indent);
-      if (stmt->expr != NULL) {
+      if (stmt->expr != null) {
         printExprIndent(stmt->expr, indent);
       }
       printf(";");
@@ -365,7 +370,7 @@ func printStmtIndent(stmt: StmtAST*, indent: i32) {
     case StmtKind::RETURN:
       printIndent(indent);
       printf("return");
-      if (stmt->expr != NULL) {
+      if (stmt->expr != null) {
         printf(" ");
         printExprIndent(stmt->expr, indent);
       }
@@ -411,7 +416,7 @@ func printStmt(stmt: StmtAST*) {
 }
 
 func printDeclNewlines(field: DeclAST*) {
-  if (field->next == NULL) {
+  if (field->next == null) {
     printf("\n");
     return;
   }
@@ -431,7 +436,7 @@ func printStructBody(
     trailing: Comment*
 ) -> Comment* {
   printf(" {\n");
-  for (let field = decl->fields; field != NULL;
+  for (let field = decl->fields; field != null;
        field = field->next) {
     let comments = printComments(
         field->comments,
@@ -470,7 +475,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
     case DeclKind::ENUM:
       printType(decl->type);
       printf(" {\n");
-      for (let field = decl->fields; field != NULL;
+      for (let field = decl->fields; field != null;
            field = field->next) {
         let comments = printComments(
             field->comments,
@@ -490,7 +495,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printType(decl->type);
       printf(" {\n");
 
-      for (let subType = decl->subTypes; subType != NULL;
+      for (let subType = decl->subTypes; subType != null;
            subType = subType->next) {
         printIndent(indent + indent_width);
         let structType = &subType->decl->type->kind as TypeKind::Struct*;
@@ -506,16 +511,17 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
 
     case DeclKind::ENUM_FIELD:
       printToken(decl->name);
+
     case DeclKind::VAR:
       printf("let ");
       printToken(decl->name);
 
-      if (decl->type != NULL) {
+      if (decl->type != null) {
         printf(": ");
         printType(decl->type);
       }
 
-      if (decl->init != NULL) {
+      if (decl->init != null) {
         printf(" =");
         if (decl->init->location.line != decl->location.line) {
           printf("\n");
@@ -535,14 +541,14 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       let isVarargs = fnType->isVarargs;
       let split = 0;
 
-      for (let field: DeclAST* = decl->fields; field != NULL;
+      for (let field: DeclAST* = decl->fields; field != null;
            field = field->next) {
-        if (field->next != NULL
+        if (field->next != null
             && field->location.line != field->next->location.line) {
           split = 1;
         }
       }
-      for (let field: DeclAST* = decl->fields; field != NULL;
+      for (let field: DeclAST* = decl->fields; field != null;
            field = field->next) {
         if (split) {
           printf("\n");
@@ -551,7 +557,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         printToken(field->name);
         printf(": ");
         printType(field->type);
-        if (field->next != NULL || isVarargs) {
+        if (field->next != null || isVarargs) {
           printf(",");
           if (!split) {
             printf(" ");
@@ -569,12 +575,12 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         printf("\n");
       }
       printf(")");
-      if (&fnType->result->kind as TypeKind::Void* == NULL) {
+      if (&fnType->result->kind as TypeKind::Void* == null) {
         printf(" -> ");
         printType(fnType->result);
       }
 
-      if (decl->body != NULL) {
+      if (decl->body != null) {
         printf(" ");
         printStmt(decl->body);
       } else {
@@ -586,7 +592,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printf(";");
   }
 
-  if (trailing != NULL) {
+  if (trailing != null) {
     printf(" ");
     printComments(trailing, indent, 0);
   }
@@ -597,11 +603,11 @@ func printDecl(decl: DeclAST*) {
 }
 
 func printTopLevel(decls: DeclAST*) {
-  for (let decl = decls; decl != NULL; decl = decl->next) {
+  for (let decl = decls; decl != null; decl = decl->next) {
     printDecl(decl);
 
     let newlines = 0;
-    if (decl->next != NULL) {
+    if (decl->next != null) {
       let lineDiff = decl->next->location.line - decl->endLocation.line;
       if (lineDiff > 2) {
         newlines = 3;

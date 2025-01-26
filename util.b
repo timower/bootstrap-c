@@ -25,19 +25,19 @@ func readFile(name: i8*) -> Buf {
   let fd = open(name, 0);   //  O_RDONLY
   if (fd == -1) {
     puts("open failed!");
-    return Buf{};
+    return Buf {};
   }
 
   let size = lseek(fd, 0, 2);   //  SEEK_END
   if (size == -1) {
     puts("seek failed!");
-    return Buf{};
+    return Buf {};
   }
 
   if (lseek(fd, 0, 0) == -1) {
     // SEEK_SET
     puts("seek failed!");
-    return Buf{};
+    return Buf {};
   }
 
   let fileMem: i8* = malloc(size as u64);
@@ -47,12 +47,12 @@ func readFile(name: i8*) -> Buf {
     let r = read(fd, fileMem + off, (size - off) as u64);
     if (r == -1) {
       puts("read failed!");
-      return Buf{};
+      return Buf {};
     }
     off += r;
   }
 
-  return Buf{
+  return Buf {
     mem = fileMem,
     size = size,
   };

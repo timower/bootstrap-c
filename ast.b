@@ -490,7 +490,7 @@ func getExprPrecedence(expr: ExprAST*) -> i32 {
 
     case ExprKind::UNARY:
       // Unary postfix
-      if (expr->rhs == NULL) {
+      if (expr->rhs == null) {
         return 120;
       }
       return 110;
