@@ -1,0 +1,36 @@
+{
+  "grammars": [
+    {
+      "name": "bootstrap",
+      "camelcase": "Bootstrap",
+      "scope": "source.bootstrap",
+      "file-types": [
+        ".b"
+      ],
+      "injection-regex": "^bootstrap$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Boostrap language parser",
+    "authors": [
+      {
+        "name": "Timothy Werquin",
+        "email": "foo@timower.com",
+        "url": "https://timower.com/"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/tree-sitter/tree-sitter-bootstrap"
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": true,
+    "node": true,
+    "python": true,
+    "rust": true,
+    "swift": true
+  }
+}

@@ -5,6 +5,7 @@ M.options = nil
 local defaults = {
 	conform = true,
 	lua_lint = true,
+	treesitter = true,
 }
 
 local bootstrapDirs = { "/home/timo/Projects/bootstrap-c/", "/Users/timo/Projects/Bootstrap/" }
@@ -48,6 +49,18 @@ function M.setup(opts)
 				["source"] = "bootstrap",
 				["severity"] = vim.diagnostic.severity.ERROR,
 			}),
+		}
+	end
+
+	if M.options.treesitter then
+		---@class ParserInfo
+		local parser_config = require("nvim-treesitter.parsers").get_parser_configs()
+
+		parser_config.bootstrap = {
+			install_info = {
+				url = M.bootstrapDir .. "/tree-sitter-bootstrap/",
+				files = { "src/parser.c" }, -- note that some parsers also require src/scanner.c or src/scanner.cc
+			},
 		}
 	end
 end
