@@ -656,7 +656,7 @@ func parseType(state: ParseState*) -> Type* {
     getNextToken(state);
     expect(state, TokenKind::IDENTIFIER);
 
-    let tagPtr = &type->kind as TypeKind::Tag*;
+    let tagPtr = type->kind as TypeKind::Tag*;
     tagPtr->parent = tagPtr->tag;
     tagPtr->tag = getNextToken(state);
   }
@@ -1390,7 +1390,7 @@ func parseUnion(state: ParseState*) -> DeclAST* {
     parseSubStruct(state, tag);
 
     // Use 'arg' of the struct type to point to the parent type.
-    let structType = &tag->type->kind as TypeKind::Struct*;
+    let structType = tag->type->kind as TypeKind::Struct*;
     structType->parent = decl->type;
 
     // TODO: trailing comments?
@@ -1417,7 +1417,7 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
   decl->name = getNextToken(state);
 
   decl->type = newType(TypeKind::Func {});
-  let funcType = &decl->type->kind as TypeKind::Func*;
+  let funcType = decl->type->kind as TypeKind::Func*;
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);  // eat (

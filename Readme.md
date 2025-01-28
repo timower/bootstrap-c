@@ -32,7 +32,7 @@ TODO
  - [x] Type safe unions.
  - [x] Rename `NULL` to `null`
  - [x] Let expressions, `if (let a = x as foo)` support.
- - [ ] Auto `&` on union -> struct ptr casts?
+ - [x] Auto `&` on union -> struct ptr casts?
  - [ ] Require extern for external functions.
  - [ ] Remove function declarations, supporting use before define.
  - [ ] Move decl, stmt and expr to Unions.

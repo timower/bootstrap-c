@@ -521,7 +521,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       for (let subType = decl->subTypes; subType != null;
            subType = subType->next) {
         printIndent(indent + indent_width);
-        let structType = &subType->decl->type->kind as TypeKind::Struct*;
+        let structType = subType->decl->type->kind as TypeKind::Struct*;
         printToken(structType->tag);
         trailing = printStructBody(
             subType->decl,
@@ -544,7 +544,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printToken(decl->name);
       printf("(");
 
-      let fnType = &decl->type->kind as TypeKind::Func*;
+      let fnType = decl->type->kind as TypeKind::Func*;
       let isVarargs = fnType->isVarargs;
       let split = 0;
 
@@ -582,7 +582,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         printf("\n");
       }
       printf(")");
-      if (&fnType->result->kind as TypeKind::Void* == null) {
+      if (fnType->result->kind as TypeKind::Void* == null) {
         printf(" -> ");
         printType(fnType->result);
       }
