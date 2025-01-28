@@ -354,10 +354,6 @@ func parseString(state: ParseState*) -> ExprAST* {
   return result;
 }
 
-func parseAssignment(state: ParseState*) -> ExprAST*;
-
-func parseConditional(state: ParseState*) -> ExprAST*;
-
 
 // structInit = '{' ( ident '=' cond ','  )* ','? '}'
 func parseStructInit(state: ParseState*) -> ExprAST* {
@@ -432,8 +428,6 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
       return result;
   }
 }
-
-func parseExpression(state: ParseState*) -> ExprAST*;
 
 
 // paren := '(' expression ')'
@@ -823,9 +817,6 @@ func parseConditional(state: ParseState*) -> ExprAST* {
 }
 
 
-func parseLetDecl(state: ParseState*) -> DeclAST*;
-
-
 // let_expr := 'let' identifier (':' type)? '=' assignment
 func parseLetExpr(state: ParseState*) -> ExprAST* {
   let expr = newLocExpr(state, ExprKind::LET);
@@ -899,7 +890,6 @@ func addTrailingCommentsStmt(state: ParseState*, stmt: StmtAST*) {
   stmt->comments = appendComments(stmt->comments, comments);
 }
 
-func parseStmt(state: ParseState*) -> StmtAST*;
 
 func parseCompoundStmt(state: ParseState*) -> StmtAST* {
   let stmt = newLocStmt(state, StmtKind::COMPOUND);
@@ -936,7 +926,6 @@ func parseExprStmt(state: ParseState*) -> StmtAST* {
   return stmt;
 }
 
-func parseDecl(state: ParseState*) -> DeclAST*;
 
 func parseForStmt(state: ParseState*) -> StmtAST* {
   getNextToken(state);  // eat for
@@ -1471,7 +1460,8 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
     funcType->result = newType(TypeKind::Void {});
   }
 
-  if (match(state, TokenKind::OPEN_BRACE)) {
+  if (!decl->isExtern) {
+    expect(state, TokenKind::OPEN_BRACE);
     decl->body = parseCompoundStmt(state);
     decl->endLocation = decl->body->endLocation;
   } else {

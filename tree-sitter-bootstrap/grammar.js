@@ -111,12 +111,23 @@ module.exports = grammar({
       ';'
     ),
 
-    func_decl: $ => seq(
+    func_decl: $ => choice($._func_decl, $._func_def),
+
+    _func_decl: $ => seq(
+      'extern',
       'func',
       $.identifier,
       $.param_list,
       optional(seq('->', field('result', $.type))),
-      choice($.block, ';'),
+      ';',
+    ),
+
+    _func_def: $ => seq(
+      'func',
+      $.identifier,
+      $.param_list,
+      optional(seq('->', field('result', $.type))),
+      $.block,
     ),
 
     block: $ => seq(

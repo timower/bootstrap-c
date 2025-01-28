@@ -120,7 +120,10 @@
 (type_identifier) @type
 (primitive_type) @type.builtin
 
-"const" @keyword.modifier
+[
+ "extern"
+ "const"
+] @keyword.modifier
 
 (import_decl "import" @keyword.import)
 

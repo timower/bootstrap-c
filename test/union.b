@@ -10,7 +10,7 @@
 // CHECK-NEXT: DONE
 extern func printf(format: i8*, ...) -> i32;
 
-func malloc(size: u64) -> void*;
+extern func malloc(size: u64) -> void*;
 
 union Foo {
   Void {

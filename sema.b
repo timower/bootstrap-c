@@ -512,7 +512,6 @@ func findField(
   return null;
 }
 
-func getSize(state: SemaState*, type: Type*) -> i32;
 
 func getStructDeclSize(state: SemaState*, decl: DeclAST*) -> i32 {
   let size = 0;
@@ -571,7 +570,6 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
   }
 }
 
-func semaExpr(state: SemaState*, expr: ExprAST*);
 
 func semaBinExpr(state: SemaState*, expr: ExprAST*) {
   semaExpr(state, expr->lhs);
@@ -743,7 +741,6 @@ func lookupStruct(state: SemaState*, type: TypeKind::Struct*) -> DeclAST* {
   return lookupType(state, type->tag);
 }
 
-func semaDecl(state: SemaState*, decl: DeclAST*);
 
 func semaExpr(state: SemaState*, expr: ExprAST*) {
   switch (expr->kind) {
@@ -1013,9 +1010,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
   }
 }
 
-func semaStmt(state: SemaState*, stmt: StmtAST*);
-
-func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST*;
 
 func addLocalDecl(state: SemaState*, decl: DeclAST*) {
   let prev = findLocal(state->locals, decl->name);

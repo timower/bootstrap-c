@@ -34,7 +34,7 @@ TODO
  - [x] Let expressions, `if (let a = x as foo)` support.
  - [x] Auto `&` on union -> struct ptr casts?
  - [x] Support extern for external functions.
- - [ ] Remove function declarations, supporting use before define.
+ - [x] Remove function declarations, supporting use before define.
  - [ ] Fix relative imports, split source to `src/sema/...`
  - [ ] Move decl, stmt and expr to Unions.
  - [ ] `bool` (i1) type.

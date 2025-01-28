@@ -83,7 +83,6 @@ func printIndent(indent: i32) {
   }
 }
 
-func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32);
 
 func printLet(decl: DeclAST*, indent: i32) {
   printf("let ");
@@ -301,9 +300,6 @@ func printExprIndent(expr: ExprAST*, indent: i32) {
   printExprPrec(expr, -1, indent);
 }
 
-func printDeclIndent(decl: DeclAST*, indent: i32);
-
-func printStmtIndent(stmt: StmtAST*, indent: i32);
 
 func printIfStmt(stmt: StmtAST*, indent: i32) {
   printIndent(indent);
@@ -612,6 +608,18 @@ func printDecl(decl: DeclAST*) {
   printDeclIndent(decl, 0);
 }
 
+func allowNoNewline(decl: DeclAST*) -> i32 {
+  if (decl->kind == DeclKind::IMPORT) {
+    return 1;
+  }
+
+  if (decl->kind == DeclKind::FUNC) {
+    return decl->isExtern;
+  }
+
+  return 0;
+}
+
 func printTopLevel(decls: DeclAST*) {
   for (let decl = decls; decl != null; decl = decl->next) {
     printDecl(decl);
@@ -625,8 +633,7 @@ func printTopLevel(decls: DeclAST*) {
         newlines = 2;
       }
 
-      if (decl->next->kind == DeclKind::IMPORT
-          && decl->kind == DeclKind::IMPORT) {
+      if (decl->next->kind == decl->kind && allowNoNewline(decl)) {
         newlines--;
       }
     } else {

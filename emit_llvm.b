@@ -196,8 +196,6 @@ func getTempGlobal(state: EmitState*, prefix: const i8*) -> Value {
   };
 }
 
-func emitExpr(state: EmitState*, expr: ExprAST*) -> Value;
-
 
 // Turns an i1 into an i32
 func upcasti1(state: EmitState*, val: Value) -> Value {
@@ -1041,8 +1039,6 @@ func emitReturn(state: EmitState*, stmt: StmtAST*) {
   printf("  ret %s %s\n", v.type, v.val);
 }
 
-
-func emitStmt(state: EmitState*, stmt: StmtAST*);
 
 func emitIf(state: EmitState*, stmt: StmtAST*) {
   let cond = emitExpr(state, stmt->expr);
