@@ -1,6 +1,7 @@
 *.o
 *.ll
-bootstrap
-format
-stage*
+/bootstrap
+/format
+/stage*
+cache/*
 test/.lit_test_times.txt
