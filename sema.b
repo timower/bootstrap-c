@@ -187,7 +187,7 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
       }
 
       // TODO: Remove and use 'as' once the ': type' syntax is implemented.
-      // 
+      //
       // void * can be converted from and to any other pointer..
       if (&fromPtr->pointee->kind as TypeKind::Void* != NULL
           || &toPtr.pointee->kind as TypeKind::Void* != NULL) {
@@ -1390,13 +1390,11 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   return decl;
 }
 
-func initSemaState() -> SemaState {
-  let semaState = SemaState {};
-
+func getNullDecl(name: i8*) -> DeclAST* {
   let nullTok: Token;
   nullTok.kind = TokenKind::IDENTIFIER;
-  nullTok.data = "NULL";
-  nullTok.end = nullTok.data + 4;
+  nullTok.data = name;
+  nullTok.end = name + strlen(name);
 
   // Add null as a nullptr
   let nullDecl = newDecl(DeclKind::ENUM_FIELD);
@@ -1406,6 +1404,17 @@ func initSemaState() -> SemaState {
     pointee = newType(TypeKind::Void {}),
   });
 
+  return nullDecl;
+}
+
+func initSemaState() -> SemaState {
+  let semaState = SemaState {};
+
+  let nullDecl = getNullDecl("NULL");
+  let nullDecl2 = getNullDecl("null");
+
   semaState.locals = newDeclList(nullDecl);
+  semaState.locals->next = newDeclList(nullDecl2);
+
   return semaState;
 }
