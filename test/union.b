@@ -6,6 +6,7 @@
 // CHECK-NEXT: B 99
 // CHECK-NEXT: f: 55
 // CHECK-NEXT: B 65
+// CHECK-NEXT: B 66
 // CHECK-NEXT: DONE
 func printf(format: i8*, ...) -> i32;
 
@@ -105,6 +106,11 @@ func main() -> i32 {
 
   if (let ptr = &bar as Bar::B*) {
     ptr->z = 'A';
+  }
+  consume(&bar);
+
+  if (let ptr = bar as Bar::B*) {
+    ptr->z = 'B';
   }
   consume(&bar);
 

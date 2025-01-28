@@ -347,6 +347,36 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
         return semaIntCast(castExpr, &enumInt, toInt);
       }
 
+    case TypeKind::Union as fromUnion:
+      if (let toPtr = &to->kind as TypeKind::Pointer*) {
+        if (let toStruct = &toPtr->pointee->kind as TypeKind::Struct*) {
+          let unionDecl = lookupType(state, fromUnion.tag);
+          if (unionDecl == null) {
+            failSemaExpr(expr, "Can't find union decl to cast from");
+          }
+
+          let idx = 0;
+          let structDecl =
+              findTypeIdx(unionDecl->subTypes, toStruct->tag, &idx);
+          if (structDecl == null) {
+            failSemaExpr(expr, "No way to convert union to unrelated struct");
+          }
+
+          // Insert a deref expr.
+          let deref = newExpr(ExprKind::UNARY);
+          deref->op.kind = TokenKind::AND;
+          deref->rhs = castExpr->lhs;
+          deref->type = newType(TypeKind::Pointer {
+            pointee = deref->rhs->type,
+          });
+          castExpr->lhs = deref;
+
+          castExpr->value = idx;
+          castExpr->castKind = CastKind::UnionStructPtr;
+          return 1;
+        }
+      }
+
     case TypeKind::Pointer as fromPtr:
       if (let toPtr = &to->kind as TypeKind::Pointer*) {
         // void * can be casted from and to any other pointer..
