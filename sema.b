@@ -4,7 +4,7 @@ import print_ast;
 
 
 struct ImportList {
-  name: Token;
+  name: i8*;
   next: ImportList*;
 };
 
@@ -1385,13 +1385,13 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
 }
 
 func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
-  resolveTypeTags(state, decl->type); //, decl->location);
+  resolveTypeTags(state, decl->type);  //, decl->location);
 
   switch (decl->kind) {
     case DeclKind::STRUCT:
       // Resolve tags in fields.
       for (let field = decl->fields; field != null; field = field->next) {
-        resolveTypeTags(state, field->type); //, field->location);
+        resolveTypeTags(state, field->type);        //, field->location);
       }
 
     case DeclKind::UNION:
@@ -1403,11 +1403,38 @@ func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
 
     case DeclKind::FUNC:
       for (let field = decl->fields; field != null; field = field->next) {
-        resolveTypeTags(state, field->type); //, field->location);
+        resolveTypeTags(state, field->type);        //, field->location);
       }
 
     default:
       break;
+  }
+}
+
+func getImportExprName(expr: ExprAST*) -> Token {
+  switch (expr->kind) {
+    case ExprKind::VARIABLE:
+      return expr->identifier;
+    case ExprKind::MEMBER:
+      let lhsToken = getImportExprName(expr->lhs);
+      let buf = malloc(256) as i8*;
+
+      let end = sprintf(
+          buf,
+          "%.*s/%.*s",
+          lhsToken.end - lhsToken.data,
+          lhsToken.data,
+          expr->identifier.end - expr->identifier.data,
+          expr->identifier.data);
+
+      return Token {
+        kind = TokenKind::IDENTIFIER,
+        data = buf,
+        end = buf + end,
+      };
+
+    default:
+      failSemaExpr(expr, "Unexpected expression in import");
   }
 }
 
@@ -1416,22 +1443,40 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
     failSemaDecl(decl, "Import not allowed in local scope");
   }
 
+  let name = getImportExprName(decl->init);
+  let rootFile = strdup(decl->location.fileName);
+  let rootDir = dirname(rootFile);
+
+  let relPath: i8* = malloc(4096);
+
+  let absPath: i8* = null;
+  while (1) {
+    sprintf(relPath, "%s/%.*s.b", rootDir, name.end - name.data, name.data);
+    absPath = realpath(relPath, null);
+    if (absPath != null) {
+      break;
+    }
+
+    if (*(rootDir + 1) == 0) {
+      failSemaDecl(decl, "Couldn't find file");
+    }
+    rootDir = dirname(rootDir);
+  }
+
   // Check if we already import this one
   for (let cur = state->imports; cur != null; cur = cur->next) {
-    if (tokCmp(decl->name, cur->name)) {
+    if (strcmp(absPath, cur->name) == 0) {
       return;
     }
   }
 
   // Add to imports
   let imports: ImportList* = calloc(1, sizeof(struct ImportList));
-  imports->name = decl->name;
+  imports->name = absPath;
   imports->next = state->imports;
   state->imports = imports;
 
-  let buf: i8* = malloc(256);
-  sprintf(buf, "%.*s.b", decl->name.end - decl->name.data, decl->name.data);
-  let fileDecls = parseFile(buf);
+  let fileDecls = parseFile(relPath);
   if (fileDecls == null) {
     failSemaDecl(decl, "Failed to import file");
   }

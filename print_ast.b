@@ -594,7 +594,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       }
     case DeclKind::IMPORT:
       printf("import ");
-      printToken(decl->name);
+      printExpr(decl->init);
       printf(";");
   }
 

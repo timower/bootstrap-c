@@ -21,6 +21,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install llvm python3-pip python3-venv
         sudo update-alternatives --install /usr/bin/FileCheck FileCheck /usr/bin/FileCheck-18  1
+        sudo update-alternatives --install /usr/bin/split-file split-file /usr/bin/split-file-18  1
 
     - name: Setup python and lit
       run: |

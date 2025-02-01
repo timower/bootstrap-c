@@ -1480,8 +1480,21 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
   getNextToken(state);  // eat import
 
   expect(state, TokenKind::IDENTIFIER);
-  decl->name = getNextToken(state);
 
+  let ident = getNextToken(state);
+  let expr = newExpr(ExprKind::VARIABLE);
+  expr->identifier = ident;
+
+  while (match(state, TokenKind::DOT)) {
+    let member = newExpr(ExprKind::MEMBER);
+    member->lhs = expr;
+    member->op = getNextToken(state);
+    expect(state, TokenKind::IDENTIFIER);
+    member->identifier = getNextToken(state);
+    expr = member;
+  }
+
+  decl->init = expr;
   decl->endLocation = getLocation(state);
   expect(state, TokenKind::SEMICOLON);
   getNextToken(state);

@@ -13,3 +13,6 @@ extern func realloc(ptr: void*, size: u64) -> void*;
 extern func strtol(ptr: const i8*, end: i8**, base: i32) -> i64;
 extern func lseek(fd: i32, offset: i64, whence: i32) -> i64;
 extern func read(fd: i32, buf: void*, nbytes: u64) -> i64;
+extern func dirname(path: i8*) -> i8*;
+extern func strdup(s: i8*) -> i8*;
+extern func realpath(path: i8*, resolved_path: i8*) -> i8*;

@@ -3,5 +3,6 @@
 /bootstrap
 /format
 /stage*
-cache/*
-test/.lit_test_times.txt
+/cache/*
+/test/.lit_test_times.txt
+/test/Output
