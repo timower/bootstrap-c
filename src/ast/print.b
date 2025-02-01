@@ -633,8 +633,9 @@ func printTopLevel(decls: DeclAST*) {
         newlines = 2;
       }
 
-      if (decl->next->kind == decl->kind && allowNoNewline(decl)) {
-        newlines--;
+      if (lineDiff == 1 && decl->next->kind == decl->kind
+          && allowNoNewline(decl)) {
+        newlines = 1;
       }
     } else {
       newlines = 1;

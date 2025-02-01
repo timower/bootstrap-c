@@ -1,4 +1,5 @@
 import libc;
+import ast.token;
 
 struct SourceLoc {
   line: i32;
@@ -6,97 +7,6 @@ struct SourceLoc {
   fileName: i8*;
   // TODO: if needed:
   // ptr: i8*;
-};
-
-enum TokenKind {
-  TOK_EOF,
-
-  // clang-format off
-  // constants
-  IDENTIFIER,
-  CONSTANT,
-  STRING_LITERAL,
-  INT2,
-  COMMENT,
-
-  // keywords
-  CONTINUE,
-  DEFAULT,
-  EXTERN,
-  SIZEOF,
-  STRUCT,
-  SWITCH,
-  RETURN,
-  IMPORT,
-  CONST,
-  WHILE,
-  BREAK,
-  UNION,
-  VOID,
-  ENUM,
-  CASE,
-  ELSE,
-  FUNC,
-
-  // operators
-  LEFT_ASSIGN,
-  RIGHT_ASSIGN,
-  ELLIPSIS,
-  FOR,
-  LET,
-  SCOPE,
-  PTR_OP,
-  INC_OP,
-  DEC_OP,
-  LEFT_OP,
-  RIGHT_OP,
-  LE_OP,
-  GE_OP,
-  EQ_OP,
-  NE_OP,
-  AND_OP,
-  OR_OP,
-  MUL_ASSIGN,
-  DIV_ASSIGN,
-  MOD_ASSIGN,
-  ADD_ASSIGN,
-  SUB_ASSIGN,
-  AND_ASSIGN,
-  XOR_ASSIGN,
-  OR_ASSIGN,
-  IF,
-  AS,
-  SEMICOLON,
-  OPEN_BRACE,
-  CLOSE_BRACE,
-  COMMA,
-  COLON,
-  EQ,
-  OPEN_PAREN,
-  CLOSE_PAREN,
-  OPEN_BRACKET,
-  CLOSE_BRACKET,
-  DOT,
-  AND,
-  BANG,
-  TILDE,
-  MINUS,
-  PLUS,
-  STAR,
-  SLASH,
-  PERCENT,
-  LESS,
-  GREATER,
-  HAT,
-  PIPE,
-  QUESTION,  // clang-format on
-};
-
-struct Token {
-  kind: TokenKind;
-
-  data: i8*;
-  end: i8*;
 };
 
 struct Comment {

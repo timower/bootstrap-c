@@ -35,9 +35,11 @@ TODO
  - [x] Auto `&` on union -> struct ptr casts?
  - [x] Support extern for external functions.
  - [x] Remove function declarations, supporting use before define.
- - [ ] Fix relative imports, split source to `src/sema/...`
- - [ ] Move decl, stmt and expr to Unions.
+ - [x] Fix relative imports, split source to `src/sema/...`
  - [ ] `bool` (i1) type.
+ - [ ] Model LLVM IR.
+
+ - [ ] Move decl, stmt and expr to Unions.
 
  - [ ] `typeof(foo)` expression to do:
      * `sizeof(typeof(foo))`
@@ -48,7 +50,6 @@ TODO
  - [ ] `is<T>(uinion) -> bool` function.
      * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`
 
- - [ ] Model LLVM IR.
  - [ ] Add references?
  - [ ] Add slice type.
     * syntax: `[i8]`
