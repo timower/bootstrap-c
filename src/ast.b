@@ -15,23 +15,10 @@ struct Comment {
   next: Comment*;
 };
 
-let tokens: const i8*[] = {
-  "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
-  "continue", "default", "extern", "sizeof", "struct", "switch", "return",
-  "import", "const", "while", "break", "union", "void", "enum",
-  "case", "else", "func", "<<=", ">>=", "...",
-  "for", "let", "::", "->", "++", "--",
-  "<<", ">>", "<=", ">=", "==", "!=",
-  "&&", "||", "*=", "/=", "%=", "+=",
-  "-=", "&=", "^=", "|=", "if", "as",
-  ";", "{", "}", ",", ":", "=",
-  "(", ")", "[", "]", ".", "&",
-  "!", "~", "-", "+", "*", "/",
-  "%", "<", ">", "^", "|", "?",
-};
-
 union TypeKind {
   Void {
+  }
+  Bool {
   }
   Int {
     size: i32;
@@ -254,7 +241,7 @@ func tokCmp(one: Token, two: Token) -> i32 {
     return 0;
   }
 
-  return memcmp(one.data, two.data, len1 as u64) == 0;
+  return (memcmp(one.data, two.data, len1 as u64) == 0) as i32;
 }
 
 func tokCmpStr(one: Token, str: const i8*) -> i32 {
@@ -264,7 +251,7 @@ func tokCmpStr(one: Token, str: const i8*) -> i32 {
     return 0;
   }
 
-  return memcmp(one.data, str, len1 as u64) == 0;
+  return (memcmp(one.data, str, len1 as u64) == 0) as i32;
 }
 
 func newExpr(kind: ExprKind) -> ExprAST* {
@@ -316,6 +303,10 @@ func getInt32() -> Type* {
     size = 32,
     isSigned = 1,
   });
+}
+
+func getBool() -> Type* {
+  return newType(TypeKind::Bool {});
 }
 
 func getIPtr() -> Type* {

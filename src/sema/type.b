@@ -6,6 +6,8 @@ func typeEq(one: Type*, two: Type*) -> i32 {
   switch (one->kind) {
     case TypeKind::Void:
       return two->kind as TypeKind::Void* != null;
+    case TypeKind::Bool:
+      return two->kind as TypeKind::Bool* != null;
     case TypeKind::Int as int1:
       if (let int2 = two->kind as TypeKind::Int*) {
         return int1.isSigned == int2->isSigned && int1.size == int2->size;

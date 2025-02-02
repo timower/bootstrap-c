@@ -42,6 +42,10 @@
         "named": true
       },
       {
+        "type": "builtin_constant",
+        "named": true
+      },
+      {
         "type": "call_expression",
         "named": true
       },
@@ -75,10 +79,6 @@
       },
       {
         "type": "member_expression",
-        "named": true
-      },
-      {
-        "type": "null",
         "named": true
       },
       {
@@ -304,6 +304,11 @@
   },
   {
     "type": "break_statement",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "builtin_constant",
     "named": true,
     "fields": {}
   },
@@ -1216,6 +1221,10 @@
     "named": false
   },
   {
+    "type": "bool",
+    "named": false
+  },
+  {
     "type": "break",
     "named": false
   },
@@ -1253,6 +1262,10 @@
   },
   {
     "type": "extern",
+    "named": false
+  },
+  {
+    "type": "false",
     "named": false
   },
   {
@@ -1297,7 +1310,7 @@
   },
   {
     "type": "null",
-    "named": true
+    "named": false
   },
   {
     "type": "return",
@@ -1317,6 +1330,10 @@
   },
   {
     "type": "switch",
+    "named": false
+  },
+  {
+    "type": "true",
     "named": false
   },
   {

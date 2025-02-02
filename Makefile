@@ -18,7 +18,7 @@ PARENT_STAGE = $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 
 # Sources of the compiler
 # TODO: when bootstrap can emit dep files, we can just list the main src here.
-ALL_SRC = $(wildcard src/*.b)
+ALL_SRC = $(shell find src/ -type f -name '*.b')
 
 # We call the bootstrap compiler on the first source file.
 MAIN_SRC = src/bootstrap.b

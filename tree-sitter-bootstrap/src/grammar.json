@@ -963,6 +963,10 @@
         {
           "type": "STRING",
           "value": "void"
+        },
+        {
+          "type": "STRING",
+          "value": "bool"
         }
       ]
     },
@@ -987,7 +991,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "null"
+          "name": "builtin_constant"
         },
         {
           "type": "SYMBOL",
@@ -2374,9 +2378,22 @@
         }
       }
     },
-    "null": {
-      "type": "STRING",
-      "value": "null"
+    "builtin_constant": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "null"
+        },
+        {
+          "type": "STRING",
+          "value": "true"
+        },
+        {
+          "type": "STRING",
+          "value": "false"
+        }
+      ]
     },
     "char_literal": {
       "type": "SEQ",

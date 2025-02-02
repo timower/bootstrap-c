@@ -1,6 +1,7 @@
 import state;
 import token;
 
+
 // base_type := int2 | 'void' | 'struct' ident | 'enum' ident | ident
 // type := const? base_type ('*' | '[' int? ']' )*
 func parseType(state: ParseState*) -> Type* {
@@ -22,6 +23,14 @@ func parseType(state: ParseState*) -> Type* {
     };
   } else if (match(state, TokenKind::VOID)) {
     getNextToken(state);
+  } else if (match(state, TokenKind::BOOL)) {
+    getNextToken(state);
+
+    // TypeKind::Bool {};
+    type->kind = TypeKind::Int {
+      size = 32,
+      isSigned = 1,
+    };
   } else if (match(state, TokenKind::STRUCT)) {
     getNextToken(state);
     expect(state, TokenKind::IDENTIFIER);
@@ -91,4 +100,3 @@ func parseType(state: ParseState*) -> Type* {
 
   return type;
 }
-

@@ -23,6 +23,9 @@ enum TokenKind {
   BREAK,
   UNION,
   VOID,
+  BOOL,
+  TRUE,
+  FALSE,
   ENUM,
   CASE,
   ELSE,
@@ -80,6 +83,21 @@ enum TokenKind {
   HAT,
   PIPE,
   QUESTION,  // clang-format on
+};
+
+let tokens: const i8*[] = {
+  "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
+  "continue", "default", "extern", "sizeof", "struct", "switch", "return",
+  "import", "const", "while", "break", "union", "void", "bool", "true", "false",
+  "enum", "case", "else", "func", "<<=", ">>=", "...",
+  "for", "let", "::", "->", "++", "--",
+  "<<", ">>", "<=", ">=", "==", "!=",
+  "&&", "||", "*=", "/=", "%=", "+=",
+  "-=", "&=", "^=", "|=", "if", "as",
+  ";", "{", "}", ",", ":", "=",
+  "(", ")", "[", "]", ".", "&",
+  "!", "~", "-", "+", "*", "/",
+  "%", "<", ">", "^", "|", "?",
 };
 
 struct Token {

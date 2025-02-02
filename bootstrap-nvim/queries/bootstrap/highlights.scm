@@ -99,7 +99,12 @@
 (identifier) @variable
 
 (enumerator) @constant
-(null) @constant.builtin
+(builtin_constant) @constant.builtin
+
+[
+ "true"
+ "false"
+] @boolean
 
 (call_expression
   function: (identifier) @function.call)

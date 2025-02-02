@@ -124,6 +124,11 @@ func parseParen(state: ParseState*) -> ExprAST* {
 //          | paren
 func parsePrimary(state: ParseState*) -> ExprAST* {
   switch (state->curToken.kind) {
+    case TokenKind::TRUE, TokenKind::FALSE:
+      let expr = newLocExpr(state, ExprKind::INT);
+      expr->op = getNextToken(state);
+      expr->value = expr->op.kind == TokenKind::TRUE ? 1 : 0;
+      return expr;
     case TokenKind::IDENTIFIER:
       return parseIdentifierExpr(state);
     case TokenKind::CONSTANT:

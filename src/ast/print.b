@@ -35,6 +35,8 @@ func printType(type: Type*) {
       }
     case TypeKind::Void:
       printf("void");
+    case TypeKind::Bool:
+      printf("bool");
     case TypeKind::Pointer as ptr:
       printType(ptr.pointee);
       printf("*");

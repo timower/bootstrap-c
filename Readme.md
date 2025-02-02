@@ -37,6 +37,8 @@ TODO
  - [x] Remove function declarations, supporting use before define.
  - [x] Fix relative imports, split source to `src/sema/...`
  - [ ] `bool` (i1) type.
+ - [ ] Generics.
+     * `func foo<T>(a: T, b: T) -> T { return a + b; }`
  - [ ] Model LLVM IR.
 
  - [ ] Move decl, stmt and expr to Unions.
@@ -44,8 +46,6 @@ TODO
  - [ ] `typeof(foo)` expression to do:
      * `sizeof(typeof(foo))`
      * `let x: typeof(foo) = 12`
- - [ ] Generics.
-     * `func foo<T>(a: T, b: T) -> T { return a + b; }`
 
  - [ ] `is<T>(uinion) -> bool` function.
      * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`

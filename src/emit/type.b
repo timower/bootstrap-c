@@ -13,6 +13,9 @@ func convertType(type: Type*) -> const i8* {
     case TypeKind::Void:
       return "void";
 
+    case TypeKind::Bool:
+      return "i1";
+
     case TypeKind::Int as int:
       let buf: i8* = malloc(16);
       sprintf(buf, "i%d", int.size);

@@ -244,6 +244,7 @@ module.exports = grammar({
       ...[8, 16, 32, 64].map(n => `i${n}`),
       ...[8, 16, 32, 64].map(n => `u${n}`),
       'void',
+      'bool',
     ),
 
     expression: $ => choice(
@@ -251,7 +252,7 @@ module.exports = grammar({
       $.identifier,
       $.string_literal,
       $.char_literal,
-      $.null,
+      $.builtin_constant,
       $.struct_expression,
       $.scope_expression,
       $.paren_expression,
@@ -419,7 +420,7 @@ module.exports = grammar({
       ),
     ))),
 
-    null: $ => "null",
+    builtin_constant: $ => choice("null", "true", "false"),
     char_literal: $ => seq(
       '\'',
       choice(
