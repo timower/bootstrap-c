@@ -4,7 +4,7 @@ import ast.print;
 struct ParseOptions {
   // If set to true, build a concere syntax tree,
   // preserving parens.
-  concrete: i32;
+  concrete: bool;
 };
 
 struct ParseState {
@@ -90,7 +90,7 @@ func failParse(state: ParseState*, msg: const i8*) {
   failParseArg(state, msg, "");
 }
 
-func match(state: ParseState*, tok: TokenKind) -> i32 {
+func match(state: ParseState*, tok: TokenKind) -> bool {
   return state->curToken.kind == tok;
 }
 

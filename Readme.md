@@ -36,7 +36,7 @@ TODO
  - [x] Support extern for external functions.
  - [x] Remove function declarations, supporting use before define.
  - [x] Fix relative imports, split source to `src/sema/...`
- - [ ] `bool` (i1) type.
+ - [x] `bool` (i1) type.
  - [ ] Generics.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
  - [ ] Model LLVM IR.

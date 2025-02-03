@@ -1,7 +1,7 @@
 import ast;
 import state;
 
-func isAggregate(type: Type*) -> i32 {
+func isAggregate(type: Type*) -> bool {
   return type->kind as TypeKind::Struct* != null
       || type->kind as TypeKind::Union* != null;
 }

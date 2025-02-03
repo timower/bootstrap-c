@@ -21,26 +21,24 @@ func intToVal(num: i32, type: Type*) -> Value {
 }
 
 
-// Turns an i1 into an i32
-func upcasti1(state: EmitState*, val: Value) -> Value {
-  let up = getNextTemp(state);
-  up.type = val.type;
-  if (strcmp(up.type, "ptr") == 0) {
-    failEmit("bool to pointer?");
-  }
-  printf("  %s = zext i1 %s to %s\n", up.val, val.val, up.type);
-  return up;
-}
-
-
-// Turns an i32 into an i1
-func makeBool(state: EmitState*, val: Value) -> Value {
-  let up = getNextTemp(state);
-  up.type = val.type;
-  printf("  %s = icmp ne %s %s, 0\n", up.val, val.type, val.val);
-  return up;
-}
-
+// // Turns an i1 into an i32
+// func upcasti1(state: EmitState*, val: Value) -> Value {
+//   let up = getNextTemp(state);
+//   up.type = val.type;
+//   if (strcmp(up.type, "ptr") == 0) {
+//     failEmit("bool to pointer?");
+//   }
+//   printf("  %s = zext i1 %s to %s\n", up.val, val.val, up.type);
+//   return up;
+// }
+// // Turns an i32 into an i1
+// func makeBool(state: EmitState*, val: Value) -> Value {
+//   let up = getNextTemp(state);
+//   up.type = val.type;
+//   printf("  %s = icmp ne %s %s, 0\n", up.val, val.type, val.val);
+//   return up;
+// }
+//
 func emitStructGEP(
     state: EmitState*,
     aggType: Type*,

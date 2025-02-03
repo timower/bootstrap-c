@@ -9,7 +9,7 @@ func parseType(state: ParseState*) -> Type* {
 
   if (match(state, TokenKind::CONST)) {
     getNextToken(state);
-    type->isConst = 1;
+    type->isConst = true;
   }
 
   if (match(state, TokenKind::INT2)) {
@@ -25,12 +25,7 @@ func parseType(state: ParseState*) -> Type* {
     getNextToken(state);
   } else if (match(state, TokenKind::BOOL)) {
     getNextToken(state);
-
-    // TypeKind::Bool {};
-    type->kind = TypeKind::Int {
-      size = 32,
-      isSigned = 1,
-    };
+    type->kind = TypeKind::Bool {};
   } else if (match(state, TokenKind::STRUCT)) {
     getNextToken(state);
     expect(state, TokenKind::IDENTIFIER);
@@ -68,7 +63,7 @@ func parseType(state: ParseState*) -> Type* {
   }
 
   // parse type suffixes (pointers & arrays)
-  while (1) {
+  while (true) {
     if (match(state, TokenKind::STAR)) {
       getNextToken(state);
       let ptrType = newType(TypeKind::Pointer {

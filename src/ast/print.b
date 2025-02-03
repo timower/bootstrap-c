@@ -172,10 +172,10 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
     case ExprKind::CALL:
       printExprPrec(expr->lhs, nextPrec, indent);
       printf("(");
-      let split = 0;
+      let split = false;
       for (let cur = expr->rhs; cur != null; cur = cur->rhs) {
         if (cur->rhs != null && cur->location.line != cur->rhs->location.line) {
-          split = 1;
+          split = true;
         }
       }
       for (let cur: ExprAST* = expr->rhs; cur != null; cur = cur->rhs) {
@@ -235,13 +235,13 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       printExprPrec(expr->rhs, nextPrec, indent);
     case ExprKind::ARRAY:
       printf("{");
-      let hasSplit = 0;
+      let hasSplit = false;
       for (; expr != null; expr = expr->rhs) {
         if (expr->rhs != null
             && expr->rhs->location.line != expr->location.line) {
           printf("\n");
           printIndent(indent + indent_width);
-          hasSplit = 1;
+          hasSplit = true;
         } else {
           printf(" ");
         }
@@ -547,13 +547,13 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
 
       let fnType = decl->type->kind as TypeKind::Func*;
       let isVarargs = fnType->isVarargs;
-      let split = 0;
+      let split = false;
 
       for (let field: DeclAST* = decl->fields; field != null;
            field = field->next) {
         if (field->next != null
             && field->location.line != field->next->location.line) {
-          split = 1;
+          split = true;
         }
       }
       for (let field: DeclAST* = decl->fields; field != null;
@@ -610,16 +610,16 @@ func printDecl(decl: DeclAST*) {
   printDeclIndent(decl, 0);
 }
 
-func allowNoNewline(decl: DeclAST*) -> i32 {
+func allowNoNewline(decl: DeclAST*) -> bool {
   if (decl->kind == DeclKind::IMPORT) {
-    return 1;
+    return true;
   }
 
   if (decl->kind == DeclKind::FUNC) {
     return decl->isExtern;
   }
 
-  return 0;
+  return false;
 }
 
 func printTopLevel(decls: DeclAST*) {

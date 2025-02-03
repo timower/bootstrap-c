@@ -134,7 +134,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
       if (to->kind as TypeKind::Enum* != null) {
         let enumInt = TypeKind::Int {
           size = 32,
-          isSigned = 1,
+          isSigned = true,
         };
         return semaIntCast(castExpr, &fromInt, &enumInt);
       }
@@ -144,7 +144,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
       if (let toInt = to->kind as TypeKind::Int*) {
         let enumInt = TypeKind::Int {
           size = 32,
-          isSigned = 1,
+          isSigned = true,
         };
         return semaIntCast(castExpr, &enumInt, toInt);
       }
@@ -246,7 +246,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
 
 
 func checkBool(expr: ExprAST*) {
-  if (expr->type->kind as TypeKind::Int* == null) {
+  if (expr->type->kind as TypeKind::Bool* == null) {
     failSemaExpr(expr, ": Expected bool!");
   }
 }
@@ -336,7 +336,7 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
           expr->lhs = lhsConv;
         }
       }
-      expr->type = getInt32();
+      expr->type = getBool();
       return;
 
     case TokenKind::MINUS:
@@ -568,7 +568,9 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       expr->type = local->type;
 
     case ExprKind::INT:
-      expr->type = getInt32();
+      if (expr->type == null) {
+        failSemaExpr(expr, "Expected int type to be set during parsing.");
+      }
       return;
 
     case ExprKind::BINARY:
@@ -627,7 +629,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
       // TODO: correct?
       if (expr->op.kind == TokenKind::BANG) {
-        expr->type = getInt32();
+        expr->type = getBool();
       }
 
     case ExprKind::SIZEOF:

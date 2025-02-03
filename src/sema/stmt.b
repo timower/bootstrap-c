@@ -169,7 +169,7 @@ func makeNullCmp(expr: ExprAST*) -> ExprAST* {
   cmpExpr->rhs->type = expr->type;
   cmpExpr->rhs->value = 0;
 
-  cmpExpr->type = getInt32();  // TODO: Bool.
+  cmpExpr->type = getBool();
 
   return cmpExpr;
 }

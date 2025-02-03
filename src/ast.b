@@ -22,7 +22,7 @@ union TypeKind {
   }
   Int {
     size: i32;
-    isSigned: i32;
+    isSigned: bool;
   }
   Enum {
     tag: Token;
@@ -37,7 +37,7 @@ union TypeKind {
   Func {
     result: Type*;
     args: Type*;
-    isVarargs: i32;
+    isVarargs: bool;
   }
   Struct {
     tag: Token;
@@ -57,7 +57,7 @@ struct Type {
 
   // Intrinsic list for function arguments.
   next: Type*;
-  isConst: i32;
+  isConst: bool;
   // TODO: Source loc
 };
 
@@ -174,8 +174,8 @@ struct DeclAST {
   enumValue: i32;
 
   // For function declarations that do have defs
-  hasDef: i32;
-  isExtern: i32;
+  hasDef: bool;
+  isExtern: bool;
 
   location: SourceLoc;
   endLocation: SourceLoc;
@@ -230,28 +230,28 @@ struct StmtAST {
 
 
 // utils
-func tokCmp(one: Token, two: Token) -> i32 {
+func tokCmp(one: Token, two: Token) -> bool {
   if (one.kind != two.kind) {
-    return 0;
+    return false;
   }
 
   let len1 = one.end - one.data;
   let len2 = two.end - two.data;
   if (len1 != len2) {
-    return 0;
+    return false;
   }
 
-  return (memcmp(one.data, two.data, len1 as u64) == 0) as i32;
+  return memcmp(one.data, two.data, len1 as u64) == 0;
 }
 
-func tokCmpStr(one: Token, str: const i8*) -> i32 {
+func tokCmpStr(one: Token, str: const i8*) -> bool {
   let len1 = one.end - one.data;
   let len2 = strlen(str) as i64;
   if (len1 != len2) {
-    return 0;
+    return false;
   }
 
-  return (memcmp(one.data, str, len1 as u64) == 0) as i32;
+  return memcmp(one.data, str, len1 as u64) == 0;
 }
 
 func newExpr(kind: ExprKind) -> ExprAST* {
@@ -294,14 +294,14 @@ func newComment(token: Token) -> Comment* {
 func getCharType() -> Type* {
   return newType(TypeKind::Int {
     size = 8,
-    isSigned = 1,
+    isSigned = true,
   });
 }
 
 func getInt32() -> Type* {
   return newType(TypeKind::Int {
     size = 32,
-    isSigned = 1,
+    isSigned = true,
   });
 }
 
@@ -313,7 +313,7 @@ func getIPtr() -> Type* {
   // TODO: target dependent
   return newType(TypeKind::Int {
     size = 64,
-    isSigned = 1,
+    isSigned = true,
   });
 }
 
@@ -321,13 +321,12 @@ func getUPtr() -> Type* {
   // TODO: target dependent
   return newType(TypeKind::Int {
     size = 64,
-    isSigned = 0,
+    isSigned = false,
   });
 }
 
-func isAssign(tok: Token) -> i32 {
+func isAssign(tok: Token) -> bool {
   switch (tok.kind) {
-    // clang-format off
     case TokenKind::EQ,
          TokenKind::MUL_ASSIGN,
          TokenKind::DIV_ASSIGN,
@@ -339,11 +338,10 @@ func isAssign(tok: Token) -> i32 {
          TokenKind::AND_ASSIGN,
          TokenKind::XOR_ASSIGN,
          TokenKind::OR_ASSIGN:
-      return 1;
+      return true;
 
-    // clang-format on
     default:
-      return 0;
+      return false;
   }
 }
 

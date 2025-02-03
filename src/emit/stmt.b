@@ -57,7 +57,6 @@ func emitReturn(state: EmitState*, stmt: StmtAST*) {
 
 func emitIf(state: EmitState*, stmt: StmtAST*) {
   let cond = emitExpr(state, stmt->expr);
-  cond = makeBool(state, cond);
 
   let falseLabel: i8* = "false";
   if (stmt->stmt == null) {
@@ -89,7 +88,7 @@ func emitWhile(state: EmitState*, stmt: StmtAST*) {
 
   printf("  br label %%while.cond.%d\n", idx);
   printf("while.cond.%d:\n", idx);
-  let cond = makeBool(state, emitExpr(state, stmt->expr));
+  let cond = emitExpr(state, stmt->expr);
   printf(
       "  br i1 %s, label %%while.body.%d, label %%while.cont.%d\n",
       cond.val,
@@ -124,7 +123,7 @@ func emitFor(state: EmitState*, stmt: StmtAST*) {
   printf("for.cond.%d:\n", idx);
 
   // cond must be an expression stmt, parseFor guarantees it.
-  let cond = makeBool(&forState, emitExpr(&forState, stmt->cond->expr));
+  let cond = emitExpr(&forState, stmt->cond->expr);
   printf(
       "  br i1 %s, label %%for.body.%d, label %%for.cont.%d\n",
       cond.val,

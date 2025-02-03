@@ -202,7 +202,6 @@ func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
 
   let instr: const i8* = null;
   let constop: const i8* = null;
-  let upcast = 0;
   switch (expr->op.kind) {
     case TokenKind::PLUS:
       return operand;
@@ -216,7 +215,6 @@ func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
     case TokenKind::BANG:
       instr = "icmp eq";
       constop = "0";
-      upcast = 1;
 
     default:
       failEmitExpr(expr, "Invalid unary");
@@ -230,10 +228,6 @@ func emitUnary(state: EmitState*, expr: ExprAST*) -> Value {
       operand.type,
       constop,
       operand.val);
-
-  if (upcast) {
-    return upcasti1(state, res);
-  }
 
   return res;
 }
@@ -315,7 +309,6 @@ func emitBinary(
   }
 
   let instr: const i8* = null;
-  let upcast = 0;
   switch (opKind) {
     default:
       failEmit("Invalid binary op");
@@ -335,22 +328,16 @@ func emitBinary(
       instr = "ashr";
     case TokenKind::LESS:
       instr = "icmp slt";
-      upcast = 1;
     case TokenKind::GREATER:
       instr = "icmp sgt";
-      upcast = 1;
     case TokenKind::LE_OP:
       instr = "icmp sle";
-      upcast = 1;
     case TokenKind::GE_OP:
       instr = "icmp sge";
-      upcast = 1;
     case TokenKind::EQ_OP:
       instr = "icmp eq";
-      upcast = 1;
     case TokenKind::NE_OP:
       instr = "icmp ne";
-      upcast = 1;
     case TokenKind::AND:
       instr = "and";
     case TokenKind::HAT:
@@ -361,10 +348,6 @@ func emitBinary(
   let res = getNextTemp(state);
   res.type = convertType(resType);
   printf("  %s = %s %s %s, %s\n", res.val, instr, lhs.type, lhs.val, rhs.val);
-
-  if (upcast) {
-    return upcasti1(state, res);
-  }
 
   return res;
 }
@@ -464,7 +447,7 @@ func emitLogicalBinOp(state: EmitState*, expr: ExprAST*) -> Value {
       secondCmp.val,
       idx);
 
-  return upcasti1(state, res);
+  return res;
 }
 
 
@@ -650,7 +633,6 @@ func emitCast(state: EmitState*, expr: ExprAST*) -> Value {
 
 func emitCond(state: EmitState*, expr: ExprAST*) -> Value {
   let cond = emitExpr(state, expr->cond);
-  cond = makeBool(state, cond);
 
   let falseLabel: i8* = "false";
   let idx = getCount(state);

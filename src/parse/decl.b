@@ -7,6 +7,7 @@ import type;
 import expr;
 import stmt;
 
+
 // Add any comments in state that are on the same line as decl to decl.
 func addTrailingCommentsDecl(state: ParseState*, decl: DeclAST*) {
   let comments = getLineComments(state, decl->endLocation.line);
@@ -173,7 +174,7 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
       failParse(state, "Expected 'func'");
     }
 
-    decl->isExtern = 1;
+    decl->isExtern = true;
   }
   getNextToken(state);  // eat func
 
@@ -191,7 +192,7 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
   while (!match(state, TokenKind::CLOSE_PAREN)) {
     if (match(state, TokenKind::ELLIPSIS)) {
       getNextToken(state);
-      funcType->isVarargs = 1;
+      funcType->isVarargs = true;
 
       expect(state, TokenKind::CLOSE_PAREN);
       break;
@@ -324,5 +325,3 @@ func parseDecl(state: ParseState*) -> DeclAST* {
   failParse(state, "Unknown declaration");
   return null;
 }
-
-

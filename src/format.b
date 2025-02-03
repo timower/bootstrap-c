@@ -35,7 +35,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   let parseOpts = ParseOptions {
-    concrete = 1,
+    concrete = true,
   };
 
   let name: i8* = "stdin";

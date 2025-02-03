@@ -99,7 +99,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   let relPath: i8* = malloc(4096);
 
   let absPath: i8* = null;
-  while (1) {
+  while (true) {
     sprintf(relPath, "%s/%.*s.b", rootDir, name.end - name.data, name.data);
     absPath = realpath(relPath, null);
     if (absPath != null) {

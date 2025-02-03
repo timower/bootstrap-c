@@ -5,9 +5,10 @@ let intTypes: const i8*[] = {
   "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
 };
 
-func iseol(c: i32) -> i32 {
+func iseol(c: i32) -> bool {
   return c == 10 || c == 13;
 }
+
 
 // Returns the current character and advances the current pointer.
 func nextChar(state: ParseState*) -> i32 {
@@ -37,19 +38,19 @@ func peekChar(state: ParseState*) -> i32 {
 
 
 /// True if the current character is an EOL character
-func is_space(c: i32) -> i32 {
+func is_space(c: i32) -> bool {
   return iseol(c) || c == 32 || c == 9;
 }
 
-func is_alpha(c: i32) -> i32 {
+func is_alpha(c: i32) -> bool {
   return (c >= 97 && c <= 122) || (c >= 65 && c <= 90);
 }
 
-func is_digit(c: i32) -> i32 {
+func is_digit(c: i32) -> bool {
   return c >= 48 && c <= 57;
 }
 
-func is_alnum(c: i32) -> i32 {
+func is_alnum(c: i32) -> bool {
   return is_digit(c) || is_alpha(c);
 }
 
@@ -228,7 +229,7 @@ func parseInteger(token: Token) -> i32 {
   return num;
 }
 
-func isDecl(tok: Token) -> i32 {
+func isDecl(tok: Token) -> bool {
   // We don't support typedef, so this is easy
   switch (tok.kind) {
     case TokenKind::STRUCT,
@@ -237,9 +238,8 @@ func isDecl(tok: Token) -> i32 {
          TokenKind::EXTERN,
          TokenKind::FUNC,
          TokenKind::UNION:
-      return 1;
+      return true;
     default:
-      return 0;
+      return false;
   }
 }
-

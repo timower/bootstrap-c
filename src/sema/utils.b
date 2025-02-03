@@ -61,7 +61,7 @@ func addLocalDecl(state: SemaState*, decl: DeclAST*) {
   if (prev != null) {
     // Allow redef of functions, TODO: verify type match...
     if (prev->kind == DeclKind::FUNC && prev->body == null) {
-      prev->hasDef = 1;
+      prev->hasDef = true;
     } else {
       failSemaDecl(decl, "Variable redef");
     }

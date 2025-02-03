@@ -2,7 +2,7 @@ import ast;
 
 import state;
 
-func typeEq(one: Type*, two: Type*) -> i32 {
+func typeEq(one: Type*, two: Type*) -> bool {
   switch (one->kind) {
     case TypeKind::Void:
       return two->kind as TypeKind::Void* != null;
@@ -12,43 +12,43 @@ func typeEq(one: Type*, two: Type*) -> i32 {
       if (let int2 = two->kind as TypeKind::Int*) {
         return int1.isSigned == int2->isSigned && int1.size == int2->size;
       }
-      return 0;
+      return false;
 
     case TypeKind::Array as ar1:
       if (let ar2 = two->kind as TypeKind::Array*) {
-        return (ar1.size < 0 || ar2->size || 0 && ar1.size == ar2->size)
+        return (ar1.size < 0 || ar2->size < 0 || ar1.size == ar2->size)
             && typeEq(ar1.element, ar2->element);
       }
-      return 0;
+      return false;
 
     case TypeKind::Pointer as ptr1:
       if (let ptr2 = two->kind as TypeKind::Pointer*) {
         return typeEq(ptr1.pointee, ptr2->pointee);
       }
-      return 0;
+      return false;
 
     case TypeKind::Struct as s1:
       if (let s2 = two->kind as TypeKind::Struct*) {
         if (s1.parent != null) {
           if (s2->parent == null || !typeEq(s1.parent, s2->parent)) {
-            return 0;
+            return false;
           }
         }
         return tokCmp(s1.tag, s2->tag);
       }
-      return 0;
+      return false;
 
     case TypeKind::Enum as e1:
       if (let e2 = two->kind as TypeKind::Enum*) {
         return tokCmp(e1.tag, e2->tag);
       }
-      return 0;
+      return false;
 
     case TypeKind::Union as u1:
       if (let u2 = two->kind as TypeKind::Union*) {
         return tokCmp(u1.tag, u2->tag);
       }
-      return 0;
+      return false;
 
     case TypeKind::Func:
       failSema(SourceLoc {}, "TODO: type eq func");
@@ -56,7 +56,7 @@ func typeEq(one: Type*, two: Type*) -> i32 {
       failSema(SourceLoc {}, "Type tag not resolved before eq");
   }
 
-  return 1;
+  return true;
 }
 
 func getTypeTag(type: Type*) -> Token* {
@@ -182,6 +182,9 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
   switch (type->kind) {
     case TypeKind::Void:
       return 0;
+
+    case TypeKind::Bool:
+      return 1;
 
     // default enum is i32 = 4 bytes.
     case TypeKind::Enum:

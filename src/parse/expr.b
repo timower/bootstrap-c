@@ -9,6 +9,7 @@ func parseNumber(state: ParseState*) -> ExprAST* {
   result->op = state->curToken;
 
   result->value = parseInteger(state->curToken);
+  result->type = getInt32();
 
   getNextToken(state);
   return result;
@@ -128,6 +129,7 @@ func parsePrimary(state: ParseState*) -> ExprAST* {
       let expr = newLocExpr(state, ExprKind::INT);
       expr->op = getNextToken(state);
       expr->value = expr->op.kind == TokenKind::TRUE ? 1 : 0;
+      expr->type = getBool();
       return expr;
     case TokenKind::IDENTIFIER:
       return parseIdentifierExpr(state);
@@ -174,7 +176,7 @@ func parseCall(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
   }
 
   let cur = expr;
-  while (1) {
+  while (true) {
     cur->rhs = newLocExpr(state, ExprKind::ARG_LIST);
     cur = cur->rhs;
 
@@ -226,7 +228,7 @@ func parseUnaryPostfix(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
 func parsePostfix(state: ParseState*) -> ExprAST* {
   let expr = parsePrimary(state);
 
-  while (1) {
+  while (true) {
     if (expr == null) {
       return expr;
     }
@@ -248,13 +250,13 @@ func parsePostfix(state: ParseState*) -> ExprAST* {
 }
 
 
-func isUnary(tok: Token) -> i32 {
+func isUnary(tok: Token) -> bool {
   switch (tok.kind) {
     case TokenKind::INC_OP, TokenKind::DEC_OP, TokenKind::AND, TokenKind::STAR,
          TokenKind::PLUS, TokenKind::MINUS, TokenKind::TILDE, TokenKind::BANG:
-      return 1;
+      return true;
     default:
-      return 0;
+      return false;
   }
 }
 
@@ -327,7 +329,7 @@ func parseBinOpRhs(
     prec: i32,
     lhs: ExprAST*
 ) -> ExprAST* {
-  while (1) {
+  while (true) {
     let curPred = getBinOpPrecedence(state->curToken);
     if (curPred < prec) {
       return lhs;
@@ -414,7 +416,7 @@ func parseInitializer(state: ParseState*) -> ExprAST* {
   getNextToken(state);  // eat '{'
 
   let cur = expr;
-  while (1) {
+  while (true) {
     // Should be parseInitializer(state), but let's not support nested inits.
     cur->lhs = parseAssignment(state);
 
