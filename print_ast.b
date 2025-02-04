@@ -540,6 +540,9 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printf(";");
 
     case DeclKind::FUNC:
+      if (decl->isExtern) {
+        printf("extern ");
+      }
       printf("func ");
       printToken(decl->name);
       printf("(");

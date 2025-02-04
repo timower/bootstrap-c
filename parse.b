@@ -585,6 +585,7 @@ func isDecl(tok: Token) -> i32 {
     case TokenKind::STRUCT,
          TokenKind::ENUM,
          TokenKind::LET,
+         TokenKind::EXTERN,
          TokenKind::FUNC,
          TokenKind::UNION:
       return 1;
@@ -935,7 +936,7 @@ func parseExprStmt(state: ParseState*) -> StmtAST* {
   return stmt;
 }
 
-func parseDeclarationOrFunction(state: ParseState*) -> DeclAST*;
+func parseDecl(state: ParseState*) -> DeclAST*;
 
 func parseForStmt(state: ParseState*) -> StmtAST* {
   getNextToken(state);  // eat for
@@ -1409,9 +1410,18 @@ func parseUnion(state: ParseState*) -> DeclAST* {
 // func_decl :=
 //  'func' identifier [ '->' type ] '(' [decl (',' decl)*] ')' compound_stmt?
 func parseFuncDecl(state: ParseState*) -> DeclAST* {
-  getNextToken(state);  // eat func
-
   let decl = newLocDecl(state, DeclKind::FUNC);
+
+  if (match(state, TokenKind::EXTERN)) {
+    getNextToken(state);
+
+    if (!match(state, TokenKind::FUNC)) {
+      failParse(state, "Expected 'func'");
+    }
+
+    decl->isExtern = 1;
+  }
+  getNextToken(state);  // eat func
 
   expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
@@ -1475,7 +1485,23 @@ func parseFuncDecl(state: ParseState*) -> DeclAST* {
   return decl;
 }
 
-func parseDeclarationOrFunction(state: ParseState*) -> DeclAST* {
+func parseImportDecl(state: ParseState*) -> DeclAST* {
+  let decl = newLocDecl(state, DeclKind::IMPORT);
+  getNextToken(state);  // eat import
+
+  expect(state, TokenKind::IDENTIFIER);
+  decl->name = getNextToken(state);
+
+  decl->endLocation = getLocation(state);
+  expect(state, TokenKind::SEMICOLON);
+  getNextToken(state);
+
+  addTrailingCommentsDecl(state, decl);
+
+  return decl;
+}
+
+func parseDecl(state: ParseState*) -> DeclAST* {
   if (match(state, TokenKind::LET)) {
     let decl = parseLetDecl(state);
 
@@ -1486,7 +1512,7 @@ func parseDeclarationOrFunction(state: ParseState*) -> DeclAST* {
     return decl;
   }
 
-  if (match(state, TokenKind::FUNC)) {
+  if (match(state, TokenKind::EXTERN) || match(state, TokenKind::FUNC)) {
     return parseFuncDecl(state);
   }
 
@@ -1523,31 +1549,12 @@ func parseDeclarationOrFunction(state: ParseState*) -> DeclAST* {
     return decl;
   }
 
-  failParse(state, "Unknown declaration");
-  return null;
-}
-
-func parseImportDecl(state: ParseState*) -> DeclAST* {
-  let decl = newLocDecl(state, DeclKind::IMPORT);
-  getNextToken(state);  // eat import
-
-  expect(state, TokenKind::IDENTIFIER);
-  decl->name = getNextToken(state);
-
-  decl->endLocation = getLocation(state);
-  expect(state, TokenKind::SEMICOLON);
-  getNextToken(state);
-
-  addTrailingCommentsDecl(state, decl);
-
-  return decl;
-}
-
-func parseTopLevelDecl(state: ParseState*) -> DeclAST* {
   if (match(state, TokenKind::IMPORT)) {
     return parseImportDecl(state);
   }
-  return parseDeclarationOrFunction(state);
+
+  failParse(state, "Unknown declaration");
+  return null;
 }
 
 func parseTopLevel(state: ParseState*) -> DeclAST* {
@@ -1557,7 +1564,7 @@ func parseTopLevel(state: ParseState*) -> DeclAST* {
   let firstDecl: DeclAST* = null;
 
   while (state->curToken.kind != TokenKind::TOK_EOF) {
-    let decl = parseTopLevelDecl(state);
+    let decl = parseDecl(state);
 
     if (lastDecl == null) {
       firstDecl = decl;

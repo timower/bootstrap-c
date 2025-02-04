@@ -8,7 +8,7 @@
 // CHECK-NEXT: B 65
 // CHECK-NEXT: B 66
 // CHECK-NEXT: DONE
-func printf(format: i8*, ...) -> i32;
+extern func printf(format: i8*, ...) -> i32;
 
 func malloc(size: u64) -> void*;
 

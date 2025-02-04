@@ -231,7 +231,7 @@ func lookupVar(state: EmitState*, tok: Token) -> Value {
   }
 
   printToken(tok);
-  failEmit("Unkown variable!");
+  failEmit("Unknown variable!");
   return Value {};
 }
 
@@ -1303,13 +1303,11 @@ func emitStmt(state: EmitState*, stmt: StmtAST*) {
 }
 
 func emitFunc(state: EmitState*, decl: DeclAST*) {
-  let val = getGlobal(decl->name);
-  val.type = "ptr";
-  addLocal(state, decl->name, val);
-
   if (decl->hasDef && decl->body == null) {
     return;
   }
+
+  let val = lookupVar(state, decl->name);
 
   let fnType = decl->type->kind as TypeKind::Func*;
 
@@ -1437,14 +1435,29 @@ func emitGlobalDecl(state: EmitState*, decl: DeclAST*) {
   }
 }
 
+func addGlobalDecl(state: EmitState*, decl: DeclAST*) {
+  switch (decl->kind) {
+    case DeclKind::FUNC:
+      let val = getGlobal(decl->name);
+      val.type = "ptr";
+      addLocal(state, decl->name, val);
+
+    default:
+      break;
+  }
+}
+
 func emitTopLevel(decl: DeclAST*) {
   let rootCounter = 0;
   let state = EmitState {
     tmpCounter = &rootCounter,
   };
 
-  while (decl != null) {
-    emitGlobalDecl(&state, decl);
-    decl = decl->next;
+  for (let cur = decl; cur != null; cur = cur->next) {
+    addGlobalDecl(&state, cur);
+  }
+
+  for (let cur = decl; cur != null; cur = cur->next) {
+    emitGlobalDecl(&state, cur);
   }
 }

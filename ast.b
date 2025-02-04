@@ -22,6 +22,7 @@ enum TokenKind {
   // keywords
   CONTINUE,
   DEFAULT,
+  EXTERN,
   SIZEOF,
   STRUCT,
   SWITCH,
@@ -106,7 +107,7 @@ struct Comment {
 
 let tokens: const i8*[] = {
   "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
-  "continue", "default", "sizeof", "struct", "switch", "return",
+  "continue", "default", "extern", "sizeof", "struct", "switch", "return",
   "import", "const", "while", "break", "union", "void", "enum",
   "case", "else", "func", "<<=", ">>=", "...",
   "for", "let", "::", "->", "++", "--",
@@ -277,6 +278,7 @@ struct DeclAST {
 
   // For function declarations that do have defs
   hasDef: i32;
+  isExtern: i32;
 
   location: SourceLoc;
   endLocation: SourceLoc;

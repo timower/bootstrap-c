@@ -249,6 +249,7 @@ func resolveTypeTags(state: SemaState*, type: Type*) {
       } else {
         let typeDecl = lookupType(state, tagType.tag);
         if (typeDecl == null) {
+          printType(type);
           failSema(SourceLoc {}, "Can't resolve type tags, unknown type");
         }
         type->kind = typeDecl->type->kind;
@@ -1006,6 +1007,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       if (expr->decl->init == null) {
         failSemaExpr(expr, "Let expression must have an init");
       }
+      resolveTypeTags(state, expr->decl->type);
       semaDecl(state, expr->decl);
       expr->type = expr->decl->type;
   }
@@ -1052,8 +1054,6 @@ func sizeArrayTypes(declType: Type*, initType: Type*) {
 }
 
 func semaDecl(state: SemaState*, decl: DeclAST*) {
-  resolveTypeTags(state, decl->type);
-
   switch (decl->kind) {
     case DeclKind::STRUCT:
       // Resolve tags in fields.
@@ -1080,7 +1080,6 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
       decl->enumValue = maxSize;
       break;
     case DeclKind::FUNC:
-      addLocalDecl(state, decl);
       if (decl->body != null) {
         let funcState = SemaState {
           parent = state,
@@ -1109,34 +1108,7 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
         sizeArrayTypes(decl->type, decl->init->type);
       }
     case DeclKind::IMPORT:
-      if (state->parent != null) {
-        failSemaDecl(decl, "Import not allowed in local scope");
-      }
-
-      // Check if we already import this one
-      for (let cur = state->imports; cur != null; cur = cur->next) {
-        if (tokCmp(decl->name, cur->name)) {
-          return;
-        }
-      }
-
-      // Add to imports
-      let imports: ImportList* = calloc(1, sizeof(struct ImportList));
-      imports->name = decl->name;
-      imports->next = state->imports;
-      state->imports = imports;
-
-      let buf: i8* = malloc(256);
-      sprintf(buf, "%.*s.b", decl->name.end - decl->name.data, decl->name.data);
-      let fileDecls = parseFile(buf);
-      if (fileDecls == null) {
-        failSemaDecl(decl, "Failed to import file");
-      }
-
-      // semaTopLevel will return a combined list of decls from the file and the
-      // extraDecls.
-      let extras = semaTopLevel(state, fileDecls);
-      state->extraDecls = extras;
+      break;
 
     case DeclKind::ENUM_FIELD:
       failSemaDecl(decl, "Shoudln't happen");
@@ -1338,6 +1310,9 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
         semaExpr(state, stmt->expr);
         let conv = doConvert(state, stmt->expr, state->result);
         if (conv == null) {
+          printType(stmt->expr->type);
+          printf(" <> ");
+          printType(state->result);
           failSemaStmt(stmt, "Return type mismatch");
         }
         stmt->expr = conv;
@@ -1400,6 +1375,7 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
       let type = newDeclList(decl);
       type->next = state->types;
       state->types = type;
+
     case DeclKind::UNION:
       if (findType(state->types, *getTypeTag(decl->type)) != null) {
         failSemaDecl(decl, ": Type redef");
@@ -1409,19 +1385,91 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
       type->next = state->types;
       state->types = type;
 
-      // TODO: Add a namespaced struct type for each nested tag
-      break;
     default:
       break;
   }
 }
 
+func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
+  resolveTypeTags(state, decl->type); //, decl->location);
+
+  switch (decl->kind) {
+    case DeclKind::STRUCT:
+      // Resolve tags in fields.
+      for (let field = decl->fields; field != null; field = field->next) {
+        resolveTypeTags(state, field->type); //, field->location);
+      }
+
+    case DeclKind::UNION:
+      let maxSize = 0;
+      for (let tag = decl->subTypes; tag != null; tag = tag->next) {
+        // sema the 'tag' which is a struct.
+        resolveDeclTypeTags(state, tag->decl);
+      }
+
+    case DeclKind::FUNC:
+      for (let field = decl->fields; field != null; field = field->next) {
+        resolveTypeTags(state, field->type); //, field->location);
+      }
+
+    default:
+      break;
+  }
+}
+
+func resolveImport(state: SemaState*, decl: DeclAST*) {
+  if (state->parent != null) {
+    failSemaDecl(decl, "Import not allowed in local scope");
+  }
+
+  // Check if we already import this one
+  for (let cur = state->imports; cur != null; cur = cur->next) {
+    if (tokCmp(decl->name, cur->name)) {
+      return;
+    }
+  }
+
+  // Add to imports
+  let imports: ImportList* = calloc(1, sizeof(struct ImportList));
+  imports->name = decl->name;
+  imports->next = state->imports;
+  state->imports = imports;
+
+  let buf: i8* = malloc(256);
+  sprintf(buf, "%.*s.b", decl->name.end - decl->name.data, decl->name.data);
+  let fileDecls = parseFile(buf);
+  if (fileDecls == null) {
+    failSemaDecl(decl, "Failed to import file");
+  }
+
+  // semaTopLevel will return a combined list of decls from the file and the
+  // extraDecls.
+  let extras = semaTopLevel(state, fileDecls);
+  state->extraDecls = extras;
+}
+
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
-  // Discover tagged types.
+  for (let cur = decl; cur != null; cur = cur->next) {
+    if (cur->kind == DeclKind::IMPORT) {
+      resolveImport(state, cur);
+    }
+  }
+
   for (let cur = decl; cur != null; cur = cur->next) {
     addTaggedType(state, cur);
   }
 
+  for (let cur = decl; cur != null; cur = cur->next) {
+    resolveDeclTypeTags(state, cur);
+  }
+
+  for (let cur = decl; cur != null; cur = cur->next) {
+    if (cur->kind == DeclKind::FUNC) {
+      addLocalDecl(state, cur);
+    }
+  }
+
+  // Do actual type checking and AST transformations.
   for (let cur = decl; cur != null; cur = cur->next) {
     semaDecl(state, cur);
   }

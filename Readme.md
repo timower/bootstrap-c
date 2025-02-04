@@ -33,18 +33,21 @@ TODO
  - [x] Rename `NULL` to `null`
  - [x] Let expressions, `if (let a = x as foo)` support.
  - [x] Auto `&` on union -> struct ptr casts?
- - [ ] Require extern for external functions.
+ - [x] Support extern for external functions.
  - [ ] Remove function declarations, supporting use before define.
+ - [ ] Fix relative imports, split source to `src/sema/...`
  - [ ] Move decl, stmt and expr to Unions.
  - [ ] `bool` (i1) type.
 
+ - [ ] `typeof(foo)` expression to do:
+     * `sizeof(typeof(foo))`
+     * `let x: typeof(foo) = 12`
  - [ ] Generics.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
 
  - [ ] `is<T>(uinion) -> bool` function.
      * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`
 
- - [ ] Fix relative imports, split source to `src/sema/...`
  - [ ] Model LLVM IR.
  - [ ] Add references?
  - [ ] Add slice type.
