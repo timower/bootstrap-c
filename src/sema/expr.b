@@ -368,6 +368,13 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
         expr->type = expr->lhs->type;
         return;
       }
+
+    case TokenKind::AND_OP, TokenKind::OR_OP:
+      checkBool(expr->lhs);
+      checkBool(expr->rhs);
+      expr->type = expr->lhs->type;
+      return;
+
     default:
       break;
   }

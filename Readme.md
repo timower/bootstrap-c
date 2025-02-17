@@ -37,15 +37,19 @@ TODO
  - [x] Remove function declarations, supporting use before define.
  - [x] Fix relative imports, split source to `src/sema/...`
  - [x] `bool` (i1) type.
- - [ ] Generics.
-     * `func foo<T>(a: T, b: T) -> T { return a + b; }`
- - [ ] Model LLVM IR.
-
- - [ ] Move decl, stmt and expr to Unions.
-
+ - [x] Model LLVM IR.
+ - [ ] Remove intrinsic lists for types, cache types.
  - [ ] `typeof(foo)` expression to do:
      * `sizeof(typeof(foo))`
      * `let x: typeof(foo) = 12`
+ - [ ] Generics.
+     * `func foo<T>(a: T, b: T) -> T { return a + b; }`
+ - [ ] Methods and method call syntax
+    * `a.foo(...)` -> `Foo::foo(a, ...)`
+
+ - [ ] No semicolons for decls.
+ - [ ] Move decl, stmt and expr to Unions.
+
 
  - [ ] `is<T>(uinion) -> bool` function.
      * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`
@@ -59,8 +63,6 @@ TODO
     * array or pointer to it? can be converted to slice implicitly
  - [ ] Actual constant expressions and decls.
  - [ ] Correctly padded structs.
- - [ ] Universal function call syntax
-    * `a.foo(...)` -> `foo(a, ...)`
  - [ ] Add target pointer size, Add iptr and uptr types.
  - [ ] armv7 or aarch64 backend
  - [ ] continue statement.
@@ -68,6 +70,7 @@ TODO
 Formatter TODO
 --------------
 
+ - [ ] Preserve newlines and comments in unions.
  - [ ] Preserve char constants.
  - [ ] Fix trailing comments in block scopes.
  - [ ] Preserve newline between comments, and comments & code.

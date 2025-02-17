@@ -59,12 +59,7 @@ func lookupLocal(state: SemaState*, name: Token) -> DeclAST* {
 func addLocalDecl(state: SemaState*, decl: DeclAST*) {
   let prev = findLocal(state->locals, decl->name);
   if (prev != null) {
-    // Allow redef of functions, TODO: verify type match...
-    if (prev->kind == DeclKind::FUNC && prev->body == null) {
-      prev->hasDef = true;
-    } else {
-      failSemaDecl(decl, "Variable redef");
-    }
+    failSemaDecl(decl, "Variable redef");
   }
 
   let newLocal = newDeclList(decl);

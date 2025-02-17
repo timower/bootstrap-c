@@ -30,4 +30,3 @@ func parseTopLevel(state: ParseState*) -> DeclAST* {
 
   return firstDecl;
 }
-

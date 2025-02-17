@@ -9,7 +9,6 @@
 // CHECK-NEXT: B 66
 // CHECK-NEXT: DONE
 extern func printf(format: i8*, ...) -> i32;
-
 extern func malloc(size: u64) -> void*;
 
 union Foo {
