@@ -14,7 +14,7 @@ BUILD_DIR ?= $(CURDIR)/build
 # Stores bootstrap stages from parent commits, cached to not rebuild them
 CACHE_DIR ?= $(CURDIR)/cache
 
-PARENT_STAGE = $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
+PARENT_STAGE ?= $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 
 # Sources of the compiler
 # TODO: when bootstrap can emit dep files, we can just list the main src here.

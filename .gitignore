@@ -6,3 +6,4 @@
 /cache/*
 /test/.lit_test_times.txt
 /test/Output
+/result
