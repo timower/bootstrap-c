@@ -16,10 +16,8 @@ struct Comment {
 };
 
 union TypeKind {
-  Void {
-  }
-  Bool {
-  }
+  Void {}
+  Bool {}
   Int {
     size: i32;
     isSigned: bool;
@@ -98,6 +96,8 @@ enum CastKind {
   StructUnion,
   UnionStructPtr,
 
+  PtrToInt,
+
   // Int casts
   Trunc,
   Sext,
@@ -173,8 +173,6 @@ struct DeclAST {
   // For enum values
   enumValue: i32;
 
-  // For function declarations that do have defs
-  hasDef: bool;
   isExtern: bool;
 
   location: SourceLoc;

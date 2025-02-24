@@ -1,8 +1,11 @@
 import libc;
+
 import ast;
 import parse;
 import sema;
-import emit_llvm;
+
+import irgen;
+import ir.print;
 
 func main(argc: i32, argv: i8**) -> i32 {
   if (argc != 2) {
@@ -18,9 +21,9 @@ func main(argc: i32, argv: i8**) -> i32 {
 
   let semaState = initSemaState();
   decls = semaTopLevel(&semaState, decls);
+  let module = genModule(decls);
 
-  // printTopLevel(decls);
-  emitTopLevel(decls);
+  printModule(&module);
 
   return 0;
 }

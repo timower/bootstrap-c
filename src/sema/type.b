@@ -125,7 +125,6 @@ func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
       } else {
         let typeDecl = lookupType(state, tagType.tag);
         if (typeDecl == null) {
-          printType(type);
           failSema(loc, "Can't resolve type tags, unknown type");
         }
         type->kind = typeDecl->type->kind;
@@ -225,6 +224,7 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
       return maxSize + 4;      // i32 tag.
 
     default:
+      printType(type);
       failSema(SourceLoc {}, "Unknown type for size");
       return 0;
   }

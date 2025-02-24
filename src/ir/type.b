@@ -1,5 +1,4 @@
 import ast;
-import state;
 
 func isAggregate(type: Type*) -> bool {
   return type->kind as TypeKind::Struct* != null
@@ -9,6 +8,9 @@ func isAggregate(type: Type*) -> bool {
 
 // Convert type to LLVM type.
 func convertType(type: Type*) -> const i8* {
+  if (type == null) {
+    return "NULL-TYPE!";
+  }
   switch (type->kind) {
     case TypeKind::Void:
       return "void";
@@ -74,7 +76,8 @@ func convertType(type: Type*) -> const i8* {
       return "i32";
 
     case TypeKind::Tag:
-      failEmit("Unknown type to emit");
+      printf("Unknown type to convert");
+      exit(1);
   }
 
   return null;

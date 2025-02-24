@@ -456,7 +456,10 @@ func printStructBody(
     indent: i32,
     trailing: Comment*
 ) -> Comment* {
-  printf(" {\n");
+  printf(" {");
+  if (decl->fields != null) {
+    printf("\n");
+  }
   for (let field = decl->fields; field != null;
        field = field->next) {
     let comments = printComments(
@@ -475,11 +478,14 @@ func printStructBody(
 
     printDeclNewlines(field);
   }
+
   trailing = printComments(
       trailing,
       indent + indent_width,
       decl->endLocation.line);
-  printIndent(indent);
+  if (decl->fields != null) {
+    printIndent(indent);
+  }
   printf("}");
   return trailing;
 }
@@ -514,20 +520,44 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printf("};");
     case DeclKind::UNION:
       printType(decl->type);
-      printf(" {\n");
+      printf(" {");
+
+      if (decl->subTypes != null) {
+        printf("\n");
+      }
 
       for (let subType = decl->subTypes; subType != null;
            subType = subType->next) {
+        let comments = printComments(
+            subType->decl->comments,
+            indent + indent_width,
+            subType->decl->location.line);
         printIndent(indent + indent_width);
+
         let structType = subType->decl->type->kind as TypeKind::Struct*;
         printToken(structType->tag);
         trailing = printStructBody(
             subType->decl,
             indent + indent_width,
             trailing);
-        printf("\n");
+
+        if (subType->next == null) {
+          printf("\n");
+        } else {
+          let lineDiff =
+              subType->next->decl->location.line - subType->decl->endLocation.line;
+          if (lineDiff > 1) {
+            printf("\n\n");
+          } else {
+            printf("\n");
+          }
+        }
       }
 
+      trailing = printComments(
+          trailing,
+          indent + indent_width,
+          decl->endLocation.line);
       printf("};");
 
     case DeclKind::ENUM_FIELD:
