@@ -37,6 +37,7 @@ function M.setup(opts)
 			name = "bootstrap",
 			cmd = M.bootstrapDir .. "bootstrap",
 			stdin = false,
+			stream = "both",
 			ignore_exitcode = true,
 			env = {
 				ASAN_OPTIONS = "detect_leaks=0",

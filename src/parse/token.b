@@ -184,7 +184,6 @@ func getToken(state: ParseState*) -> Token {
     }
   }
 
-  printf("Unknown token! %x\n", lastChar);
   failParse(state, "Unknown token");
   token.kind = TokenKind::TOK_EOF;
   return token;
