@@ -189,9 +189,6 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
         semaExpr(state, stmt->expr);
         let conv = doConvert(state, stmt->expr, state->result);
         if (conv == null) {
-          printType(stmt->expr->type);
-          printf(" <> ");
-          printType(state->result);
           failSemaStmt(stmt, "Return type mismatch");
         }
         stmt->expr = conv;

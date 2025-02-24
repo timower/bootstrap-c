@@ -189,7 +189,6 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
 
     case StmtKind::BREAK:
       if (state->scope->breakBB == null) {
-        printf("%s:%d:%d ", stmt->location.fileName, stmt->location.line, stmt->location.column);
         failIRGen("Break outside loop");
       }
       addInstr(state, null, InstrKind::Branch {

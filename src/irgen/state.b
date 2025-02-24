@@ -31,7 +31,7 @@ struct Intrinsics {
 };
 
 func failIRGen(msg: i8*) {
-  printf("irgen fail: %s\n", msg);
+  dprintf(STDERR, "irgen fail: %s\n", msg);
   exit(1);
 }
 

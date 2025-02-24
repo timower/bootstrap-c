@@ -76,7 +76,7 @@ func convertType(type: Type*) -> const i8* {
       return "i32";
 
     case TypeKind::Tag:
-      printf("Unknown type to convert");
+      dprintf(STDERR, "Unknown type to convert");
       exit(1);
   }
 

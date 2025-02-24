@@ -31,7 +31,7 @@ format: $(BUILD_DIR)/format.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
 $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
-	./bootstrap $< > $@
+	./bootstrap $< -o $@
 
 %.o: %.ll
 	llc $(LLCFLAGS) $< -o $@
