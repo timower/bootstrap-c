@@ -4,6 +4,10 @@ import util;
 import ir.type;
 
 
+// stdout fd number.
+let outFd = 1;
+
+
 // Prints the IR in llvm IR format.
 func printModule(module: Module*) {
   for (let type = module->types; type != null; type = type->next) {
@@ -20,14 +24,14 @@ func printModule(module: Module*) {
 }
 
 func printStruct(type: IRStruct*) {
-  printf("%s = type <{ ", type->name);
+  dprintf(outFd, "%s = type <{ ", type->name);
   for (let field = type->fields; field != null; field = field->next) {
-    printf("%s", convertType(field));
+    dprintf(outFd, "%s", convertType(field));
     if (field->next != null) {
-      printf(", ");
+      dprintf(outFd, ", ");
     }
   }
-  printf(" }>\n");
+  dprintf(outFd, " }>\n");
 }
 
 
@@ -169,7 +173,8 @@ func printGlobal(global: Global*) {
        ? "constant" as i8*
        : "global" as i8*;
 
-  printf(
+  dprintf(
+      outFd,
       "%s = %s %s %s\n",
       global->name,
       declSpec,
@@ -182,33 +187,33 @@ func printFunc(fn: Function*) {
   let isEmpty = fn->begin == null;
   let defOrDecl = isEmpty ? "declare" as i8* : "define" as i8*;
 
-  printf("%s %s %s(", defOrDecl, convertType(fnType->result), fn->name);
+  dprintf(outFd, "%s %s %s(", defOrDecl, convertType(fnType->result), fn->name);
 
   let idx = 0;
   for (let arg = fnType->args; arg != null; arg = arg->next, idx++) {
-    printf("%s %%arg%d", convertType(arg), idx);
+    dprintf(outFd, "%s %%arg%d", convertType(arg), idx);
     if (arg->next != null) {
-      printf(", ");
+      dprintf(outFd, ", ");
     }
   }
 
-  printf(")");
+  dprintf(outFd, ")");
 
   if (isEmpty) {
-    printf("\n");
+    dprintf(outFd, "\n");
     return;
   }
-  printf(" {\n");
+  dprintf(outFd, " {\n");
 
   // print alloca instructions
   for (let alloc = fn->allocs; alloc != null; alloc = alloc->next) {
     let val = Value::AllocaPtr {
       ptr = alloc,
     };
-    printf("  %s = alloca %s\n", getName(val), convertType(alloc->type));
+    dprintf(outFd, "  %s = alloca %s\n", getName(val), convertType(alloc->type));
   }
   if (fn->allocs != null) {
-    printf("  br label %%%s\n", getBBName(fn->begin));
+    dprintf(outFd, "  br label %%%s\n", getBBName(fn->begin));
   }
 
   // print the entry block label
@@ -216,7 +221,7 @@ func printFunc(fn: Function*) {
     printBB(bb);
   }
 
-  printf("}\n\n");
+  dprintf(outFd, "}\n\n");
 }
 
 func getBBName(bb: BasicBlock*) -> i8* {
@@ -226,30 +231,32 @@ func getBBName(bb: BasicBlock*) -> i8* {
 }
 
 func printBB(bb: BasicBlock*) {
-  printf("%s:\n", getBBName(bb));
+  dprintf(outFd, "%s:\n", getBBName(bb));
   for (let instr = bb->begin; instr != null; instr = instr->next) {
     printInstr(instr);
   }
 }
 
 func printInstr(instr: Instruction*) {
-  printf("  ");
+  dprintf(outFd, "  ");
 
   // Non void instructions have a name.
   if (instr->type != null && instr->type->kind as TypeKind::Void* == null) {
-    printf("%%tmp%d = ", instr->name);
+    dprintf(outFd, "%%tmp%d = ", instr->name);
   }
 
   switch (instr->kind) {
     case InstrKind::StructGEP as g:
-      printf(
+      dprintf(
+          outFd,
           "getelementptr inbounds %s, ptr %s, i32 0, i32 %d",
           convertType(g.type),
           getName(g.ptr),
           g.field);
 
     case InstrKind::ArrayGEP as g:
-      printf(
+      dprintf(
+          outFd,
           "getelementptr inbounds %s, ptr %s, %s %s",
           convertType(g.type),
           getName(g.ptr),
@@ -282,7 +289,8 @@ func printInstr(instr: Instruction*) {
         case BinaryOp::Or:
           binStr = "or";
       }
-      printf(
+      dprintf(
+          outFd,
           "%s %s %s, %s",
           binStr,
           getType(b.lhs),
@@ -305,7 +313,8 @@ func printInstr(instr: Instruction*) {
         case CmpOp::Sge:
           condStr = "sge";
       }
-      printf(
+      dprintf(
+          outFd,
           "icmp %s %s %s, %s",
           condStr,
           getType(c.lhs),
@@ -324,10 +333,11 @@ func printInstr(instr: Instruction*) {
         case CastKind::PtrToInt:
           castStr = "ptrtoint";
         default:
-          printf("Error, cast print!");
+          dprintf(outFd, "Error, cast print!");
           exit(1);
       }
-      printf(
+      dprintf(
+          outFd,
           "%s %s %s to %s",
           castStr,
           getType(c.val),
@@ -335,17 +345,18 @@ func printInstr(instr: Instruction*) {
           convertType(instr->type));
 
     case InstrKind::Call as c:
-      printf("call %s %s(", getType(c.fn), getName(c.fn));
+      dprintf(outFd, "call %s %s(", getType(c.fn), getName(c.fn));
       for (let i = 0; i < c.numArgs; i++) {
-        printf("%s %s", getType(*(c.args + i)), getName(*(c.args + i)));
+        dprintf(outFd, "%s %s", getType(*(c.args + i)), getName(*(c.args + i)));
         if (i != c.numArgs - 1) {
-          printf(", ");
+          dprintf(outFd, ", ");
         }
       }
-      printf(")");
+      dprintf(outFd, ")");
 
     case InstrKind::Select as s:
-      printf(
+      dprintf(
+          outFd,
           "select i1 %s, %s %s, %s %s",
           getName(s.cond),
           getType(s.trueVal),
@@ -354,7 +365,8 @@ func printInstr(instr: Instruction*) {
           getName(s.falseVal));
 
     case InstrKind::Switch as s:
-      printf(
+      dprintf(
+          outFd,
           "switch %s %s, label %%%s [\n",
           getType(s.cond),
           getName(s.cond),
@@ -362,16 +374,18 @@ func printInstr(instr: Instruction*) {
 
       // Print all cases
       for (let cse = s.cases; cse != null; cse = cse->next) {
-        printf(
+        dprintf(
+            outFd,
             "    %s %s, label %%%s\n",
             getType(cse->val),
             getName(cse->val),
             getBBName(cse->bb));
       }
-      printf("  ]");
+      dprintf(outFd, "  ]");
 
     case InstrKind::Phi as p:
-      printf(
+      dprintf(
+          outFd,
           "phi %s [ %s, %%%s ], [ %s, %%%s ]",
           convertType(instr->type),
           getName(p.trueVal),
@@ -380,10 +394,11 @@ func printInstr(instr: Instruction*) {
           getBBName(p.falseBB));
 
     case InstrKind::Branch as b:
-      printf("br label %%%s", getBBName(b.bb));
+      dprintf(outFd, "br label %%%s", getBBName(b.bb));
 
     case InstrKind::CondBranch as b:
-      printf(
+      dprintf(
+          outFd,
           "br %s %s, label %%%s, label %%%s",
           getType(b.cond),
           getName(b.cond),
@@ -391,23 +406,25 @@ func printInstr(instr: Instruction*) {
           getBBName(b.falseBB));
 
     case InstrKind::Store as s:
-      printf(
+      dprintf(
+          outFd,
           "store %s %s, ptr %s",
           getType(s.val),
           getName(s.val),
           getName(s.ptr));
 
     case InstrKind::Load as l:
-      printf(
+      dprintf(
+          outFd,
           "load %s, ptr %s",
           convertType(instr->type),
           getName(l.ptr));
 
     case InstrKind::Return as r:
-      printf("ret %s %s", getType(r.val), getName(r.val));
+      dprintf(outFd, "ret %s %s", getType(r.val), getName(r.val));
     case InstrKind::ReturnVoid:
-      printf("ret void");
+      dprintf(outFd, "ret void");
   }
 
-  printf("\n");
+  dprintf(outFd, "\n");
 }

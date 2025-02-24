@@ -15,6 +15,7 @@ func getEscaped(c: i8) -> i8 {
   }
 }
 
+
 struct Buf {
   mem: i8*;
   size: i64;
@@ -23,19 +24,19 @@ struct Buf {
 func readFile(name: i8*) -> Buf {
   let fd = open(name, 0);  //  O_RDONLY
   if (fd == -1) {
-    printf("open failed: %s!\n", name);
+    dprintf(2, "open failed: %s!\n", name);
     return Buf {};
   }
 
   let size = lseek(fd, 0, 2);  //  SEEK_END
   if (size == -1) {
-    puts("seek failed!");
+    dprintf(2, "seek failed!\n");
     return Buf {};
   }
 
   if (lseek(fd, 0, 0) == -1) {
     // SEEK_SET
-    puts("seek failed!");
+    dprintf(2, "seek failed!\n");
     return Buf {};
   }
 
@@ -45,7 +46,7 @@ func readFile(name: i8*) -> Buf {
   while (off != size) {
     let r = read(fd, fileMem + off, (size - off) as u64);
     if (r == -1) {
-      puts("read failed!");
+      dprintf(2, "read failed!\n");
       return Buf {};
     }
     off += r;

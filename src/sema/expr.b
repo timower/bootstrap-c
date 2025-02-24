@@ -435,9 +435,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         semaExpr(state, field->lhs);
         let conv = doConvert(state, field->lhs, fieldDecl->type);
         if (conv == null) {
-          printType(field->lhs->type);
-          printf("\n");
-          printType(fieldDecl->type);
           failSemaExpr(field->lhs, "cannot convert to field type");
         }
         field->lhs = conv;
@@ -652,9 +649,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
     case ExprKind::CAST:
       semaExpr(state, expr->lhs);
       if (!semaCast(state, expr)) {
-        printType(expr->lhs->type);
-        printf(" -> ");
-        printType(expr->type);
         failSemaExpr(expr, " Can't cast");
       }
 

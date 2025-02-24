@@ -38,6 +38,13 @@ TODO
  - [x] Fix relative imports, split source to `src/sema/...`
  - [x] `bool` (i1) type.
  - [x] Model LLVM IR.
+
+ - [ ] Constants `const x = 12;`
+ - [ ] Add host machine constants (`__WIN32__`, `__linux__`, etc)
+ - [ ] Fix `realpath` & `dprintf` usage.
+
+ - [ ] x86_64 backend
+
  - [ ] Remove intrinsic lists for types, cache types.
  - [ ] `typeof(foo)` expression to do:
      * `sizeof(typeof(foo))`

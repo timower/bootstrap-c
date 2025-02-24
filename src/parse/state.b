@@ -78,12 +78,9 @@ func appendComments(list: Comment*, other: Comment*) -> Comment* {
 
 func failParseArg(state: ParseState*, msg: const i8*, arg: const i8*) {
   let location = getLocation(state);
-  printf("%s:%d:%d: ", state->fileName, location.line, location.column);
+  dprintf(STDERR, "%s:%d:%d: ", state->fileName, location.line, location.column);
 
-  // if (state->curToken.data < state->end) {
-  //   printToken(state->curToken);
-  // }
-  printf(": %s%s\n", msg, arg);
+  dprintf(STDERR, ": %s%s\n", msg, arg);
   exit(1);
 }
 
