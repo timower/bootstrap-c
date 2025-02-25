@@ -137,8 +137,11 @@ struct ExprAST {
 };
 
 enum DeclKind {
-  // Local & Global decls
+  // Local & Global decls.
   VAR,
+
+  // Comptime constants.
+  CONST,
 
   // Global decls
   STRUCT,

@@ -8,7 +8,7 @@ func parseNumber(state: ParseState*) -> ExprAST* {
   let result = newLocExpr(state, ExprKind::INT);
   result->op = state->curToken;
 
-  result->value = parseInteger(state->curToken);
+  result->value = parseInteger(state, state->curToken);
   result->type = getInt32();
 
   getNextToken(state);
@@ -448,8 +448,12 @@ func parseInitializer(state: ParseState*) -> ExprAST* {
 
 
 // let_decl := 'let' identifier [':' type] ['=' initializer] ';'
+//           | 'const' identifier [':' type] '=' initializer ';'
 func parseLetDecl(state: ParseState*) -> DeclAST* {
   let decl = newLocDecl(state, DeclKind::VAR);
+  if (match(state, TokenKind::CONST)) {
+    decl->kind = DeclKind::CONST;
+  }
   getNextToken(state);  // eat let
 
   expect(state, TokenKind::IDENTIFIER);
@@ -486,7 +490,7 @@ func parseLetExpr(state: ParseState*) -> ExprAST* {
 
 // assignment := let_expr | conditional | conditional '=' assignment
 func parseAssignment(state: ParseState*) -> ExprAST* {
-  if (match(state, TokenKind::LET)) {
+  if (match(state, TokenKind::LET) || match(state, TokenKind::CONST)) {
     return parseLetExpr(state);
   }
 

@@ -37,7 +37,7 @@ $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
 	llc $(LLCFLAGS) $< -o $@
 
 $(BUILD_DIR)/bootstrap.ll: $(PARENT_STAGE) $(ALL_SRC)
-	$(PARENT_STAGE) $(MAIN_SRC) > $@
+	$(PARENT_STAGE) $(MAIN_SRC) -o $@
 
 $(PARENT_STAGE):
 	$(eval TMP := $(shell mktemp -d))
@@ -59,10 +59,10 @@ lit-stage%: stage%
 	env BOOTSTRAP=$< lit -v test/
 
 $(BUILD_DIR)/stage1.ll: bootstrap
-	./bootstrap $(MAIN_SRC) > $@
+	./bootstrap $(MAIN_SRC) -o $@
 
 $(BUILD_DIR)/stage2.ll: stage1
-	./stage1 $(MAIN_SRC) > $@
+	./stage1 $(MAIN_SRC) -o $@
 
 stage%: $(BUILD_DIR)/stage%.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)

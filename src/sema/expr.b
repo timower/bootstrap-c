@@ -564,7 +564,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
 
       // enum value, transform this expr to an i32.
-      if (local->kind == DeclKind::ENUM_FIELD) {
+      if (local->kind == DeclKind::ENUM_FIELD
+          || local->kind == DeclKind::CONST) {
         expr->kind = ExprKind::INT;
         expr->value = local->enumValue;
       }
@@ -657,7 +658,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       expr->type = expr->lhs->type;
 
     case ExprKind::LET:
-      if (expr->decl->kind != DeclKind::VAR) {
+      if (expr->decl->kind != DeclKind::VAR
+          && expr->decl->kind != DeclKind::CONST) {
         failSemaExpr(expr, "Only let expressions allowed");
       }
       if (expr->decl->init == null) {
@@ -682,5 +684,15 @@ func semaVarDecl(state: SemaState*, decl: DeclAST*) {
     }
 
     sizeArrayTypes(decl->type, decl->init->type);
+
+    if (decl->kind == DeclKind::CONST) {
+      // TODO: support more const expressions.
+      if (decl->init->kind != ExprKind::INT) {
+        failSemaDecl(decl, "Const decl must have an int init");
+      }
+      decl->enumValue = decl->init->value;
+    }
+  } else if (decl->kind == DeclKind::CONST) {
+    failSemaDecl(decl, "Const decl must have an init");
   }
 }

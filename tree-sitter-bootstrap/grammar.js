@@ -70,7 +70,7 @@ module.exports = grammar({
     ),
 
     let_decl: $ => seq(
-      'let',
+      choice('let', 'const'),
       $.identifier,
       optional(seq(':', $.type)),
       optional(seq('=', $._assignment)),
@@ -238,7 +238,7 @@ module.exports = grammar({
 
     _array_decl: $ => seq('[', optional($._number), ']'),
 
-    _number: $ => /[-+]?[0-9]+/,
+    _number: $ => /[-+]?(0[xbo])?[0-9a-fA-F]+/,
 
     primitive_type: $ => choice(
       ...[8, 16, 32, 64].map(n => `i${n}`),
@@ -361,7 +361,7 @@ module.exports = grammar({
     ),
 
     let_expression: $ => seq(
-      'let',
+      choice('let', 'const'),
       $.identifier,
       optional(seq(':', $.type)),
       '=',

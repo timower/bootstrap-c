@@ -75,7 +75,7 @@ func parseType(state: ParseState*) -> Type* {
 
       let size = -1;
       if (match(state, TokenKind::CONSTANT)) {
-        size = parseInteger(state->curToken);
+        size = parseInteger(state, state->curToken);
         getNextToken(state);
       }
 
