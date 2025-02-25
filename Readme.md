@@ -42,7 +42,7 @@ TODO
  - [x] Constants `const x = 12;`
  - [ ] Platform specific code:
    * Add host machine constants (`__WIN32__`, `__LINUX__`, etc).
-   * Host specific imports using `libc.win32.b`, `libc.linux.b`.
+   * Host specific imports `libc.win32.b`, `libc.linux.b`, loaded if exists.
    * Target command line flag.
  - [ ] Fix windows/mingw builds.
 

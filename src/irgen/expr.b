@@ -64,6 +64,16 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
         return *var;
       }
 
+    case ExprKind::VARIABLE:
+      let var = findName(state, expr->identifier);
+      if (var == null) {
+        break;
+      }
+
+      if (let globalPtr = var as Value::GlobalPtr*) {
+        return *var;
+      }
+
     default:
       break;
   }

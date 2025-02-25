@@ -24,6 +24,7 @@ struct SemaState {
   strCount: i32;
 
   imports: ImportList*;
+  target: i8*;
 };
 
 func newState(parent: SemaState*) -> SemaState {
@@ -83,11 +84,10 @@ func getNullDecl(name: i8*) -> DeclAST* {
   return nullDecl;
 }
 
-func initSemaState() -> SemaState {
-  let semaState = SemaState {};
-
+func initSemaState(target: i8*) -> SemaState {
   let nullDecl = getNullDecl("null");
-  semaState.locals = newDeclList(nullDecl);
-
-  return semaState;
+  return SemaState {
+    target = target,
+    locals = newDeclList(nullDecl),
+  };
 }

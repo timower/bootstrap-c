@@ -173,13 +173,22 @@ func printGlobal(global: Global*) {
        ? "constant" as i8*
        : "global" as i8*;
 
-  dprintf(
-      outFd,
-      "%s = %s %s %s\n",
-      global->name,
-      declSpec,
-      getType(global->init),
-      getName(global->init));
+  if (global->isExtern) {
+    dprintf(
+        outFd,
+        "%s = external %s %s\n",
+        global->name,
+        declSpec,
+        convertType(global->type));
+  } else {
+    dprintf(
+        outFd,
+        "%s = %s %s %s\n",
+        global->name,
+        declSpec,
+        getType(global->init),
+        getName(global->init));
+  }
 }
 
 func printFunc(fn: Function*) {

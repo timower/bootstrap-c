@@ -21,6 +21,9 @@ struct CommandLineArgs {
 
   // defaults to LLVM.
   outputKind: OutputKind;
+
+  // Posix or windows for now.
+  target: i8*;
 };
 
 func usage() {
@@ -33,6 +36,7 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
     inputFile = null,
     outputFile = null,
     outputKind = OutputKind::LLVM,
+    target = "posix",
   };
 
   for (let i = 1; i < argc; i += 1) {
@@ -43,11 +47,18 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
         usage();
       }
       args.outputFile = *(argv + i + 1);
-      i += 1;
+      i++;
     } else if (strcmp(arg, "-emit-llvm") == 0) {
       args.outputKind = OutputKind::LLVM;
     } else if (strcmp(arg, "-emit-asm") == 0) {
       args.outputKind = OutputKind::Asm;
+    } else if (strcmp(arg, "-target") == 0) {
+      if (i + 1 >= argc) {
+        puts("Expected target after -target");
+        usage();
+      }
+      args.target = *(argv + i + 1);
+      i++;
     } else {
       if (args.inputFile != null) {
         puts("Multiple input files not supported");
@@ -74,7 +85,7 @@ func main(argc: i32, argv: i8**) -> i32 {
     return -1;
   }
 
-  let semaState = initSemaState();
+  let semaState = initSemaState(args.target);
   decls = semaTopLevel(&semaState, decls);
   let module = genModule(decls);
 

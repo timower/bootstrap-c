@@ -65,12 +65,15 @@ func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
   let global = newGlobal();
   global->name = buf;
   global->type = decl->type;
+
   if (decl->init != null) {
     global->init = genConstant(state, decl->init);
-  } else {
+  } else if (!decl->isExtern) {
     global->init = Value::Zero {
       type = decl->type,
     };
+  } else {
+    global->isExtern = true;
   }
 
   global->next = state->module.globals;

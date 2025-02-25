@@ -447,9 +447,9 @@ func parseInitializer(state: ParseState*) -> ExprAST* {
 }
 
 
-// let_decl := 'let' identifier [':' type] ['=' initializer] ';'
-//           | 'const' identifier [':' type] '=' initializer ';'
-func parseLetDecl(state: ParseState*) -> DeclAST* {
+// let_decl := 'let' identifier [':' type] ['=' initializer]
+//           | 'const' identifier [':' type] '=' initializer
+func parseVarDecl(state: ParseState*) -> DeclAST* {
   let decl = newLocDecl(state, DeclKind::VAR);
   if (match(state, TokenKind::CONST)) {
     decl->kind = DeclKind::CONST;
@@ -482,7 +482,7 @@ func parseLetDecl(state: ParseState*) -> DeclAST* {
 func parseLetExpr(state: ParseState*) -> ExprAST* {
   let expr = newLocExpr(state, ExprKind::LET);
 
-  expr->decl = parseLetDecl(state);
+  expr->decl = parseVarDecl(state);
 
   return expr;
 }

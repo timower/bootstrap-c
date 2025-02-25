@@ -106,13 +106,27 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
       break;
     }
 
+    sprintf(
+        relPath,
+        "%s/%.*s.%s.b",
+        rootDir,
+        name.end - name.data,
+        name.data,
+        state->target);
+    absPath = realpath(relPath, null);
+    if (absPath != null) {
+      break;
+    }
+
+    // Check if 'rootDir' == '/'
     if (*(rootDir + 1) == 0) {
       failSemaDecl(decl, "Couldn't find file");
     }
+
     rootDir = dirname(rootDir);
   }
 
-  // Check if we already import this one
+  // Check if we already import this file.
   for (let cur = state->imports; cur != null; cur = cur->next) {
     if (strcmp(absPath, cur->name) == 0) {
       return;

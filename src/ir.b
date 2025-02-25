@@ -18,6 +18,8 @@ struct IRStruct {
 struct Global {
   name: i8*;
   type: Type*;
+
+  isExtern: bool;
   init: Value;
 
   next: Global*;

@@ -3,6 +3,7 @@ CFLAGS ?= -g -Wall -fsanitize=address
 LDFLAGS ?= -fsanitize=address
 
 LLCFLAGS ?= -O0 --relocation-model=pic -filetype=obj
+BOOTSTRAP_FLAGS ?=
 
 export ASAN_OPTIONS=detect_leaks=0
 
@@ -31,7 +32,7 @@ format: $(BUILD_DIR)/format.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
 $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
-	./bootstrap $< -o $@
+	./bootstrap $(BOOTSTRAP_FLAGS) $< -o $@
 
 %.o: %.ll
 	llc $(LLCFLAGS) $< -o $@
@@ -48,7 +49,7 @@ $(PARENT_STAGE):
 	rm -rf $(TMP)
 
 self: bootstrap
-	./bootstrap $(MAIN_SRC)
+	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC)
 
 test: lit lit-stage2
 
@@ -59,10 +60,10 @@ lit-stage%: stage%
 	env BOOTSTRAP=$< lit -v test/
 
 $(BUILD_DIR)/stage1.ll: bootstrap
-	./bootstrap $(MAIN_SRC) -o $@
+	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
 
 $(BUILD_DIR)/stage2.ll: stage1
-	./stage1 $(MAIN_SRC) -o $@
+	./stage1 $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
 
 stage%: $(BUILD_DIR)/stage%.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
