@@ -190,6 +190,11 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::LET:
       let init = genExpr(state, expr->decl->init);
 
+      // Const expressions are handled during sema.
+      if (expr->decl->kind == DeclKind::CONST) {
+        return init;
+      }
+
       // TODO: if init is an alloca, don't make a new one.
       let alloc = addAlloca(state, expr->type);
       addLocal(state, expr->decl->name, alloc);

@@ -37,7 +37,7 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
         semaStmt(&funcState, decl->body);
       }
 
-    case DeclKind::VAR:
+    case DeclKind::VAR, DeclKind::CONST:
       semaVarDecl(state, decl);
 
     case DeclKind::ENUM:

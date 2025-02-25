@@ -271,7 +271,7 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
 }
 
 func parseDecl(state: ParseState*) -> DeclAST* {
-  if (match(state, TokenKind::LET)) {
+  if (match(state, TokenKind::LET) || match(state, TokenKind::CONST)) {
     let decl = parseLetDecl(state);
 
     expect(state, TokenKind::SEMICOLON);
