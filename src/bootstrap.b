@@ -3,6 +3,7 @@ import libc;
 import ast;
 import parse;
 import sema;
+import emit;
 
 import irgen;
 import ir.print;
@@ -103,8 +104,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   if (args.outputKind == OutputKind::LLVM) {
     printModule(&module);
   } else {
-    puts("TODO");
-    return -1;
+    emitAsm(&module);
   }
 
   return 0;
