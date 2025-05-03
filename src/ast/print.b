@@ -87,6 +87,10 @@ func printIndent(indent: i32) {
 
 
 func printLet(decl: DeclAST*, indent: i32) {
+  if (decl->isExtern) {
+    printf("extern ");
+  }
+
   if (decl->kind == DeclKind::CONST) {
     printf("const ");
   } else {

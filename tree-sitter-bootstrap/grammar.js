@@ -70,6 +70,7 @@ module.exports = grammar({
     ),
 
     let_decl: $ => seq(
+      optional('extern'),
       choice('let', 'const'),
       $.identifier,
       optional(seq(':', $.type)),
