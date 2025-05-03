@@ -7,6 +7,7 @@
 
   # From nixpkgs
   stdenv,
+  lib,
   lit,
   llvmPackages_19,
 }:
@@ -27,6 +28,7 @@ stdenv.mkDerivation {
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
   LLCFLAGS = "--mtriple=${targettriple} --relocation-model=pic -O0 -filetype=obj";
   LDFLAGS = "";
+  BOOTSTRAP_FLAGS = lib.optionalString stdenv.hostPlatform.isWindows "-target windows";
 
   installPhase = ''
     mkdir -p $out/bin

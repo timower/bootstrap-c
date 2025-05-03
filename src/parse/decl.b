@@ -164,18 +164,9 @@ func parseUnion(state: ParseState*) -> DeclAST* {
 
 // func_decl :=
 //  'func' identifier [ '->' type ] '(' [decl (',' decl)*] ')' compound_stmt?
-func parseFuncDecl(state: ParseState*) -> DeclAST* {
+func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   let decl = newLocDecl(state, DeclKind::FUNC);
-
-  if (match(state, TokenKind::EXTERN)) {
-    getNextToken(state);
-
-    if (!match(state, TokenKind::FUNC)) {
-      failParse(state, "Expected 'func'");
-    }
-
-    decl->isExtern = true;
-  }
+  decl->isExtern = isExtern;
   getNextToken(state);  // eat func
 
   expect(state, TokenKind::IDENTIFIER);
@@ -270,19 +261,41 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
   return decl;
 }
 
-func parseDecl(state: ParseState*) -> DeclAST* {
-  if (match(state, TokenKind::LET) || match(state, TokenKind::CONST)) {
-    let decl = parseLetDecl(state);
-
-    expect(state, TokenKind::SEMICOLON);
-    getNextToken(state);
-
-    addTrailingCommentsDecl(state, decl);
-    return decl;
+func parseLetDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
+  let decl = parseVarDecl(state);
+  decl->isExtern = isExtern;
+  if (isExtern && decl->init != null) {
+    failParse(state, "Extern let cannot have init");
   }
 
-  if (match(state, TokenKind::EXTERN) || match(state, TokenKind::FUNC)) {
-    return parseFuncDecl(state);
+  expect(state, TokenKind::SEMICOLON);
+  getNextToken(state);
+
+  addTrailingCommentsDecl(state, decl);
+  return decl;
+}
+
+func parseDecl(state: ParseState*) -> DeclAST* {
+  if (match(state, TokenKind::EXTERN)) {
+    getNextToken(state);
+
+    if (match(state, TokenKind::FUNC)) {
+      return parseFuncDecl(state, true);
+    }
+
+    if (match(state, TokenKind::LET)) {
+      return parseLetDecl(state, true);
+    }
+
+    failParse(state, "Expected func or let");
+  }
+
+  if (match(state, TokenKind::FUNC)) {
+    return parseFuncDecl(state, false);
+  }
+
+  if (match(state, TokenKind::LET) || match(state, TokenKind::CONST)) {
+    return parseLetDecl(state, false);
   }
 
   if (match(state, TokenKind::STRUCT)) {
