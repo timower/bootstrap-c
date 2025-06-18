@@ -121,7 +121,9 @@ func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
           failSema(loc, "Can't resolve type tags, unknown sub type");
         }
 
+        let next = type->next;
         *type = *tagDecl->type;
+        type->next = next;
       } else {
         let typeDecl = lookupType(state, tagType.tag);
         if (typeDecl == null) {
