@@ -1,5 +1,29 @@
 {
   "nodes": {
+    "bootstrap-parent": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1740083295,
+        "narHash": "sha256-MaM1bbNoqljl9X0/cOfoN89MxkOCQ4jfsg8A1w3q1WI=",
+        "owner": "timower",
+        "repo": "bootstrap-c",
+        "rev": "fa28d0854684bb21a5731c9e57d5acbcc8356bc0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "timower",
+        "ref": "dev",
+        "repo": "bootstrap-c",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -20,11 +44,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1739758141,
-        "narHash": "sha256-uq6A2L7o1/tR6VfmYhZWoVAwb3gTy7j4Jx30MIrH0rE=",
+        "lastModified": 1739923778,
+        "narHash": "sha256-BqUY8tz0AQ4to2Z4+uaKczh81zsGZSYxjgvtw+fvIfM=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "c618e28f70257593de75a7044438efc1c1fc0791",
+        "rev": "36864ed72f234b9540da4cf7a0c49e351d30d3f1",
         "type": "github"
       },
       "original": {
@@ -36,6 +60,7 @@
     },
     "root": {
       "inputs": {
+        "bootstrap-parent": "bootstrap-parent",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }
