@@ -3,18 +3,13 @@
 // RUN: %cc %t.s -o %t
 // RUN: %run %t
 
-// CHECK: {{_?}}helper:
-// CHECK:   mov w0, #123
-// CHECK:   ret
-
+// Test subtraction with immediate values
 // CHECK: {{_?}}main:
-// CHECK:   mov w0, #0
+// CHECK:   mov w{{[0-9]+}}, #2
+// CHECK:   sub w{{[0-9]+}}, w{{[0-9]+}}, #2
+// CHECK:   mov w0, w{{[0-9]+}}
 // CHECK:   ret
 
 func main() -> i32 {
-  return 0;
-}
-
-func helper() -> i32 {
-  return 123;
+  return 2 - 2;
 }

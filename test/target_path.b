@@ -1,5 +1,5 @@
 // RUN: split-file %s %t
-// RUN: %bootstrap %t/main.b | opt -p verify | lli
+// RUN: %bootstrap -target posix %t/main.b | opt -p verify | lli
 //--- main.b
 import foo;
 
