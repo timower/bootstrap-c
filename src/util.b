@@ -24,19 +24,19 @@ struct Buf {
 func readFile(name: i8*) -> Buf {
   let fd = open(name, 0);  //  O_RDONLY
   if (fd == -1) {
-    dprintf(2, "open failed: %s!\n", name);
+    fprintf(getStderr(), "open failed: %s!\n", name);
     return Buf {};
   }
 
   let size = lseek(fd, 0, 2);  //  SEEK_END
   if (size == -1) {
-    dprintf(2, "seek failed!\n");
+    fprintf(getStderr(), "seek failed!\n");
     return Buf {};
   }
 
   if (lseek(fd, 0, 0) == -1) {
     // SEEK_SET
-    dprintf(2, "seek failed!\n");
+    fprintf(getStderr(), "seek failed!\n");
     return Buf {};
   }
 
@@ -46,7 +46,7 @@ func readFile(name: i8*) -> Buf {
   while (off != size) {
     let r = read(fd, fileMem + off, (size - off) as u64);
     if (r == -1) {
-      dprintf(2, "read failed!\n");
+      fprintf(getStderr(), "read failed!\n");
       return Buf {};
     }
     off += r;

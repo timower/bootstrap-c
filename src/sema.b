@@ -99,6 +99,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   let relPath: i8* = malloc(4096);
 
   let absPath: i8* = null;
+  let lastDir = strdup(rootDir);
   while (true) {
     sprintf(relPath, "%s/%.*s.b", rootDir, name.end - name.data, name.data);
     absPath = realpath(relPath, null);
@@ -118,12 +119,14 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
       break;
     }
 
+    rootDir = dirname(rootDir);
+
     // Check if 'rootDir' == '/'
-    if (*(rootDir + 1) == 0) {
+    if (strcmp(lastDir, rootDir) == 0) {
       failSemaDecl(decl, "Couldn't find file");
     }
 
-    rootDir = dirname(rootDir);
+    lastDir = strdup(rootDir);
   }
 
   // Check if we already import this file.
