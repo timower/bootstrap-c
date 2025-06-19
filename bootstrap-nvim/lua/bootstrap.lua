@@ -17,6 +17,11 @@ local pattern = [[([^:]*):(%d+):(%d+): (.+)]]
 local groups = { "file", "lnum", "col", "message" }
 
 function M.setup(opts)
+	vim.filetype.add({
+		extension = {
+			b = "bootstrap",
+		},
+	})
 	M.options = vim.tbl_deep_extend("force", {}, defaults, opts or {})
 
 	if M.options.conform then
