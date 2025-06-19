@@ -4,21 +4,30 @@ import ir.print;
 
 struct EmitState {};
 
-func emitAsm(module: Module*) {
+func emitAsm(module: Module*, target: i8*) {
+  let useUnderscore = strcmp(target, "darwin") == 0;
   fprintf(outFile, ".text\n");
-  fprintf(outFile, ".global _main\n");
+  if (useUnderscore) {
+    fprintf(outFile, ".global _main\n");
+  } else {
+    fprintf(outFile, ".global main\n");
+  }
   
   for (let fn = module->functions; fn != null; fn = fn->next) {
-    emitFunction(fn);
+    emitFunction(fn, useUnderscore);
   }
 }
 
-func emitFunction(fn: Function*) {
+func emitFunction(fn: Function*, useUnderscore: bool) {
   let name = fn->name;
   if (*name == '@') {
     name = name + 1;
   }
-  fprintf(outFile, "_%s:\n", name);
+  if (useUnderscore) {
+    fprintf(outFile, "_%s:\n", name);
+  } else {
+    fprintf(outFile, "%s:\n", name);
+  }
   
   for (let bb = fn->begin; bb != null; bb = bb->next) {
     emitBasicBlock(bb);

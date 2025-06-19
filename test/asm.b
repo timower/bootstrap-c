@@ -1,13 +1,13 @@
 // RUN: %bootstrap -emit-asm %s -o %t.s
 // RUN: cat %t.s | FileCheck %s
-// RUN: cc %t.s -o %t
-// RUN: %t
+// RUN: %cc %t.s -o %t
+// RUN: %run %t
 
-// CHECK: _helper:
+// CHECK: {{_?}}helper:
 // CHECK:   mov w0, #123
 // CHECK:   ret
 
-// CHECK: _main:
+// CHECK: {{_?}}main:
 // CHECK:   mov w0, #0
 // CHECK:   ret
 
