@@ -38,7 +38,7 @@ func newState(parent: SemaState*) -> SemaState {
 
 // 2. sema
 func failSema(loc: SourceLoc, msg: const i8*) {
-  dprintf(STDERR, "%s:%d:%d: sema error: %s\n", loc.fileName, loc.line, loc.column, msg);
+  fprintf(getStderr(), "%s:%d:%d: sema error: %s\n", loc.fileName, loc.line, loc.column, msg);
   exit(1);
 }
 

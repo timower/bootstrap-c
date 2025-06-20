@@ -90,15 +90,14 @@ func main(argc: i32, argv: i8**) -> i32 {
   let module = genModule(decls);
 
   if (args.outputFile != null) {
-    // Numeric value of
-    // 577 = O_WRONLY | O_CREAT | O_TRUNC
-    // 504 = S_IRWXU | S_IRWXG
-    let fd = open(args.outputFile, 577, 504);
-    if (fd < 0) {
+    let file = fopen(args.outputFile, "wb");
+    if (file == null) {
       puts("Failed to open output file");
       return -1;
     }
-    outFd = fd;
+    outFile = file;
+  } else {
+    outFile = getStdout();
   }
 
   if (args.outputKind == OutputKind::LLVM) {

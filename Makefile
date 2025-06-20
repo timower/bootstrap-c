@@ -3,7 +3,14 @@ CFLAGS ?= -g -Wall -fsanitize=address
 LDFLAGS ?= -fsanitize=address
 
 LLCFLAGS ?= -O0 --relocation-model=pic -filetype=obj
-BOOTSTRAP_FLAGS ?=
+
+# Auto-detect platform and set appropriate target
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	BOOTSTRAP_FLAGS ?= -target darwin
+else
+	BOOTSTRAP_FLAGS ?=
+endif
 
 export ASAN_OPTIONS=detect_leaks=0
 
@@ -38,7 +45,7 @@ $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
 	llc $(LLCFLAGS) $< -o $@
 
 $(BUILD_DIR)/bootstrap.ll: $(PARENT_STAGE) $(ALL_SRC)
-	$(PARENT_STAGE) $(MAIN_SRC) -o $@
+	$(PARENT_STAGE) $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
 
 $(PARENT_STAGE):
 	$(eval TMP := $(shell mktemp -d))
