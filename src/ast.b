@@ -193,36 +193,50 @@ struct DeclList {
   next: DeclList*;
 };
 
-enum StmtKind {
-  COMPOUND,
-  EXPR,
-
-  FOR,  // for(init, cond, expr) stmt
-  IF,  // if (expr) init else stmt
-  WHILE,  // while(expr) stmt
-  SWITCH,  // switch(expr) stmt
-
-  RETURN,
-  CASE,
-  BREAK,
-  DEFAULT,
+union StmtKind {
+  Compound {
+    stmt: StmtAST*;
+  }
+  Expr {
+    expr: ExprAST*;
+  }
+  For {
+    init: StmtAST*;
+    cond: StmtAST*;
+    update: ExprAST*;
+    body: StmtAST*;
+  }
+  If {
+    cond: ExprAST*;
+    thenStmt: StmtAST*;
+    elseStmt: StmtAST*;
+  }
+  While {
+    cond: ExprAST*;
+    body: StmtAST*;
+  }
+  Switch {
+    expr: ExprAST*;
+    body: StmtAST*;
+  }
+  Return {
+    expr: ExprAST*;
+  }
+  Case {
+    expr: ExprAST*;
+    body: StmtAST*;
+  }
+  Break {}
+  Default {
+    body: StmtAST*;
+  }
 };
 
 struct StmtAST {
   kind: StmtKind;
 
-  // For for
-  init: StmtAST*;
-  cond: StmtAST*;
-
-  // For expr stmts
-  expr: ExprAST*;
-
-  // For compound stmts
-  stmt: StmtAST*;
-
-  // To form linked list of compound stmts
-  nextStmt: StmtAST*;
+  // To form linked list of statements
+  next: StmtAST*;
 
   location: SourceLoc;
   endLocation: SourceLoc;

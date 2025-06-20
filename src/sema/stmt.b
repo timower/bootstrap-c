@@ -112,37 +112,45 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
 }
 
 func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
-  semaExpr(state, stmt->expr);
-  let switchType = stmt->expr->type;
+  let switchStmt = &stmt->kind as StmtKind::Switch*;
+  semaExpr(state, switchStmt->expr);
+  let switchType = switchStmt->expr->type;
 
   let exhaustive =
-      switchType->kind as TypeKind::Enum* != null
-      || switchType->kind as TypeKind::Union* != null;
+      &switchType->kind as TypeKind::Enum* != null
+      || &switchType->kind as TypeKind::Union* != null;
 
-  if (switchType->kind as TypeKind::Int* == null && !exhaustive) {
-    printType(stmt->expr->type);
-    failSemaExpr(stmt->expr, "Switch expr must be integer, enum or union");
+  if (&switchType->kind as TypeKind::Int* == null && !exhaustive) {
+    printType(switchStmt->expr->type);
+    failSemaExpr(switchStmt->expr, "Switch expr must be integer, enum or union");
   }
 
   let fieldBitSet = 0;
 
-  for (let caseStmt = stmt->stmt; caseStmt != null;
-       caseStmt = caseStmt->nextStmt) {
+  for (let caseStmt = switchStmt->body; caseStmt != null; caseStmt = caseStmt->next) {
     let subState = newState(state);
-    if (caseStmt->kind == StmtKind::CASE) {
-      semaCaseExpr(&subState, switchType, caseStmt->expr);
 
-      if (exhaustive) {
-        fieldBitSet |= getFieldBitset(&subState, caseStmt->expr);
-      }
-    } else if (caseStmt->kind == StmtKind::DEFAULT) {
-      fieldBitSet = -1;
-    } else {
-      failSemaStmt(caseStmt, "Unknown switch case statement");
-    }
+    switch (caseStmt->kind) {
+      case StmtKind::Case as caseKind:
+        semaCaseExpr(&subState, switchType, caseKind.expr);
 
-    for (let cur = caseStmt->stmt; cur != null; cur = cur->nextStmt) {
-      semaStmt(&subState, cur);
+        if (exhaustive) {
+          fieldBitSet |= getFieldBitset(&subState, caseKind.expr);
+        }
+
+        // Process statements in this case
+        for (let cur = caseKind.body; cur != null; cur = cur->next) {
+          semaStmt(&subState, cur);
+        }
+      case StmtKind::Default as defaultKind:
+        fieldBitSet = -1;
+
+        // Process statements in this default case
+        for (let cur = defaultKind.body; cur != null; cur = cur->next) {
+          semaStmt(&subState, cur);
+        }
+      default:
+        failSemaStmt(caseStmt, "Unknown switch case statement");
     }
   }
 
@@ -176,66 +184,69 @@ func makeNullCmp(expr: ExprAST*) -> ExprAST* {
 
 func semaStmt(state: SemaState*, stmt: StmtAST*) {
   switch (stmt->kind) {
-    case StmtKind::EXPR:
-      if (stmt->expr != null) {
-        semaExpr(state, stmt->expr);
+    case StmtKind::Expr as exprStmt:
+      if (exprStmt.expr != null) {
+        semaExpr(state, exprStmt.expr);
       }
 
-    case StmtKind::RETURN:
-      if (stmt->expr == null && state->result->kind as TypeKind::Void* == null) {
+    case StmtKind::Return as retStmt:
+      if (retStmt.expr == null && &state->result->kind as TypeKind::Void* == null) {
         failSemaStmt(stmt, "Return type should be void");
       }
-      if (stmt->expr != null) {
-        semaExpr(state, stmt->expr);
-        let conv = doConvert(state, stmt->expr, state->result);
+      if (retStmt.expr != null) {
+        semaExpr(state, retStmt.expr);
+        let conv = doConvert(state, retStmt.expr, state->result);
         if (conv == null) {
           failSemaStmt(stmt, "Return type mismatch");
         }
-        stmt->expr = conv;
+        retStmt.expr = conv;
       }
-    case StmtKind::COMPOUND:
+    case StmtKind::Compound as compStmt:
       let subState = newState(state);
 
-      for (let cur = stmt->stmt; cur != null; cur = cur->nextStmt) {
+      for (let cur = compStmt.stmt; cur != null; cur = cur->next) {
         semaStmt(&subState, cur);
       }
 
-    case StmtKind::IF:
+    case StmtKind::If as ifStmt:
       let subState = newState(state);
-      semaExpr(&subState, stmt->expr);
+      semaExpr(&subState, ifStmt.cond);
 
       // Add != null for let expressions.
-      if (stmt->expr->kind == ExprKind::LET) {
-        if (let ptrType = stmt->expr->type->kind as TypeKind::Pointer*) {
-          stmt->expr = makeNullCmp(stmt->expr);
+      if (ifStmt.cond->kind == ExprKind::LET) {
+        if (let ptrType = &ifStmt.cond->type->kind as TypeKind::Pointer*) {
+          ifStmt.cond = makeNullCmp(ifStmt.cond);
         }
       }
-      checkBool(stmt->expr);
+      checkBool(ifStmt.cond);
 
-      semaStmt(&subState, stmt->init);
-      if (stmt->stmt != null) {
-        semaStmt(state, stmt->stmt);
+      semaStmt(&subState, ifStmt.thenStmt);
+      if (ifStmt.elseStmt != null) {
+        semaStmt(state, ifStmt.elseStmt);
       }
-    case StmtKind::WHILE:
-      semaExpr(state, stmt->expr);
-      checkBool(stmt->expr);
-      semaStmt(state, stmt->stmt);
-    case StmtKind::FOR:
+    case StmtKind::While as whileStmt:
+      semaExpr(state, whileStmt.cond);
+      checkBool(whileStmt.cond);
+      semaStmt(state, whileStmt.body);
+    case StmtKind::For as forStmt:
       let subState = newState(state);
-      semaStmt(&subState, stmt->init);
+      semaStmt(&subState, forStmt.init);
 
       // cond must be expr stmt.
-      semaExpr(&subState, stmt->cond->expr);
-      checkBool(stmt->cond->expr);
-      semaExpr(&subState, stmt->expr);
+      let condExpr = (&forStmt.cond->kind as StmtKind::Expr*)->expr;
+      semaExpr(&subState, condExpr);
+      checkBool(condExpr);
+      semaExpr(&subState, forStmt.update);
 
-      semaStmt(&subState, stmt->stmt);
+      semaStmt(&subState, forStmt.body);
 
-    case StmtKind::SWITCH:
+    case StmtKind::Switch as switchStmt:
       semaSwitchStmt(state, stmt);
-    case StmtKind::CASE, StmtKind::DEFAULT:
-      failSemaStmt(stmt, "Case or default outside of switch");
-    case StmtKind::BREAK:
+    case StmtKind::Case:
+      failSemaStmt(stmt, "Case outside of switch");
+    case StmtKind::Default:
+      failSemaStmt(stmt, "Default outside of switch");
+    case StmtKind::Break:
       break;
   }
 }
