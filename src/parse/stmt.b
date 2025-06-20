@@ -15,29 +15,35 @@ func addTrailingCommentsStmt(state: ParseState*, stmt: StmtAST*) {
 }
 
 func parseCompoundStmt(state: ParseState*) -> StmtAST* {
-  let stmt = newLocStmt(state, StmtKind::COMPOUND);
+  let stmt = newLocStmt(state, StmtKind::Compound {});
   getNextToken(state);  // eat {
 
-  let cur = stmt;
+  let firstStmt: StmtAST* = null;
+  let cur: StmtAST* = null;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
-    cur->nextStmt = parseStmt(state);
-    cur = cur->nextStmt;
+    let nextStmt = parseStmt(state);
+    if (firstStmt == null) {
+      firstStmt = nextStmt;
+      cur = nextStmt;
+    } else {
+      cur->next = nextStmt;
+      cur = nextStmt;
+    }
   }
   stmt->endLocation = getLocation(state);
   addTrailingCommentsStmt(state, stmt);
 
   getNextToken(state);  // eat }
 
-  stmt->stmt = stmt->nextStmt;
-  stmt->nextStmt = null;
+  (&stmt->kind as StmtKind::Compound*)->stmt = firstStmt;
   return stmt;
 }
 
 func parseExprStmt(state: ParseState*) -> StmtAST* {
-  let stmt = newLocStmt(state, StmtKind::EXPR);
+  let stmt = newLocStmt(state, StmtKind::Expr {});
 
   if (!match(state, TokenKind::SEMICOLON)) {
-    stmt->expr = parseExpression(state);
+    (&stmt->kind as StmtKind::Expr*)->expr = parseExpression(state);
   }
 
   expect(state, TokenKind::SEMICOLON);
@@ -52,20 +58,21 @@ func parseExprStmt(state: ParseState*) -> StmtAST* {
 
 func parseForStmt(state: ParseState*) -> StmtAST* {
   getNextToken(state);  // eat for
-  let stmt = newLocStmt(state, StmtKind::FOR);
+  let stmt = newLocStmt(state, StmtKind::For {});
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  stmt->init = parseExprStmt(state);
-  stmt->cond = parseExprStmt(state);
-  stmt->expr = parseExpression(state);
+  let forStmt = &stmt->kind as StmtKind::For*;
+  forStmt->init = parseExprStmt(state);
+  forStmt->cond = parseExprStmt(state);
+  forStmt->update = parseExpression(state);
 
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state);
 
-  stmt->stmt = parseStmt(state);
-  stmt->endLocation = stmt->stmt->endLocation;
+  forStmt->body = parseStmt(state);
+  stmt->endLocation = forStmt->body->endLocation;
 
   return stmt;
 }
@@ -76,19 +83,20 @@ func parseIfStmt(state: ParseState*) -> StmtAST* {
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  let stmt = newLocStmt(state, StmtKind::IF);
+  let stmt = newLocStmt(state, StmtKind::If {});
 
-  stmt->expr = parseExpression(state);
+  let ifStmt = &stmt->kind as StmtKind::If*;
+  ifStmt->cond = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state);
 
-  stmt->init = parseStmt(state);
-  stmt->endLocation = stmt->init->endLocation;
+  ifStmt->thenStmt = parseStmt(state);
+  stmt->endLocation = ifStmt->thenStmt->endLocation;
 
   if (match(state, TokenKind::ELSE)) {
     getNextToken(state);
-    stmt->stmt = parseStmt(state);
-    stmt->endLocation = stmt->stmt->endLocation;
+    ifStmt->elseStmt = parseStmt(state);
+    stmt->endLocation = ifStmt->elseStmt->endLocation;
   }
 
   return stmt;
@@ -97,11 +105,11 @@ func parseIfStmt(state: ParseState*) -> StmtAST* {
 func parseReturnStmt(state: ParseState*) -> StmtAST* {
   getNextToken(state);
 
-  let stmt = newLocStmt(state, StmtKind::RETURN);
+  let stmt = newLocStmt(state, StmtKind::Return {});
 
   // parse value
   if (!match(state, TokenKind::SEMICOLON)) {
-    stmt->expr = parseExpression(state);
+    (&stmt->kind as StmtKind::Return*)->expr = parseExpression(state);
   }
 
   expect(state, TokenKind::SEMICOLON);
@@ -153,12 +161,12 @@ func parseCaseOrDefault(state: ParseState*) -> StmtAST* {
   if (match(state, TokenKind::CASE)) {
     getNextToken(state);    // eat 'case'
 
-    stmt = newLocStmt(state, StmtKind::CASE);
-    stmt->expr = parseCaseExpr(state);
+    stmt = newLocStmt(state, StmtKind::Case {});
+    (&stmt->kind as StmtKind::Case*)->expr = parseCaseExpr(state);
   } else if (match(state, TokenKind::DEFAULT)) {
     getNextToken(state);    // eat 'default'
 
-    stmt = newLocStmt(state, StmtKind::DEFAULT);
+    stmt = newLocStmt(state, StmtKind::Default {});
   } else {
     failParse(state, "Expected case or default");
   }
@@ -170,20 +178,30 @@ func parseCaseOrDefault(state: ParseState*) -> StmtAST* {
     failParse(state, "Empty case not allowed");
   }
 
-  let cur = stmt;
+  let firstStmt: StmtAST* = null;
+  let cur: StmtAST* = null;
 
   // keep parsing statements until the next case or default or }
   while (!match(state, TokenKind::CASE)
       && !match(state, TokenKind::CLOSE_BRACE)
       && !match(state, TokenKind::DEFAULT)) {
     let nextStmt = parseStmt(state);
-    cur->nextStmt = nextStmt;
-    cur = nextStmt;
+    if (firstStmt == null) {
+      firstStmt = nextStmt;
+      cur = nextStmt;
+    } else {
+      cur->next = nextStmt;
+      cur = nextStmt;
+    }
   }
 
-  stmt->stmt = stmt->nextStmt;
-  stmt->nextStmt = null;
-  stmt->endLocation = cur->endLocation;
+  // Set the parsed statements as the body of the case/default
+  if (let caseKind = &stmt->kind as StmtKind::Case*) {
+    caseKind->body = firstStmt;
+  } else if (let defaultKind = &stmt->kind as StmtKind::Default*) {
+    defaultKind->body = firstStmt;
+  }
+  stmt->endLocation = cur != null ? cur->endLocation : stmt->location;
 
   return stmt;
 }
@@ -196,9 +214,10 @@ func parseSwitchStmt(state: ParseState*) -> StmtAST* {
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  let stmt = newLocStmt(state, StmtKind::SWITCH);
+  let stmt = newLocStmt(state, StmtKind::Switch {});
 
-  stmt->expr = parseExpression(state);
+  let switchStmt = &stmt->kind as StmtKind::Switch*;
+  switchStmt->expr = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state);
 
@@ -206,17 +225,22 @@ func parseSwitchStmt(state: ParseState*) -> StmtAST* {
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);
 
-  let cur = stmt;
+  let firstCase: StmtAST* = null;
+  let cur: StmtAST* = null;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
     let cse = parseCaseOrDefault(state);
-    cur->nextStmt = cse;
-    cur = cse;
+    if (firstCase == null) {
+      firstCase = cse;
+      cur = cse;
+    } else {
+      cur->next = cse;
+      cur = cse;
+    }
   }
   stmt->endLocation = getLocation(state);
   getNextToken(state);  // eat }
 
-  stmt->stmt = stmt->nextStmt;
-  stmt->nextStmt = null;
+  switchStmt->body = firstCase;
 
   addTrailingCommentsStmt(state, stmt);
 
@@ -229,14 +253,15 @@ func parseWhileStmt(state: ParseState*) -> StmtAST* {
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);
 
-  let stmt = newLocStmt(state, StmtKind::WHILE);
+  let stmt = newLocStmt(state, StmtKind::While {});
 
-  stmt->expr = parseExpression(state);
+  let whileStmt = &stmt->kind as StmtKind::While*;
+  whileStmt->cond = parseExpression(state);
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state);
 
-  stmt->stmt = parseStmt(state);
-  stmt->endLocation = stmt->stmt->endLocation;
+  whileStmt->body = parseStmt(state);
+  stmt->endLocation = whileStmt->body->endLocation;
 
   return stmt;
 }
@@ -267,7 +292,7 @@ func parseStmt(state: ParseState*) -> StmtAST* {
   }
 
   if (match(state, TokenKind::BREAK)) {
-    let stmt = newLocStmt(state, StmtKind::BREAK);
+    let stmt = newLocStmt(state, StmtKind::Break {});
     getNextToken(state);
 
     expect(state, TokenKind::SEMICOLON);

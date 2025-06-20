@@ -313,18 +313,22 @@ func printExprIndent(expr: ExprAST*, indent: i32) {
 
 func printIfStmt(stmt: StmtAST*, indent: i32) {
   printIndent(indent);
-  for (; stmt != null && stmt->kind == StmtKind::IF; stmt = stmt->stmt) {
-    printf("if (");
-    printExprIndent(stmt->expr, indent);
-    printf(") ");
-    printStmtIndent(stmt->init, indent);
-    if (stmt->stmt != null) {
-      printf(" else ");
+  while (stmt != null) {
+    if (let ifStmt = &stmt->kind as StmtKind::If*) {
+      printf("if (");
+      printExprIndent(ifStmt->cond, indent);
+      printf(") ");
+      printStmtIndent(ifStmt->thenStmt, indent);
+      if (ifStmt->elseStmt != null) {
+        printf(" else ");
+        stmt = ifStmt->elseStmt;
+      } else {
+        stmt = null;
+      }
+    } else {
+      printStmtIndent(stmt, indent);
+      break;
     }
-  }
-
-  if (stmt != null) {
-    printStmtIndent(stmt, indent);
   }
 }
 
@@ -342,11 +346,11 @@ func printComments(comment: Comment*, indent: i32, line: i32) -> Comment* {
 }
 
 func printStmtList(stmt: StmtAST*, indent: i32) {
-  for (let cur: StmtAST* = stmt; cur != null; cur = cur->nextStmt) {
+  for (let cur: StmtAST* = stmt; cur != null; cur = cur->next) {
     printStmtIndent(cur, indent + indent_width);
 
-    if (cur->nextStmt != null) {
-      let lineDiff = cur->nextStmt->location.line - cur->endLocation.line;
+    if (cur->next != null) {
+      let lineDiff = cur->next->location.line - cur->endLocation.line;
       if (lineDiff > 1) {
         printf("\n\n");
       } else {
@@ -360,81 +364,81 @@ func printStmtIndent(stmt: StmtAST*, indent: i32) {
   let trailing = printComments(stmt->comments, indent, stmt->location.line);
 
   switch (stmt->kind) {
-    case StmtKind::COMPOUND:
+    case StmtKind::Compound as compStmt:
       // printIndent(indent);
       printf("{\n");
-      printStmtList(stmt->stmt, indent);
+      printStmtList(compStmt.stmt, indent);
       printf("\n");
       printIndent(indent);
       trailing = printComments(trailing, indent + indent_width, stmt->endLocation.line);
       printf("}");
-    case StmtKind::EXPR:
+    case StmtKind::Expr as exprStmt:
       printIndent(indent);
-      if (stmt->expr != null) {
-        printExprIndent(stmt->expr, indent);
+      if (exprStmt.expr != null) {
+        printExprIndent(exprStmt.expr, indent);
       }
       printf(";");
-    case StmtKind::FOR:
+    case StmtKind::For as forStmt:
       printIndent(indent);
       printf("for (");
-      printStmtIndent(stmt->init, 0);
-      if (stmt->init->location.line != stmt->cond->location.line) {
+      printStmtIndent(forStmt.init, 0);
+      if (forStmt.init->location.line != forStmt.cond->location.line) {
         printf("\n");
-        printStmtIndent(stmt->cond, indent + 5);
+        printStmtIndent(forStmt.cond, indent + 5);
       } else {
         printf(" ");
-        printStmtIndent(stmt->cond, 0);
+        printStmtIndent(forStmt.cond, 0);
       }
-      if (stmt->cond->location.line != stmt->expr->location.line) {
+      if (forStmt.cond->location.line != forStmt.update->location.line) {
         printf("\n");
         printIndent(indent + 5);
       } else {
         printf(" ");
       }
-      printExprIndent(stmt->expr, indent);
+      printExprIndent(forStmt.update, indent);
       printf(") ");
-      printStmtIndent(stmt->stmt, indent);
-    case StmtKind::IF:
+      printStmtIndent(forStmt.body, indent);
+    case StmtKind::If:
       printIfStmt(stmt, indent);
-    case StmtKind::RETURN:
+    case StmtKind::Return as retStmt:
       printIndent(indent);
       printf("return");
-      if (stmt->expr != null) {
+      if (retStmt.expr != null) {
         printf(" ");
-        printExprIndent(stmt->expr, indent);
+        printExprIndent(retStmt.expr, indent);
       }
       printf(";");
 
-    case StmtKind::SWITCH:
+    case StmtKind::Switch as switchStmt:
       printIndent(indent);
       printf("switch (");
-      printExprIndent(stmt->expr, indent);
+      printExprIndent(switchStmt.expr, indent);
       printf(") {\n");
-      printStmtList(stmt->stmt, indent);
+      printStmtList(switchStmt.body, indent);
       printf("\n");
       printIndent(indent);
       printf("}");
-    case StmtKind::CASE:
+    case StmtKind::Case as caseStmt:
       printIndent(indent);
       printf("case ");
-      printExprIndent(stmt->expr, 5);
+      printExprIndent(caseStmt.expr, 5);
       printf(":\n");
-      printStmtList(stmt->stmt, indent);
-    case StmtKind::DEFAULT:
+      printStmtList(caseStmt.body, indent);
+    case StmtKind::Default as defaultStmt:
       printIndent(indent);
       printf("default:\n");
-      printStmtList(stmt->stmt, indent);
+      printStmtList(defaultStmt.body, indent);
 
-    case StmtKind::BREAK:
+    case StmtKind::Break:
       printIndent(indent);
       printf("break;");
 
-    case StmtKind::WHILE:
+    case StmtKind::While as whileStmt:
       printIndent(indent);
       printf("while (");
-      printExprIndent(stmt->expr, indent);
+      printExprIndent(whileStmt.cond, indent);
       printf(") ");
-      printStmtIndent(stmt->stmt, indent);
+      printStmtIndent(whileStmt.body, indent);
   }
 
   printComments(trailing, indent, 0);

@@ -45,31 +45,31 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
 
 func genStmt(state: IRGenState*, stmt: StmtAST*) {
   switch (stmt->kind) {
-    case StmtKind::EXPR:
-      if (stmt->expr != null) {
-        genExpr(state, stmt->expr);
+    case StmtKind::Expr as exprStmt:
+      if (exprStmt.expr != null) {
+        genExpr(state, exprStmt.expr);
       }
 
-    case StmtKind::COMPOUND:
+    case StmtKind::Compound as compStmt:
       newScope(state);
-      for (let cur = stmt->stmt; cur != null; cur = cur->nextStmt) {
+      for (let cur = compStmt.stmt; cur != null; cur = cur->next) {
         genStmt(state, cur);
       }
       popScope(state);
 
-    case StmtKind::RETURN:
-      if (stmt->expr == null) {
+    case StmtKind::Return as retStmt:
+      if (retStmt.expr == null) {
         addInstr(state, null, InstrKind::ReturnVoid {});
         return;
       }
-      let v = genExpr(state, stmt->expr);
-      if (stmt->expr->type->kind as TypeKind::Void* != null) {
+      let v = genExpr(state, retStmt.expr);
+      if (&retStmt.expr->type->kind as TypeKind::Void* != null) {
         addInstr(state, null, InstrKind::ReturnVoid {});
         return;
       }
 
-      if (isAggregate(stmt->expr->type)) {
-        v = addInstr(state, stmt->expr->type, InstrKind::Load {
+      if (isAggregate(retStmt.expr->type)) {
+        v = addInstr(state, retStmt.expr->type, InstrKind::Load {
           ptr = v,
         });
       }
@@ -77,11 +77,11 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
         val = v,
       });
 
-    case StmtKind::IF:
-      let cond = genExpr(state, stmt->expr);
+    case StmtKind::If as ifStmt:
+      let cond = genExpr(state, ifStmt.cond);
 
       let trueBB = addBasicBlock(state, "if.true");
-      let falseBB: BasicBlock* = stmt->stmt != null
+      let falseBB: BasicBlock* = ifStmt.elseStmt != null
            ? addBasicBlock(state, "if.false")
            : null as BasicBlock*;
       let contBB = addBasicBlock(state, "if.cont");
@@ -93,14 +93,14 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       });
 
       state->curBB = trueBB;
-      genStmt(state, stmt->init);
+      genStmt(state, ifStmt.thenStmt);
       addInstr(state, null, InstrKind::Branch {
         bb = contBB,
       });
 
       if (falseBB != null) {
         state->curBB = falseBB;
-        genStmt(state, stmt->stmt);
+        genStmt(state, ifStmt.elseStmt);
         addInstr(state, null, InstrKind::Branch {
           bb = contBB,
         });
@@ -108,14 +108,14 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
 
       state->curBB = contBB;
 
-    case StmtKind::WHILE:
+    case StmtKind::While as whileStmt:
       let condBB = addBasicBlock(state, "while.cond");
       addInstr(state, null, InstrKind::Branch {
         bb = condBB,
       });
 
       state->curBB = condBB;
-      let cond = genExpr(state, stmt->expr);
+      let cond = genExpr(state, whileStmt.cond);
       let bodyBB = addBasicBlock(state, "while.body");
       let contBB = addBasicBlock(state, "while.cont");
       addInstr(state, null, InstrKind::CondBranch {
@@ -128,7 +128,7 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       state->curBB = bodyBB;
       state->scope->breakBB = contBB;      // TODO: continue;
 
-      genStmt(state, stmt->stmt);
+      genStmt(state, whileStmt.body);
 
       addInstr(state, null, InstrKind::Branch {
         bb = condBB,
@@ -137,9 +137,9 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       popScope(state);
       state->curBB = contBB;
 
-    case StmtKind::FOR:
+    case StmtKind::For as forStmt:
       // Initialize the for loop
-      genStmt(state, stmt->init);
+      genStmt(state, forStmt.init);
 
       // Create basic blocks for all parts of the for loop
       let condBB = addBasicBlock(state, "for.cond");
@@ -154,7 +154,8 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
 
       // Generate condition code
       state->curBB = condBB;
-      let cond = genExpr(state, stmt->cond->expr);
+      let condExpr = (&forStmt.cond->kind as StmtKind::Expr*)->expr;
+      let cond = genExpr(state, condExpr);
       addInstr(state, null, InstrKind::CondBranch {
         cond = cond,
         trueBB = bodyBB,
@@ -167,7 +168,7 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       state->scope->breakBB = contBB;      // TODO: continue;
 
       // Generate the loop body
-      genStmt(state, stmt->stmt);
+      genStmt(state, forStmt.body);
 
       // Branch to increment block
       addInstr(state, null, InstrKind::Branch {
@@ -176,7 +177,7 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
 
       // Generate increment code
       state->curBB = incrBB;
-      genExpr(state, stmt->expr);
+      genExpr(state, forStmt.update);
 
       // Branch back to condition
       addInstr(state, null, InstrKind::Branch {
@@ -187,7 +188,7 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       popScope(state);
       state->curBB = contBB;
 
-    case StmtKind::BREAK:
+    case StmtKind::Break:
       if (state->scope->breakBB == null) {
         failIRGen("Break outside loop");
       }
@@ -195,11 +196,13 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
         bb = state->scope->breakBB,
       });
 
-    case StmtKind::SWITCH:
+    case StmtKind::Switch:
       genSwitch(state, stmt);
 
-    case StmtKind::CASE, StmtKind::DEFAULT:
+    case StmtKind::Case:
       failIRGen("Case outside of switch");
+    case StmtKind::Default:
+      failIRGen("Default outside of switch");
   }
 }
 
@@ -274,8 +277,9 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
   newScope(state);
   state->scope->breakBB = contBB;
 
-  let switchExpr = stmt->expr;
-  let isUnion = switchExpr->type->kind as TypeKind::Union* != null;
+  let switchStmt = &stmt->kind as StmtKind::Switch*;
+  let switchExpr = switchStmt->expr;
+  let isUnion = &switchExpr->type->kind as TypeKind::Union* != null;
 
   // Generate switch condition
   let expr: Value = Value::InstrPtr {};
@@ -307,15 +311,14 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
   let cases: Case* = null;
   let defaultBB: BasicBlock* = null;
 
-  for (let caseStmt = stmt->stmt; caseStmt != null;
-       caseStmt = caseStmt->nextStmt) {
+  for (let caseStmt = switchStmt->body; caseStmt != null; caseStmt = caseStmt->next) {
     newScope(state);
 
-    if (caseStmt->kind == StmtKind::CASE) {
+    if (let caseKind = &caseStmt->kind as StmtKind::Case*) {
       let caseBB = addBasicBlock(state, "switch.case");
       state->curBB = caseBB;
-      cases = getCases(state, caseStmt->expr, unionAddrPtr, cases, caseBB);
-    } else if (caseStmt->kind == StmtKind::DEFAULT) {
+      cases = getCases(state, caseKind->expr, unionAddrPtr, cases, caseBB);
+    } else if (&caseStmt->kind as StmtKind::Default* != null) {
       if (defaultBB != null) {
         failIRGen("Multiple default");
       }
@@ -326,8 +329,14 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
     }
 
     // Generate case body
-    for (let cur = caseStmt->stmt; cur != null; cur = cur->nextStmt) {
-      genStmt(state, cur);
+    if (let caseKind = &caseStmt->kind as StmtKind::Case*) {
+      for (let cur = caseKind->body; cur != null; cur = cur->next) {
+        genStmt(state, cur);
+      }
+    } else if (let defaultKind = &caseStmt->kind as StmtKind::Default*) {
+      for (let cur = defaultKind->body; cur != null; cur = cur->next) {
+        genStmt(state, cur);
+      }
     }
 
     popScope(state);
