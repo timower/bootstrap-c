@@ -50,7 +50,7 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
 
         let idx = 0;
         let structDecl =
-            findTypeIdx(unionDecl->subTypes, fromStruct->tag, &idx);
+            findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, fromStruct->tag, &idx);
         if (structDecl == null) {
           failSemaExpr(expr, "No way to convert struct to unrelated union");
         }
@@ -159,7 +159,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
 
           let idx = 0;
           let structDecl =
-              findTypeIdx(unionDecl->subTypes, toStruct->tag, &idx);
+              findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, toStruct->tag, &idx);
           if (structDecl == null) {
             failSemaExpr(expr, "No way to convert union to unrelated struct");
           }
@@ -208,7 +208,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
 
           let idx = 0;
           let structDecl =
-              findTypeIdx(unionDecl->subTypes, toStruct->tag, &idx);
+              findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, toStruct->tag, &idx);
           if (structDecl == null) {
             failSemaExpr(expr, "No way to convert union to unrelated struct");
           }
@@ -227,7 +227,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
         }
 
         let idx = 0;
-        let structDecl = findTypeIdx(unionDecl->subTypes, fromStruct.tag, &idx);
+        let structDecl = findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, fromStruct.tag, &idx);
         if (structDecl == null) {
           failSemaExpr(expr, "No way to convert struct to unrelated union");
         }
@@ -274,7 +274,7 @@ func semaString(state: SemaState*, expr: ExprAST*) {
 
   // Add a global variable for the string.
   let root = getRoot(state);
-  let decl = newDecl(DeclKind::VAR);
+  let decl = newDecl(DeclKind::Var {});
   decl->type = expr->type;
 
   let name: i8* = malloc(32 as u64);
@@ -283,9 +283,10 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   decl->name.data = name;
   decl->name.end = name + n;
 
-  decl->init = newExpr(ExprKind::STR);
-  decl->init->identifier = expr->identifier;
-  decl->init->type = expr->type;
+  let init = newExpr(ExprKind::STR);
+  (&decl->kind as DeclKind::Var*)->init = init;
+  init->identifier = expr->identifier;
+  init->type = expr->type;
 
   decl->next = root->extraDecls;
   root->extraDecls = decl;
@@ -414,14 +415,14 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       let typeDecl: DeclAST* = null;
       if (expr->parent.kind != TokenKind::TOK_EOF) {
         let parentDecl = lookupType(state, expr->parent);
-        if (parentDecl == null || parentDecl->kind != DeclKind::UNION) {
+        if (parentDecl == null || &parentDecl->kind as DeclKind::Union* == null) {
           failSemaExpr(expr, "Expected uninion type");
         }
-        typeDecl = findType(parentDecl->subTypes, expr->identifier);
+        typeDecl = findType((&parentDecl->kind as DeclKind::Union*)->subTypes, expr->identifier);
       } else {
         typeDecl = lookupType(state, expr->identifier);
       }
-      if (typeDecl == null || typeDecl->kind != DeclKind::STRUCT) {
+      if (typeDecl == null || &typeDecl->kind as DeclKind::Struct* == null) {
         failSemaExpr(expr, "Expected struct type for struct init expression");
       }
 
@@ -449,13 +450,13 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
 
       switch (decl->kind) {
-        case DeclKind::ENUM:
+        case DeclKind::Enum:
           let fieldDecl = findField(decl, expr->identifier, &expr->value);
           if (fieldDecl == null) {
             failSemaExpr(expr, " Cannot find field");
           }
-        case DeclKind::UNION:
-          let tagDecl = findTypeIdx(decl->subTypes, expr->identifier, &expr->value);
+        case DeclKind::Union as unionDecl:
+          let tagDecl = findTypeIdx(unionDecl.subTypes, expr->identifier, &expr->value);
           if (tagDecl == null) {
             failSemaExpr(expr, " Cannot find union tag");
           }
@@ -581,10 +582,15 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
 
       // enum value, transform this expr to an i32.
-      if (local->kind == DeclKind::ENUM_FIELD
-          || local->kind == DeclKind::CONST) {
-        expr->kind = ExprKind::INT;
-        expr->value = local->enumValue;
+      switch (local->kind) {
+        case DeclKind::EnumField as enumFieldKind:
+          expr->kind = ExprKind::INT;
+          expr->value = enumFieldKind.enumValue;
+        case DeclKind::Const as constKind:
+          expr->kind = ExprKind::INT;
+          expr->value = constKind.enumValue;
+        default:
+          break;
       }
 
       expr->type = local->type;
@@ -675,11 +681,20 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       expr->type = expr->lhs->type;
 
     case ExprKind::LET:
-      if (expr->decl->kind != DeclKind::VAR
-          && expr->decl->kind != DeclKind::CONST) {
+      if (&expr->decl->kind as DeclKind::Var* == null
+          && &expr->decl->kind as DeclKind::Const* == null) {
         failSemaExpr(expr, "Only let expressions allowed");
       }
-      if (expr->decl->init == null) {
+      let init: ExprAST* = null;
+      switch (expr->decl->kind) {
+        case DeclKind::Var as varKind:
+          init = varKind.init;
+        case DeclKind::Const as constKind:
+          init = constKind.init;
+        default:
+          break;
+      }
+      if (init == null) {
         failSemaExpr(expr, "Let expression must have an init");
       }
       resolveTypeTags(state, expr->decl->type, expr->location);
@@ -690,26 +705,45 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
 func semaVarDecl(state: SemaState*, decl: DeclAST*) {
   addLocalDecl(state, decl);
-  if (decl->init != null) {
-    semaExpr(state, decl->init);
+
+  let init: ExprAST* = null;
+  switch (decl->kind) {
+    case DeclKind::Var as varKind:
+      init = varKind.init;
+    case DeclKind::Const as constKind:
+      init = constKind.init;
+    default:
+      break;
+  }
+
+  if (init != null) {
+    semaExpr(state, init);
 
     if (decl->type == null) {
-      decl->type = decl->init->type;
-    } else if (decl->init = doConvert(state, decl->init, decl->type),
-        decl->init == null) {
+      decl->type = init->type;
+    } else if (init = doConvert(state, init, decl->type),
+        init == null) {
       failSemaDecl(decl, ": Decl init type doesn't match");
     }
 
-    sizeArrayTypes(decl->type, decl->init->type);
+    sizeArrayTypes(decl->type, init->type);
 
-    if (decl->kind == DeclKind::CONST) {
-      // TODO: support more const expressions.
-      if (decl->init->kind != ExprKind::INT) {
-        failSemaDecl(decl, "Const decl must have an int init");
-      }
-      decl->enumValue = decl->init->value;
+    // Update the init field in the union
+    switch (decl->kind) {
+      case DeclKind::Var as varKind:
+        varKind.init = init;
+      case DeclKind::Const as constKind:
+        constKind.init = init;
+
+        // TODO: support more const expressions.
+        if (init->kind != ExprKind::INT) {
+          failSemaDecl(decl, "Const decl must have an int init");
+        }
+        constKind.enumValue = init->value;
+      default:
+        break;
     }
-  } else if (decl->kind == DeclKind::CONST) {
+  } else if (&decl->kind as DeclKind::Const* != null) {
     failSemaDecl(decl, "Const decl must have an init");
   }
 }

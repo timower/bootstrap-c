@@ -19,6 +19,7 @@ extern func lseek(fd: i32, offset: i64, whence: i32) -> i64;
 extern func read(fd: i32, buf: void*, nbytes: u64) -> i64;
 extern func dirname(path: i8*) -> i8*;
 extern func strdup(s: i8*) -> i8*;
+extern func memcpy(dest: void*, src: void*, len: u64) -> i8*;
 
 extern func fopen(path: i8*, mode: i8*) -> void*;
 extern func fprintf(file: void*, format: const i8*, ...) -> i32;

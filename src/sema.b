@@ -8,28 +8,15 @@ import sema.expr;
 import sema.decl;
 
 func addTaggedType(state: SemaState*, decl: DeclAST*) {
-  switch (decl->kind) {
-    case DeclKind::STRUCT, DeclKind::ENUM:
-      if (findType(state->types, *getTypeTag(decl->type)) != null) {
-        failSemaDecl(decl, ": Type redef");
-      }
+  if (&decl->kind as DeclKind::Struct* != null || &decl->kind as DeclKind::Enum* != null || &decl->kind as DeclKind::Union* != null) {
+    if (findType(state->types, *getTypeTag(decl->type)) != null) {
+      failSemaDecl(decl, ": Type redef");
+    }
 
-      // Add the struct to the types.
-      let type = newDeclList(decl);
-      type->next = state->types;
-      state->types = type;
-
-    case DeclKind::UNION:
-      if (findType(state->types, *getTypeTag(decl->type)) != null) {
-        failSemaDecl(decl, ": Type redef");
-      }
-
-      let type = newDeclList(decl);
-      type->next = state->types;
-      state->types = type;
-
-    default:
-      break;
+    // Add the struct to the types.
+    let type = newDeclList(decl);
+    type->next = state->types;
+    state->types = type;
   }
 }
 
@@ -37,25 +24,23 @@ func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
   resolveTypeTags(state, decl->type, decl->location);
 
   switch (decl->kind) {
-    case DeclKind::STRUCT:
+    case DeclKind::Struct as structKind:
       // Resolve tags in fields.
-      for (let field = decl->fields; field != null; field = field->next) {
+      for (let field = structKind.fields; field != null; field = field->next) {
         resolveTypeTags(state, field->type, field->location);
       }
-
-    case DeclKind::UNION:
+    case DeclKind::Union as unionKind:
       let maxSize = 0;
-      for (let tag = decl->subTypes; tag != null; tag = tag->next) {
+      for (let tag = unionKind.subTypes; tag != null; tag = tag->next) {
         // sema the 'tag' which is a struct.
         resolveDeclTypeTags(state, tag->decl);
       }
-
-    case DeclKind::FUNC:
-      for (let field = decl->fields; field != null; field = field->next) {
+    case DeclKind::Func as funcKind:
+      for (let field = funcKind.fields; field != null; field = field->next) {
         resolveTypeTags(state, field->type, field->location);
       }
-
     default:
+      // Nothing to do for other decl types
       break;
   }
 }
@@ -92,7 +77,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
     failSemaDecl(decl, "Import not allowed in local scope");
   }
 
-  let name = getImportExprName(decl->init);
+  let name = getImportExprName((&decl->kind as DeclKind::Import*)->path);
   let rootFile = strdup(decl->location.fileName);
   let rootDir = dirname(rootFile);
 
@@ -155,7 +140,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   for (let cur = decl; cur != null; cur = cur->next) {
-    if (cur->kind == DeclKind::IMPORT) {
+    if (&cur->kind as DeclKind::Import* != null) {
       resolveImport(state, cur);
     }
   }
@@ -169,7 +154,7 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   }
 
   for (let cur = decl; cur != null; cur = cur->next) {
-    if (cur->kind == DeclKind::FUNC) {
+    if (&cur->kind as DeclKind::Func* != null) {
       addLocalDecl(state, cur);
     }
   }

@@ -198,19 +198,26 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
       return genCast(state, expr);
 
     case ExprKind::LET:
-      let init = genExpr(state, expr->decl->init);
+      let init: ExprAST* = null;
+      if (let varKind = &expr->decl->kind as DeclKind::Var*) {
+        init = varKind->init;
+      } else if (let constKind = &expr->decl->kind as DeclKind::Const*) {
+        init = constKind->init;
+      }
+
+      let initVal = genExpr(state, init);
 
       // Const expressions are handled during sema.
-      if (expr->decl->kind == DeclKind::CONST) {
-        return init;
+      if (&expr->decl->kind as DeclKind::Const* != null) {
+        return initVal;
       }
 
       // TODO: if init is an alloca, don't make a new one.
       let alloc = addAlloca(state, expr->type);
       addLocal(state, expr->decl->name, alloc);
-      genStore(state, alloc, init, expr->type);
+      genStore(state, alloc, initVal, expr->type);
 
-      return init;
+      return initVal;
 
     case ExprKind::ARG_LIST, ExprKind::SIZEOF:
       break;

@@ -6,14 +6,17 @@ import expr;
 func getFieldCount(decl: DeclAST*) -> i32 {
   let count = 0;
 
-  if (decl->kind == DeclKind::ENUM) {
-    for (let field = decl->fields; field != null; field = field->next) {
-      count++;
-    }
-  } else if (decl->kind == DeclKind::UNION) {
-    for (let tag = decl->subTypes; tag != null; tag = tag->next) {
-      count++;
-    }
+  switch (decl->kind) {
+    case DeclKind::Enum as enumKind:
+      for (let field = enumKind.fields; field != null; field = field->next) {
+        count++;
+      }
+    case DeclKind::Union as unionKind:
+      for (let tag = unionKind.subTypes; tag != null; tag = tag->next) {
+        count++;
+      }
+    default:
+      break;
   }
 
   return count;
@@ -54,7 +57,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
       }
 
       let tagIdx = 0;
-      let tagDecl = findTypeIdx(unionDecl->subTypes, tagName, &tagIdx);
+      let tagDecl = findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, tagName, &tagIdx);
       if (tagDecl == null) {
         failSemaExpr(expr, "Unkown tag in union");
       }
@@ -63,7 +66,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
       expr->value = tagIdx;
 
       // Make a new variable declaration.
-      let varDecl = newDecl(DeclKind::VAR);
+      let varDecl = newDecl(DeclKind::Var {});
       varDecl->type = tagDecl->type;
       varDecl->name = varName;
 
@@ -85,7 +88,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
           expr->type = decl->type;
         case TypeKind::Union:
           let tagDecl = findTypeIdx(
-              decl->subTypes,
+              (&decl->kind as DeclKind::Union*)->subTypes,
               expr->identifier,
               &expr->value);
           if (tagDecl == null) {
