@@ -1,4 +1,5 @@
 import ast;
+import libc;
 
 let indent_width = 2;
 
@@ -87,11 +88,21 @@ func printIndent(indent: i32) {
 
 
 func printLet(decl: DeclAST*, indent: i32) {
-  if (decl->isExtern) {
+  let isExtern = false;
+  let init: ExprAST* = null;
+
+  if (let varKind = &decl->kind as DeclKind::Var*) {
+    isExtern = varKind->isExtern;
+    init = varKind->init;
+  } else if (let constKind = &decl->kind as DeclKind::Const*) {
+    init = constKind->init;
+  }
+
+  if (isExtern) {
     printf("extern ");
   }
 
-  if (decl->kind == DeclKind::CONST) {
+  if (&decl->kind as DeclKind::Const* != null) {
     printf("const ");
   } else {
     printf("let ");
@@ -103,15 +114,15 @@ func printLet(decl: DeclAST*, indent: i32) {
     printType(decl->type);
   }
 
-  if (decl->init != null) {
+  if (init != null) {
     printf(" =");
-    if (decl->init->location.line != decl->location.line) {
+    if (init->location.line != decl->location.line) {
       printf("\n");
       printIndent(indent + indent_width * 2);
     } else {
       printf(" ");
     }
-    printExprPrec(decl->init, -1, indent);
+    printExprPrec(init, -1, indent);
   }
 }
 
@@ -469,10 +480,11 @@ func printStructBody(
     trailing: Comment*
 ) -> Comment* {
   printf(" {");
-  if (decl->fields != null) {
+  let fields = (&decl->kind as DeclKind::Struct*)->fields;
+  if (fields != null) {
     printf("\n");
   }
-  for (let field = decl->fields; field != null;
+  for (let field = fields; field != null;
        field = field->next) {
     let comments = printComments(
         field->comments,
@@ -495,7 +507,7 @@ func printStructBody(
       trailing,
       indent + indent_width,
       decl->endLocation.line);
-  if (decl->fields != null) {
+  if (fields != null) {
     printIndent(indent);
   }
   printf("}");
@@ -506,15 +518,15 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
   let trailing = printComments(decl->comments, indent, decl->location.line);
 
   switch (decl->kind) {
-    case DeclKind::STRUCT:
+    case DeclKind::Struct as structKind:
       printType(decl->type);
 
       trailing = printStructBody(decl, indent, trailing);
       printf(";");
-    case DeclKind::ENUM:
+    case DeclKind::Enum as enumKind:
       printType(decl->type);
       printf(" {\n");
-      for (let field = decl->fields; field != null;
+      for (let field = enumKind.fields; field != null;
            field = field->next) {
         let comments = printComments(
             field->comments,
@@ -530,15 +542,15 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       }
       trailing = printComments(trailing, indent + indent_width, decl->endLocation.line);
       printf("};");
-    case DeclKind::UNION:
+    case DeclKind::Union as unionKind:
       printType(decl->type);
       printf(" {");
 
-      if (decl->subTypes != null) {
+      if (unionKind.subTypes != null) {
         printf("\n");
       }
 
-      for (let subType = decl->subTypes; subType != null;
+      for (let subType = unionKind.subTypes; subType != null;
            subType = subType->next) {
         let comments = printComments(
             subType->decl->comments,
@@ -571,16 +583,16 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
           indent + indent_width,
           decl->endLocation.line);
       printf("};");
-
-    case DeclKind::ENUM_FIELD:
+    case DeclKind::EnumField:
       printToken(decl->name);
-
-    case DeclKind::VAR, DeclKind::CONST:
+    case DeclKind::Var:
       printLet(decl, indent);
       printf(";");
-
-    case DeclKind::FUNC:
-      if (decl->isExtern) {
+    case DeclKind::Const:
+      printLet(decl, indent);
+      printf(";");
+    case DeclKind::Func as funcKind:
+      if (funcKind.isExtern) {
         printf("extern ");
       }
       printf("func ");
@@ -591,14 +603,14 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       let isVarargs = fnType->isVarargs;
       let split = false;
 
-      for (let field: DeclAST* = decl->fields; field != null;
+      for (let field: DeclAST* = funcKind.fields; field != null;
            field = field->next) {
         if (field->next != null
             && field->location.line != field->next->location.line) {
           split = true;
         }
       }
-      for (let field: DeclAST* = decl->fields; field != null;
+      for (let field: DeclAST* = funcKind.fields; field != null;
            field = field->next) {
         if (split) {
           printf("\n");
@@ -630,15 +642,15 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         printType(fnType->result);
       }
 
-      if (decl->body != null) {
+      if (funcKind.body != null) {
         printf(" ");
-        printStmt(decl->body);
+        printStmt(funcKind.body);
       } else {
         printf(";");
       }
-    case DeclKind::IMPORT:
+    case DeclKind::Import as importKind:
       printf("import ");
-      printExpr(decl->init);
+      printExpr(importKind.path);
       printf(";");
   }
 
@@ -652,13 +664,23 @@ func printDecl(decl: DeclAST*) {
   printDeclIndent(decl, 0);
 }
 
-func allowNoNewline(decl: DeclAST*) -> bool {
-  if (decl->kind == DeclKind::IMPORT) {
+func allowNoNewline(decl: DeclAST*, declNext: DeclAST*) -> bool {
+  // Hack that relies on internal representation of union kind tags.
+  let kind1: i32 = 0;
+  memcpy(&kind1, &decl->kind, sizeof(kind1));
+  let kind2: i32 = 0;
+  memcpy(&kind2, &declNext->kind, sizeof(kind2));
+
+  if (kind1 != kind2) {
+    return false;
+  }
+
+  if (&decl->kind as DeclKind::Import* != null) {
     return true;
   }
 
-  if (decl->kind == DeclKind::FUNC) {
-    return decl->isExtern;
+  if (let funcKind = &decl->kind as DeclKind::Func*) {
+    return funcKind->isExtern;
   }
 
   return false;
@@ -677,8 +699,7 @@ func printTopLevel(decls: DeclAST*) {
         newlines = 2;
       }
 
-      if (lineDiff == 1 && decl->next->kind == decl->kind
-          && allowNoNewline(decl)) {
+      if (lineDiff == 1 && allowNoNewline(decl, decl->next)) {
         newlines = 1;
       }
     } else {

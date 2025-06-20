@@ -6,46 +6,45 @@ import stmt;
 
 func semaDecl(state: SemaState*, decl: DeclAST*) {
   switch (decl->kind) {
-    case DeclKind::STRUCT:
-      for (let field = decl->fields; field != null; field = field->next) {
-        if (field->kind != DeclKind::VAR) {
+    case DeclKind::Struct as structKind:
+      for (let field = structKind.fields; field != null; field = field->next) {
+        if (&field->kind as DeclKind::Var* == null) {
           failSemaDecl(field, "Only var decls allowed in struct");
         }
       }
-
-    case DeclKind::UNION:
+    case DeclKind::Union as unionKind:
       let maxSize = 0;
-      for (let tag = decl->subTypes; tag != null; tag = tag->next) {
+      for (let tag = unionKind.subTypes; tag != null; tag = tag->next) {
         let size = getStructDeclSize(state, tag->decl);
         if (size > maxSize) {
           maxSize = size;
         }
       }
-      decl->enumValue = maxSize;
-
-    case DeclKind::FUNC:
-      if (decl->body != null) {
+      unionKind.maxSize = maxSize;
+    case DeclKind::Func as funcKind:
+      if (funcKind.body != null) {
         let funcState = SemaState {
           parent = state,
           result = (decl->type->kind as TypeKind::Func*)->result,
         };
 
         // Generate a local for each arg.
-        for (let field = decl->fields; field != null; field = field->next) {
+        for (let field = funcKind.fields; field != null; field = field->next) {
           addLocalDecl(&funcState, field);
         }
-        semaStmt(&funcState, decl->body);
+        semaStmt(&funcState, funcKind.body);
       }
-
-    case DeclKind::VAR, DeclKind::CONST:
+    case DeclKind::Var:
       semaVarDecl(state, decl);
-
-    case DeclKind::ENUM:
+    case DeclKind::Const:
+      semaVarDecl(state, decl);
+    case DeclKind::Enum:
+      // Nothing to do for enums
       break;
-    case DeclKind::IMPORT:
+    case DeclKind::Import:
+      // Nothing to do for imports
       break;
-
-    case DeclKind::ENUM_FIELD:
+    case DeclKind::EnumField:
       failSemaDecl(decl, "Shoudln't happen");
       return;
   }

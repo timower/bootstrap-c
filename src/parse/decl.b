@@ -21,7 +21,7 @@ func addTrailingCommentsDecl(state: ParseState*, decl: DeclAST*) {
 
 // type_name_pair := identifier ':' type
 func parseNameTypePair(state: ParseState*) -> DeclAST* {
-  let decl = newLocDecl(state, DeclKind::VAR);
+  let decl = newLocDecl(state, DeclKind::Var {});
 
   expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
@@ -46,32 +46,37 @@ func parseSubStruct(state: ParseState*, decl: DeclAST*) {
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);  // eat {
 
-  decl->kind = DeclKind::STRUCT;
+  decl->kind = DeclKind::Struct {};
 
   // parse the fields
   let fields = decl;
+  let firstField: DeclAST* = null;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
-    fields->next = parseNameTypePair(state);
+    let field = parseNameTypePair(state);
 
     expect(state, TokenKind::SEMICOLON);
     getNextToken(state);    // eat ;
 
-    addTrailingCommentsDecl(state, fields->next);
+    addTrailingCommentsDecl(state, field);
 
-    fields = fields->next;
+    if (firstField == null) {
+      firstField = field;
+      fields = field;
+    } else {
+      fields->next = field;
+      fields = field;
+    }
   }
   decl->endLocation = getLocation(state);
   getNextToken(state);  // eat }
 
-  fields->next = null;
-  decl->fields = decl->next;
-  decl->next = null;
+  (&decl->kind as DeclKind::Struct*)->fields = firstField;
 }
 
 
 // struct := 'struct' identifier '{' decl* '}'
 func parseStruct(state: ParseState*) -> DeclAST* {
-  let decl = newLocDecl(state, DeclKind::STRUCT);
+  let decl = newLocDecl(state, DeclKind::Struct {});
   getNextToken(state);  // eat struct
   parseSubStruct(state, decl);
   return decl;
@@ -80,7 +85,7 @@ func parseStruct(state: ParseState*) -> DeclAST* {
 
 // enum := 'enum' identifier '{' identifier  (',' identifier )* ','? '}'
 func parseEnum(state: ParseState*) -> DeclAST* {
-  let decl = newLocDecl(state, DeclKind::ENUM);
+  let decl = newLocDecl(state, DeclKind::Enum {});
   getNextToken(state);
 
   expect(state, TokenKind::IDENTIFIER);
@@ -93,19 +98,25 @@ func parseEnum(state: ParseState*) -> DeclAST* {
   getNextToken(state);
 
   // parse constants
-  let fields = decl;
+  let firstField: DeclAST* = null;
+  let fields: DeclAST* = null;
   let idx = 0;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
     expect(state, TokenKind::IDENTIFIER);
 
-    let field = newLocDecl(state, DeclKind::ENUM_FIELD);
+    let field = newLocDecl(state, DeclKind::EnumField {});
     field->type = getInt32();
 
     field->name = getNextToken(state);
-    field->enumValue = idx++;
+    (&field->kind as DeclKind::EnumField*)->enumValue = idx++;
 
-    fields->next = field;
-    fields = field;
+    if (firstField == null) {
+      firstField = field;
+      fields = field;
+    } else {
+      fields->next = field;
+      fields = field;
+    }
 
     field->endLocation = getLocation(state);
 
@@ -122,14 +133,12 @@ func parseEnum(state: ParseState*) -> DeclAST* {
   decl->endLocation = getLocation(state);
   getNextToken(state);  // eat }
 
-  fields->next = null;
-  decl->fields = decl->next;
-  decl->next = null;
+  (&decl->kind as DeclKind::Enum*)->fields = firstField;
   return decl;
 }
 
 func parseUnion(state: ParseState*) -> DeclAST* {
-  let decl = newLocDecl(state, DeclKind::UNION);
+  let decl = newLocDecl(state, DeclKind::Union {});
   getNextToken(state);  // eat 'union'
 
   expect(state, TokenKind::IDENTIFIER);
@@ -140,13 +149,14 @@ func parseUnion(state: ParseState*) -> DeclAST* {
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);
 
-  let declListPtr = &decl->subTypes;
+  let unionKind = &decl->kind as DeclKind::Union*;
+  let declListPtr = &unionKind->subTypes;
   while (!match(state, TokenKind::CLOSE_BRACE)) {
-    let tag = newLocDecl(state, DeclKind::STRUCT);
+    let tag = newLocDecl(state, DeclKind::Struct {});
     parseSubStruct(state, tag);
 
     // Use 'arg' of the struct type to point to the parent type.
-    let structType = tag->type->kind as TypeKind::Struct*;
+    let structType = &tag->type->kind as TypeKind::Struct*;
     structType->parent = decl->type;
 
     // TODO: trailing comments?
@@ -165,8 +175,8 @@ func parseUnion(state: ParseState*) -> DeclAST* {
 // func_decl :=
 //  'func' identifier [ '->' type ] '(' [decl (',' decl)*] ')' compound_stmt?
 func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
-  let decl = newLocDecl(state, DeclKind::FUNC);
-  decl->isExtern = isExtern;
+  let decl = newLocDecl(state, DeclKind::Func {});
+  (&decl->kind as DeclKind::Func*)->isExtern = isExtern;
   getNextToken(state);  // eat func
 
   expect(state, TokenKind::IDENTIFIER);
@@ -179,7 +189,8 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   getNextToken(state);  // eat (
 
   let curType = decl->type;
-  let curDecl = decl;
+  let firstParam: DeclAST* = null;
+  let curParam: DeclAST* = null;
   while (!match(state, TokenKind::CLOSE_PAREN)) {
     if (match(state, TokenKind::ELLIPSIS)) {
       getNextToken(state);
@@ -190,8 +201,13 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
     }
 
     let param = parseNameTypePair(state);
-    curDecl->next = param;
-    curDecl = param;
+    if (firstParam == null) {
+      firstParam = param;
+      curParam = param;
+    } else {
+      curParam->next = param;
+      curParam = param;
+    }
     curType->next = param->type;
     curType = param->type;
 
@@ -204,8 +220,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   }
   getNextToken(state);  // eat )
 
-  decl->fields = decl->next;
-  decl->next = null;
+  (&decl->kind as DeclKind::Func*)->fields = firstParam;
 
   funcType->args = decl->type->next;
   decl->type->next = null;
@@ -217,10 +232,11 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
     funcType->result = newType(TypeKind::Void {});
   }
 
-  if (!decl->isExtern) {
+  let funcKind = &decl->kind as DeclKind::Func*;
+  if (!funcKind->isExtern) {
     expect(state, TokenKind::OPEN_BRACE);
-    decl->body = parseCompoundStmt(state);
-    decl->endLocation = decl->body->endLocation;
+    funcKind->body = parseCompoundStmt(state);
+    decl->endLocation = funcKind->body->endLocation;
   } else {
     expect(state, TokenKind::SEMICOLON);
     decl->endLocation = getLocation(state);
@@ -233,7 +249,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
 }
 
 func parseImportDecl(state: ParseState*) -> DeclAST* {
-  let decl = newLocDecl(state, DeclKind::IMPORT);
+  let decl = newLocDecl(state, DeclKind::Import {});
   getNextToken(state);  // eat import
 
   expect(state, TokenKind::IDENTIFIER);
@@ -251,7 +267,7 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
     expr = member;
   }
 
-  decl->init = expr;
+  (&decl->kind as DeclKind::Import*)->path = expr;
   decl->endLocation = getLocation(state);
   expect(state, TokenKind::SEMICOLON);
   getNextToken(state);
@@ -263,9 +279,13 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
 
 func parseLetDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   let decl = parseVarDecl(state);
-  decl->isExtern = isExtern;
-  if (isExtern && decl->init != null) {
-    failParse(state, "Extern let cannot have init");
+  if (let varKind = &decl->kind as DeclKind::Var*) {
+    varKind->isExtern = isExtern;
+    if (isExtern && varKind->init != null) {
+      failParse(state, "Extern let cannot have init");
+    }
+  } else if (isExtern) {
+    failParse(state, "Cannot have extern const");
   }
 
   expect(state, TokenKind::SEMICOLON);

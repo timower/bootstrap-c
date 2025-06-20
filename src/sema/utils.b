@@ -6,7 +6,16 @@ func findField(
     idxOut: i32*
 ) -> DeclAST* {
   let idx = 0;
-  for (let field = structDecl->fields; field != null;
+  let fields: DeclAST* = null;
+  switch (structDecl->kind) {
+    case DeclKind::Struct as structKind:
+      fields = structKind.fields;
+    case DeclKind::Enum as enumKind:
+      fields = enumKind.fields;
+    default:
+      break;
+  }
+  for (let field = fields; field != null;
        field = field->next, idx++) {
     if (tokCmp(name, field->name)) {
       *idxOut = idx;
@@ -30,7 +39,7 @@ func lookupStruct(state: SemaState*, type: TypeKind::Struct*) -> DeclAST* {
       return null;
     }
 
-    return findType(unionDecl->subTypes, type->tag);
+    return findType((&unionDecl->kind as DeclKind::Union*)->subTypes, type->tag);
   }
   return lookupType(state, type->tag);
 }
