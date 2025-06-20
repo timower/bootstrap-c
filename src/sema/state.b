@@ -74,9 +74,9 @@ func getNullDecl(name: i8*) -> DeclAST* {
   nullTok.end = name + strlen(name);
 
   // Add null as a nullptr
-  let nullDecl = newDecl(DeclKind::ENUM_FIELD);
+  let nullDecl = newDecl(DeclKind::EnumField {});
   nullDecl->name = nullTok;
-  nullDecl->enumValue = 0;
+  (&nullDecl->kind as DeclKind::EnumField*)->enumValue = 0;
   nullDecl->type = newType(TypeKind::Pointer {
     pointee = newType(TypeKind::Void {}),
   });

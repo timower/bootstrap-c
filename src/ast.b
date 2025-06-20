@@ -136,55 +136,52 @@ struct ExprAST {
   location: SourceLoc;
 };
 
-enum DeclKind {
-  // Local & Global decls.
-  VAR,
-
-  // Comptime constants.
-  CONST,
-
-  // Global decls
-  STRUCT,
-  ENUM,
-  FUNC,
-  IMPORT,
-  UNION,
-
-  // Specials
-  ENUM_FIELD,
+union DeclKind {
+  Var {
+    init: ExprAST*;
+    isExtern: bool;
+  }
+  Const {
+    init: ExprAST*;
+    enumValue: i32;
+  }
+  Struct {
+    fields: DeclAST*;
+  }
+  Enum {
+    fields: DeclAST*;
+  }
+  Func {
+    fields: DeclAST*;
+    body: StmtAST*;
+    isExtern: bool;
+  }
+  Import {
+    path: ExprAST*;
+  }
+  Union {
+    subTypes: DeclList*;
+    maxSize: i32;
+  }
+  EnumField {
+    enumValue: i32;
+  }
 };
 
 struct DeclAST {
   kind: DeclKind;
 
   type: Type*;
-
   name: Token;
 
-  // For var decl.
-  init: ExprAST*;
-
-  // For  decls, linked list of fields.
-  // For funcs, linked list of args
-  // For top level decls, linked list of decls.
-  fields: DeclAST*;
+  // To form linked list of declarations
   next: DeclAST*;
-
-  // For function defs
-  body: StmtAST*;
-
-  // For enum values
-  enumValue: i32;
-
-  isExtern: bool;
 
   location: SourceLoc;
   endLocation: SourceLoc;
 
   // Only for concrete parsing.
   comments: Comment*;
-
-  subTypes: DeclList*;
 };
 
 struct DeclList {

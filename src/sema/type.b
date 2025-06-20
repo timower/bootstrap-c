@@ -116,7 +116,7 @@ func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
           failSema(loc, "Can't resolve type tags, unknown parent type");
         }
 
-        let tagDecl = findType(parentDecl->subTypes, tagType.tag);
+        let tagDecl = findType((&parentDecl->kind as DeclKind::Union*)->subTypes, tagType.tag);
         if (tagDecl == null) {
           failSema(loc, "Can't resolve type tags, unknown sub type");
         }
@@ -173,7 +173,7 @@ func doDecay(type: Type*) -> Type* {
 
 func getStructDeclSize(state: SemaState*, decl: DeclAST*) -> i32 {
   let size = 0;
-  for (let field = decl->fields; field != null; field = field->next) {
+  for (let field = (&decl->kind as DeclKind::Struct*)->fields; field != null; field = field->next) {
     size += getSize(state, field->type);
   }
   return size == 0 ? 1 : size;
@@ -217,7 +217,7 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
     case TypeKind::Union as u:
       let maxSize = 0;
       let decl = lookupType(state, u.tag);
-      for (let sub = decl->subTypes; sub != null; sub = sub->next) {
+      for (let sub = (&decl->kind as DeclKind::Union*)->subTypes; sub != null; sub = sub->next) {
         let size = getStructDeclSize(state, sub->decl);
         if (size > maxSize) {
           maxSize = size;

@@ -12,7 +12,7 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
   state->curBB = addBasicBlock(state, "entry");
 
   let idx = 0;
-  for (let arg = decl->fields; arg != null; arg = arg->next, idx++) {
+  for (let arg = (&decl->kind as DeclKind::Func*)->fields; arg != null; arg = arg->next, idx++) {
     // TODO: just return Value?
     let alloc = addAlloca(state, arg->type);
 
@@ -26,7 +26,7 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
     });
   }
 
-  genStmt(state, decl->body);
+  genStmt(state, (&decl->kind as DeclKind::Func*)->body);
 
   // TODO: check if there's no terminator
   let fnType = fn->type->kind as TypeKind::Func*;

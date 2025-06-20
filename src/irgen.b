@@ -13,37 +13,37 @@ func genModule(decls: DeclAST*) -> Module {
 
   for (let cur = decls; cur != null; cur = cur->next) {
     switch (cur->kind) {
-      // Add all functions so we can use before decl.
-      case DeclKind::FUNC:
+      case DeclKind::Func as funcKind:
+        // Add all functions so we can use before decl.
         let global = addFunc(&state, cur);
         addLocal(&state, cur->name, global);
-
-      // Add typedefs for struct and unions types.
-      case DeclKind::STRUCT:
+      case DeclKind::Struct:
+        // Add typedefs for struct and unions types.
         addStruct(&state, cur);
-      case DeclKind::UNION:
+      case DeclKind::Union:
         addUnion(&state, cur);
-
-      // add Globals
-      case DeclKind::VAR:
+      case DeclKind::Var:
+        // add Globals
         let global = addGlobal(&state, cur);
         addLocal(&state, cur->name, global);
-
       default:
+        // Nothing to do for other decl types in first pass
         break;
     }
   }
 
   for (let cur = decls; cur != null; cur = cur->next) {
-    if (cur->kind == DeclKind::FUNC && cur->body != null) {
-      let fun = findName(&state, cur->name);
-      if (fun == null) {
-        failIRGen("Expected to find function");
+    if (let funcKind = &cur->kind as DeclKind::Func*) {
+      if (funcKind->body != null) {
+        let fun = findName(&state, cur->name);
+        if (fun == null) {
+          failIRGen("Expected to find function");
+        }
+
+        let fnPtr = fun as Value::FuncPtr*;
+
+        genFunc(&state, cur, fnPtr->ptr);
       }
-
-      let fnPtr = fun as Value::FuncPtr*;
-
-      genFunc(&state, cur, fnPtr->ptr);
     }
   }
 
@@ -66,9 +66,10 @@ func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
   global->name = buf;
   global->type = decl->type;
 
-  if (decl->init != null) {
-    global->init = genConstant(state, decl->init);
-  } else if (!decl->isExtern) {
+  let varKind = &decl->kind as DeclKind::Var*;
+  if (varKind->init != null) {
+    global->init = genConstant(state, varKind->init);
+  } else if (!varKind->isExtern) {
     global->init = Value::Zero {
       type = decl->type,
     };
@@ -107,7 +108,7 @@ func addStruct(state: IRGenState*, decl: DeclAST*) {
 
   irStruct->name = convertType(decl->type);
   let typePtr = &irStruct->fields;
-  for (let field = decl->fields; field != null; field = field->next) {
+  for (let field = (&decl->kind as DeclKind::Struct*)->fields; field != null; field = field->next) {
     *typePtr = field->type;
     typePtr = &field->type->next;
   }
@@ -118,7 +119,7 @@ func addStruct(state: IRGenState*, decl: DeclAST*) {
 
 func addUnion(state: IRGenState*, decl: DeclAST*) {
   // emit nested structs
-  for (let tag = decl->subTypes; tag != null; tag = tag->next) {
+  for (let tag = (&decl->kind as DeclKind::Union*)->subTypes; tag != null; tag = tag->next) {
     addStruct(state, tag->decl);
   }
 
@@ -130,7 +131,7 @@ func addUnion(state: IRGenState*, decl: DeclAST*) {
   irStruct->fields = getInt32();
   let tagBuffer = newType(TypeKind::Array {
     element = getCharType(),
-    size = decl->enumValue,
+    size = (&decl->kind as DeclKind::Union*)->maxSize,
   });
   irStruct->fields->next = tagBuffer;
 
