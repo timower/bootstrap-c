@@ -444,13 +444,23 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
     case ExprKind::SCOPE:
       let decl = lookupType(state, expr->parent);
-      if (decl == null || decl->kind != DeclKind::ENUM) {
-        failSemaExpr(expr, "Expected enum type for scope expr");
+      if (decl == null) {
+        failSemaExpr(expr, "Unknown type for scope expr");
       }
 
-      let fieldDecl = findField(decl, expr->identifier, &expr->value);
-      if (fieldDecl == null) {
-        failSemaExpr(expr, " Cannot find field");
+      switch (decl->kind) {
+        case DeclKind::ENUM:
+          let fieldDecl = findField(decl, expr->identifier, &expr->value);
+          if (fieldDecl == null) {
+            failSemaExpr(expr, " Cannot find field");
+          }
+        case DeclKind::UNION:
+          let tagDecl = findTypeIdx(decl->subTypes, expr->identifier, &expr->value);
+          if (tagDecl == null) {
+            failSemaExpr(expr, " Cannot find union tag");
+          }
+        default:
+          failSemaExpr(expr, "Expected enum or union type for scope expr");
       }
 
       expr->type = decl->type;

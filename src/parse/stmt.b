@@ -166,8 +166,8 @@ func parseCaseOrDefault(state: ParseState*) -> StmtAST* {
   expect(state, TokenKind::COLON);
   getNextToken(state);
 
-  if (match(state, TokenKind::CASE) || match(state, TokenKind::DEFAULT)) {
-    failParse(state, "Empty case not allowed, use break");
+  if (match(state, TokenKind::CASE) || match(state, TokenKind::DEFAULT) || match(state, TokenKind::CLOSE_BRACE)) {
+    failParse(state, "Empty case not allowed");
   }
 
   let cur = stmt;
