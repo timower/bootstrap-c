@@ -1,6 +1,7 @@
 import libc;
 
 import ast;
+import ast.print;
 import parse;
 import sema;
 import emit;
@@ -19,8 +20,14 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   let semaState = initSemaState(args.target);
+
+  debug("Begin sema");
   decls = semaTopLevel(&semaState, decls);
+  debug("End sema");
+
+  debug("Begin irgen");
   let module = genModule(decls);
+  debug("End irgen");
 
   if (args.outputFile != null) {
     let file = fopen(args.outputFile, "wb");
@@ -34,8 +41,10 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   if (args.outputKind == OutputKind::LLVM) {
+    debug("Begin print ir");
     printModule(&module);
   } else {
+    debug("Begin emit");
     emitAsm(&module, args.target);
   }
 

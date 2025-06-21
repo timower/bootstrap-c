@@ -127,12 +127,10 @@ func parseCaseExpr(state: ParseState*) -> ExprAST* {
 
   if (match(state, TokenKind::AS)) {
     // TODO: this isn't really a member expr.
-    let res = newLocExpr(state, ExprKind::MEMBER);
-    res->op = getNextToken(state);
-    res->lhs = expr;
-
+    let op = getNextToken(state);
     expect(state, TokenKind::IDENTIFIER);
-    res->identifier = getNextToken(state);
+    let identifier = getNextToken(state);
+    let res = newLocExpr(state, ExprKind::Member { object = expr, identifier = identifier, op = op, fieldIndex = -1 });
 
     return res;
   }
@@ -141,12 +139,7 @@ func parseCaseExpr(state: ParseState*) -> ExprAST* {
     let op = getNextToken(state);
     let rhs = parsePrimary(state);
 
-    let new = newLocExpr(state, ExprKind::BINARY);
-    new->lhs = expr;
-    new->op = op;
-    new->rhs = rhs;
-
-    expr = new;
+    expr = newLocExpr(state, ExprKind::Binary { op = op, lhs = expr, rhs = rhs });
   }
 
   return expr;

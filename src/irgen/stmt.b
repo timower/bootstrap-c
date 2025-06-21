@@ -221,24 +221,35 @@ func getCases(
     bb: BasicBlock*
 ) -> Case* {
   switch (expr->kind) {
-    case ExprKind::SCOPE, ExprKind::INT:
+    case ExprKind::Scope as scopeExpr:
       let cse = newCase(cases, bb);
       if (unionAddr != null) {
         cse->val = Value::IntConstant {
-          value = expr->value,
+          value = scopeExpr.enumValue,
           type = getInt32(),
         };
       } else {
-        cse->val = genExpr(state, expr);
+        cse->val = genConstant(state, expr);
       }
-      cse->next = cases;
       return cse;
 
-    case ExprKind::BINARY:
-      let lhsCases = getCases(state, expr->lhs, unionAddr, cases, bb);
-      return getCases(state, expr->rhs, unionAddr, lhsCases, bb);
+    case ExprKind::Int as intExpr:
+      let cse = newCase(cases, bb);
+      if (unionAddr != null) {
+        cse->val = Value::IntConstant {
+          value = intExpr.value,
+          type = getInt32(),
+        };
+      } else {
+        cse->val = genConstant(state, expr);
+      }
+      return cse;
 
-    case ExprKind::MEMBER:
+    case ExprKind::Binary as binExpr:
+      let lhsCases = getCases(state, binExpr.lhs, unionAddr, cases, bb);
+      return getCases(state, binExpr.rhs, unionAddr, lhsCases, bb);
+
+    case ExprKind::Member as memberExpr:
       if (unionAddr == null) {
         failIRGen("case as on non union type?");
       }
@@ -247,11 +258,11 @@ func getCases(
         ptr = *unionAddr,
         field = 1,
       });
-      addLocal(state, expr->identifier, val);
+      addLocal(state, memberExpr.identifier, val);
 
       let cse = newCase(cases, bb);
       cse->val = Value::IntConstant {
-        value = expr->value,
+        value = memberExpr.fieldIndex,
         type = getInt32(),
       };
       return cse;

@@ -7,11 +7,12 @@ import util;
 import irgen.state;
 import irgen.utils;
 
+
 func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
   switch (expr->kind) {
-    case ExprKind::INT, ExprKind::SCOPE:
+    case ExprKind::Int as intExpr:
       if (expr->type->kind as TypeKind::Pointer* != null) {
-        if (expr->value != 0) {
+        if (intExpr.value != 0) {
           failIRGen("Only null constants supported");
         }
         return Value::Zero {
@@ -20,24 +21,39 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
       }
 
       return Value::IntConstant {
-        value = expr->value,
+        value = intExpr.value,
         type = expr->type,
       };
 
-    case ExprKind::STR:
+    case ExprKind::Scope as scopeExpr:
+      if (expr->type->kind as TypeKind::Pointer* != null) {
+        if (scopeExpr.enumValue != 0) {
+          failIRGen("Only null constants supported");
+        }
+        return Value::Zero {
+          type = expr->type,
+        };
+      }
+
+      return Value::IntConstant {
+        value = scopeExpr.enumValue,
+        type = expr->type,
+      };
+
+    case ExprKind::Str as strExpr:
       return Value::StrConstant {
-        value = expr->identifier,
+        value = strExpr.identifier,
         type = expr->type,
       };
 
-    case ExprKind::ARRAY:
+    case ExprKind::Array as arrayExpr:
       let arrayType = expr->type->kind as TypeKind::Array*;
       let size = arrayType->size as u32;
       let values = calloc(size as u64, sizeof(union Value)) as Value*;
 
       let i = 0;
-      for (let field = expr; field != null; field = field->rhs, i++) {
-        *(values + i) = genConstant(state, field->lhs);
+      for (let field = arrayExpr.elements; field != null; field = field->next, i++) {
+        *(values + i) = genConstant(state, field);
       }
       return Value::ArrayConstant {
         type = expr->type,
@@ -47,25 +63,16 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
 
     // Address of global
     // TODO: allow offsets?
-    case ExprKind::UNARY:
-      if (expr->op.kind != TokenKind::AND) {
+    case ExprKind::Unary as unaryExpr:
+      if (unaryExpr.op.kind != TokenKind::AND) {
         break;
       }
-      let globalVar = expr->rhs;
-      if (globalVar->kind != ExprKind::VARIABLE) {
+      let globalVar = unaryExpr.prefix;
+      let varExpr = globalVar->kind as ExprKind::Variable*;
+      if (varExpr == null) {
         break;
       }
-      let var = findName(state, globalVar->identifier);
-      if (var == null) {
-        break;
-      }
-
-      if (let globalPtr = var as Value::GlobalPtr*) {
-        return *var;
-      }
-
-    case ExprKind::VARIABLE:
-      let var = findName(state, expr->identifier);
+      let var = findName(state, varExpr->identifier);
       if (var == null) {
         break;
       }
@@ -85,48 +92,48 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
 
 func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
   switch (expr->kind) {
-    case ExprKind::VARIABLE:
-      let var = findName(state, expr->identifier);
+    case ExprKind::Variable as varExpr:
+      let var = findName(state, varExpr.identifier);
       if (var == null) {
         failIRGen("Failed to find variable");
       }
       return *var;
 
-    case ExprKind::UNARY:
-      if (expr->op.kind == TokenKind::STAR) {
-        return genExpr(state, expr->rhs);
+    case ExprKind::Unary as unaryExpr:
+      if (unaryExpr.op.kind == TokenKind::STAR) {
+        return genExpr(state, unaryExpr.prefix);
       }
 
-    case ExprKind::INDEX:
-      let array = genAddr(state, expr->lhs);
-      let index = genExpr(state, expr->rhs);
+    case ExprKind::Index as indexExpr:
+      let array = genAddr(state, indexExpr.array);
+      let index = genExpr(state, indexExpr.index);
       return addInstr(state, getPtrType(), InstrKind::ArrayGEP {
         type = expr->type,
         ptr = array,
         idx = index,
       });
 
-    case ExprKind::MEMBER:
-      let agg = expr->op.kind == TokenKind::DOT
-           ? genAddr(state, expr->lhs)
-           : genExpr(state, expr->lhs);
+    case ExprKind::Member as memberExpr:
+      let agg = memberExpr.op.kind == TokenKind::DOT
+           ? genAddr(state, memberExpr.object)
+           : genExpr(state, memberExpr.object);
 
       let aggType: Type* = null;
-      if (expr->op.kind == TokenKind::DOT) {
-        aggType = expr->lhs->type;
+      if (memberExpr.op.kind == TokenKind::DOT) {
+        aggType = memberExpr.object->type;
       } else {
-        aggType = (expr->lhs->type->kind as TypeKind::Pointer*)->pointee;
+        aggType = (memberExpr.object->type->kind as TypeKind::Pointer*)->pointee;
       }
       return addInstr(state, getPtrType(), InstrKind::StructGEP {
         type = aggType,
         ptr = agg,
-        field = expr->value,
+        field = memberExpr.fieldIndex,
       });
 
-    case ExprKind::PAREN:
-      return genAddr(state, expr->lhs);
+    case ExprKind::Paren as parenExpr:
+      return genAddr(state, parenExpr.expr);
 
-    case ExprKind::CALL:
+    case ExprKind::Call:
       if (!isAggregate(expr->type)) {
         break;
       }
@@ -147,79 +154,79 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
 
 func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
   switch (expr->kind) {
-    case ExprKind::PAREN:
-      return genExpr(state, expr->lhs);
+    case ExprKind::Paren as parenExpr:
+      return genExpr(state, parenExpr.expr);
 
-    case ExprKind::INT, ExprKind::SCOPE, ExprKind::STR, ExprKind::ARRAY:
+    case ExprKind::Int, ExprKind::Scope, ExprKind::Str, ExprKind::Array:
       return genConstant(state, expr);
 
-    case ExprKind::VARIABLE, ExprKind::INDEX, ExprKind::MEMBER:
+    case ExprKind::Variable, ExprKind::Index, ExprKind::Member:
       let addr = genAddr(state, expr);
       return genLoad(state, addr, expr->type);
 
-    case ExprKind::UNARY:
+    case ExprKind::Unary:
       return genUnary(state, expr);
 
-    case ExprKind::BINARY:
-      if (isAssign(expr->op)) {
+    case ExprKind::Binary as binExpr:
+      if (isAssign(binExpr.op)) {
         return genAssign(state, expr);
       }
 
-      if (expr->op.kind == TokenKind::AND_OP || expr->op.kind == TokenKind::OR_OP) {
+      if (binExpr.op.kind == TokenKind::AND_OP || binExpr.op.kind == TokenKind::OR_OP) {
         return genLogicalBinOp(state, expr);
       }
 
-      let lhs = genExpr(state, expr->lhs);
-      let rhs = genExpr(state, expr->rhs);
+      let lhs = genExpr(state, binExpr.lhs);
+      let rhs = genExpr(state, binExpr.rhs);
 
-      if (expr->op.kind == TokenKind::COMMA) {
+      if (binExpr.op.kind == TokenKind::COMMA) {
         return rhs;
       }
 
       return genBinary(
           state,
           expr->type,
-          expr->op.kind,
+          binExpr.op.kind,
           lhs,
-          expr->lhs->type,
+          binExpr.lhs->type,
           rhs,
-          expr->rhs->type);
+          binExpr.rhs->type);
 
-    case ExprKind::CONDITIONAL:
+    case ExprKind::Conditional:
       return genConditional(state, expr);
 
-    case ExprKind::CALL:
+    case ExprKind::Call:
       return genCall(state, expr);
 
-    case ExprKind::STRUCT:
+    case ExprKind::Struct:
       return genStructExpr(state, expr);
 
-    case ExprKind::CAST:
+    case ExprKind::Cast:
       return genCast(state, expr);
 
-    case ExprKind::LET:
+    case ExprKind::Let as letExpr:
       let init: ExprAST* = null;
-      if (let varKind = &expr->decl->kind as DeclKind::Var*) {
+      if (let varKind = &letExpr.decl->kind as DeclKind::Var*) {
         init = varKind->init;
-      } else if (let constKind = &expr->decl->kind as DeclKind::Const*) {
+      } else if (let constKind = &letExpr.decl->kind as DeclKind::Const*) {
         init = constKind->init;
       }
 
       let initVal = genExpr(state, init);
 
       // Const expressions are handled during sema.
-      if (&expr->decl->kind as DeclKind::Const* != null) {
+      if (&letExpr.decl->kind as DeclKind::Const* != null) {
         return initVal;
       }
 
       // TODO: if init is an alloca, don't make a new one.
       let alloc = addAlloca(state, expr->type);
-      addLocal(state, expr->decl->name, alloc);
+      addLocal(state, letExpr.decl->name, alloc);
       genStore(state, alloc, initVal, expr->type);
 
       return initVal;
 
-    case ExprKind::ARG_LIST, ExprKind::SIZEOF:
+    case ExprKind::Sizeof:
       break;
   }
 
@@ -227,23 +234,24 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
 }
 
 func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
-  switch (expr->op.kind) {
+  let unaryExpr = expr->kind as ExprKind::Unary*;
+  switch (unaryExpr->op.kind) {
     case TokenKind::STAR:
-      let addr = genExpr(state, expr->rhs);
+      let addr = genExpr(state, unaryExpr->prefix);
       return genLoad(state, addr, expr->type);
 
     case TokenKind::AND:
-      return genAddr(state, expr->rhs);
+      return genAddr(state, unaryExpr->prefix);
 
     case TokenKind::INC_OP, TokenKind::DEC_OP:
-      let opExpr = expr->lhs == null ? expr->rhs : expr->lhs;
+      let opExpr = unaryExpr->postfix == null ? unaryExpr->prefix : unaryExpr->postfix;
       let operand = genAddr(state, opExpr);
       let val = genLoad(state, operand, opExpr->type);
       let type = opExpr->type->kind as TypeKind::Pointer* != null
            ? getInt32()
            : opExpr->type;
       let one = Value::IntConstant {
-        value = expr->op.kind == TokenKind::INC_OP ? 1 : -1,
+        value = unaryExpr->op.kind == TokenKind::INC_OP ? 1 : -1,
         type = type,
       };
       let res = genBinary(
@@ -258,24 +266,24 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
         ptr = operand,
         val = res,
       });
-      if (expr->lhs != null) {
+      if (unaryExpr->postfix != null) {
         return val;
       }
       return res;
 
     case TokenKind::PLUS, TokenKind::MINUS:
-      let op = genExpr(state, expr->rhs);
+      let op = genExpr(state, unaryExpr->prefix);
       return addInstr(state, expr->type, InstrKind::Binary {
         op = BinaryOp::Add,
         lhs = op,
         rhs = Value::IntConstant {
-          value = expr->op.kind == TokenKind::PLUS ? 1 : -1,
+          value = unaryExpr->op.kind == TokenKind::PLUS ? 1 : -1,
           type = getInt32(),
         },
       });
 
     case TokenKind::TILDE:
-      let op = genExpr(state, expr->rhs);
+      let op = genExpr(state, unaryExpr->prefix);
       return addInstr(state, expr->type, InstrKind::Binary {
         op = BinaryOp::Xor,
         lhs = op,
@@ -286,7 +294,7 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
       });
 
     case TokenKind::BANG:
-      let op = genExpr(state, expr->rhs);
+      let op = genExpr(state, unaryExpr->prefix);
       return addInstr(state, expr->type, InstrKind::Cmp {
         op = CmpOp::Eq,
         lhs = op,
@@ -302,11 +310,13 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
 }
 
 func genCast(state: IRGenState*, expr: ExprAST*) -> Value {
-  let v = genExpr(state, expr->lhs);
+  let castExpr = expr->kind as ExprKind::Cast*;
 
-  let from = expr->lhs->type;
+  let v = genExpr(state, castExpr->expr);
+
+  let from = castExpr->expr->type;
   let to = expr->type;
-  switch (expr->castKind) {
+  switch (castExpr->castKind) {
     case CastKind::Noop:
       return v;
 
@@ -321,7 +331,7 @@ func genCast(state: IRGenState*, expr: ExprAST*) -> Value {
 
       let kindType = getInt32();
       let kindVal = Value::IntConstant {
-        value = expr->value,
+        value = castExpr->fieldIndex,
         type = kindType,
       };
       genStore(state, kindAddr, kindVal, kindType);
@@ -355,7 +365,7 @@ func genCast(state: IRGenState*, expr: ExprAST*) -> Value {
         op = CmpOp::Eq,
         lhs = kind,
         rhs = Value::IntConstant {
-          value = expr->value,
+          value = castExpr->fieldIndex,
           type = kindType,
         },
       });
@@ -370,7 +380,7 @@ func genCast(state: IRGenState*, expr: ExprAST*) -> Value {
 
     case CastKind::Trunc, CastKind::Sext, CastKind::Zext, CastKind::PtrToInt:
       return addInstr(state, expr->type, InstrKind::Cast {
-        kind = expr->castKind,
+        kind = castExpr->castKind,
         val = v,
       });
   }
@@ -499,7 +509,8 @@ func genBinary(
 }
 
 func genLogicalBinOp(state: IRGenState*, expr: ExprAST*) -> Value {
-  let lhs = genExpr(state, expr->lhs);
+  let binExpr = expr->kind as ExprKind::Binary*;
+  let lhs = genExpr(state, binExpr->lhs);
   let entryBB = state->curBB;
 
   let trueBB = addBasicBlock(state, "true");
@@ -509,7 +520,7 @@ func genLogicalBinOp(state: IRGenState*, expr: ExprAST*) -> Value {
   let secondBB = falseBB;
 
   let falseResult = 0;
-  if (expr->op.kind == TokenKind::OR_OP) {
+  if (binExpr->op.kind == TokenKind::OR_OP) {
     falseResult = 1;
     firstBB = falseBB;
     secondBB = trueBB;
@@ -522,7 +533,7 @@ func genLogicalBinOp(state: IRGenState*, expr: ExprAST*) -> Value {
   });
 
   state->curBB = trueBB;
-  let rhs = genExpr(state, expr->rhs);
+  let rhs = genExpr(state, binExpr->rhs);
   let exitBB = state->curBB;
   addInstr(state, null, InstrKind::Branch {
     bb = falseBB,
@@ -541,18 +552,19 @@ func genLogicalBinOp(state: IRGenState*, expr: ExprAST*) -> Value {
 }
 
 func genAssign(state: IRGenState*, expr: ExprAST*) -> Value {
-  let adr = genAddr(state, expr->lhs);
-  let val = genExpr(state, expr->rhs);
+  let binExpr = expr->kind as ExprKind::Binary*;
+  let adr = genAddr(state, binExpr->lhs);
+  let val = genExpr(state, binExpr->rhs);
 
-  if (expr->op.kind == TokenKind::EQ) {
+  if (binExpr->op.kind == TokenKind::EQ) {
     genStore(state, adr, val, expr->type);
     return val;
   }
 
-  let lval = genLoad(state, adr, expr->lhs->type);
+  let lval = genLoad(state, adr, binExpr->lhs->type);
 
   let op = TokenKind::TOK_EOF;
-  switch (expr->op.kind) {
+  switch (binExpr->op.kind) {
     case TokenKind::ADD_ASSIGN:
       op = TokenKind::PLUS;
     case TokenKind::SUB_ASSIGN:
@@ -582,16 +594,17 @@ func genAssign(state: IRGenState*, expr: ExprAST*) -> Value {
       expr->type,
       op,
       lval,
-      expr->lhs->type,
+      binExpr->lhs->type,
       val,
-      expr->rhs->type);
+      binExpr->rhs->type);
 
   genStore(state, adr, res, expr->type);
   return res;
 }
 
 func genConditional(state: IRGenState*, expr: ExprAST*) -> Value {
-  let cond = genExpr(state, expr->cond);
+  let condExpr = expr->kind as ExprKind::Conditional*;
+  let cond = genExpr(state, condExpr->cond);
 
   let trueBB = addBasicBlock(state, "true");
   let falseBB = addBasicBlock(state, "false");
@@ -604,14 +617,14 @@ func genConditional(state: IRGenState*, expr: ExprAST*) -> Value {
   });
 
   state->curBB = trueBB;
-  let trueVal = genExpr(state, expr->lhs);
+  let trueVal = genExpr(state, condExpr->trueExpr);
   addInstr(state, null, InstrKind::Branch {
     bb = contBB,
   });
   let trueExitBB = state->curBB;
 
   state->curBB = falseBB;
-  let falseVal = genExpr(state, expr->rhs);
+  let falseVal = genExpr(state, condExpr->falseExpr);
   addInstr(state, null, InstrKind::Branch {
     bb = contBB,
   });
@@ -631,6 +644,7 @@ func genConditional(state: IRGenState*, expr: ExprAST*) -> Value {
 }
 
 func genStructExpr(state: IRGenState*, expr: ExprAST*) -> Value {
+  let structExpr = expr->kind as ExprKind::Struct*;
   let res = addAlloca(state, expr->type);
   addInstr(state, null, InstrKind::Store {
     ptr = res,
@@ -639,39 +653,43 @@ func genStructExpr(state: IRGenState*, expr: ExprAST*) -> Value {
     },
   });
 
-  for (let field = expr->rhs; field != null; field = field->rhs) {
-    let fieldVal = genExpr(state, field->lhs);
-    let fieldGep = addInstr(state, getPtrType(), InstrKind::StructGEP {
+  for (let field = structExpr->fieldIndices; field != null; field = field->next) {
+    let fieldVal = genExpr(state, field->value);
+    let fieldGep =
+        addInstr(state, getPtrType(), InstrKind::StructGEP {
       type = expr->type,
       ptr = res,
-      field = field->value,
+      field = field->index,
     });
-    genStore(state, fieldGep, fieldVal, field->lhs->type);
+    genStore(state, fieldGep, fieldVal, field->value->type);
   }
 
   return res;
 }
 
 func genCall(state: IRGenState*, expr: ExprAST*) -> Value {
+  let callExpr = expr->kind as ExprKind::Call*;
   let numArgs = 0 as u64;
-  for (let arg = expr->rhs; arg != null; arg = arg->rhs) {
+  for (let arg = callExpr->args; arg != null; arg = arg->next) {
     numArgs++;
   }
 
   let args = calloc(numArgs, sizeof(union Value)) as Value*;
   let i = 0;
-  for (let arg = expr->rhs; arg != null; arg = arg->rhs, i++) {
-    let argVal = genExpr(state, arg->lhs);
-    if (isAggregate(arg->lhs->type)) {
-      argVal = addInstr(state, arg->lhs->type, InstrKind::Load {
-        ptr = argVal,
-      });
+  for (let arg = callExpr->args; arg != null; arg = arg->next, i++) {
+    let argVal = genExpr(state, arg);
+    if (isAggregate(arg->type)) {
+      argVal
+          = addInstr(state, arg->type, InstrKind::Load {
+          ptr = argVal,
+        });
     }
     *(args + i) = argVal;
   }
 
-  let fn = genExpr(state, expr->lhs);
-  let res = addInstr(state, expr->type, InstrKind::Call {
+  let fn = genExpr(state, callExpr->function);
+  let res =
+      addInstr(state, expr->type, InstrKind::Call {
     fn = fn,
     args = args,
     numArgs = numArgs as i32,

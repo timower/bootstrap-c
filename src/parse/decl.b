@@ -255,16 +255,13 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
   expect(state, TokenKind::IDENTIFIER);
 
   let ident = getNextToken(state);
-  let expr = newExpr(ExprKind::VARIABLE);
-  expr->identifier = ident;
+  let expr = newExpr(ExprKind::Variable { identifier = ident });
 
   while (match(state, TokenKind::DOT)) {
-    let member = newExpr(ExprKind::MEMBER);
-    member->lhs = expr;
-    member->op = getNextToken(state);
+    let op = getNextToken(state);
     expect(state, TokenKind::IDENTIFIER);
-    member->identifier = getNextToken(state);
-    expr = member;
+    let identifier = getNextToken(state);
+    expr = newExpr(ExprKind::Member { object = expr, op = op, identifier = identifier, fieldIndex = -1 });
   }
 
   (&decl->kind as DeclKind::Import*)->path = expr;

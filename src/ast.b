@@ -60,34 +60,85 @@ struct Type {
 };
 
 
-enum ExprKind {
-  INT,  // value
-  STR,  // "identifier"
-  VARIABLE,  // identifier
+struct FieldIndex {
+  fieldName: Token;
+  value: ExprAST*;
 
-  ARRAY,  // {a, b, c}
-  STRUCT,  // identifier { a, b, c }
+  // Set during sema
+  index: i32;
 
-  CALL,  // lhs(rhs->lhs, rhs->rhs->lhs, ..)
-  INDEX,  // lhs[rhs]
+  next: FieldIndex*;
+};
 
-  MEMBER,  // lhs.identifier, lhs->identifier,
-  SCOPE,  // parent::identifier
-
-  UNARY,  // lhs++, lhs-- or --rhs ++rhs based on op
-  SIZEOF,  // sizeof(rhs) or sizeof(sizeofArg)
-
-  CONDITIONAL,  // cond ? lhs : rhs
-
-  ARG_LIST,  // lhs, rhs
-
-  BINARY,  // a + b, ...
-
-  CAST,  // lhs as type
-
-  PAREN,  // (lhs)
-
-  LET,  // decl.
+union ExprKind {
+  Int {
+    value: i32;
+    token: Token;
+  }
+  Str {
+    identifier: Token;
+  }
+  Variable {
+    identifier: Token;
+  }
+  Array {
+    elements: ExprAST*;
+  }
+  Struct {
+    identifier: Token;
+    parent: Token;
+    fieldIndices: FieldIndex*;
+  }
+  Call {
+    function: ExprAST*;
+    args: ExprAST*;
+  }
+  Index {
+    array: ExprAST*;
+    index: ExprAST*;
+  }
+  Member {
+    object: ExprAST*;
+    identifier: Token;
+    op: Token;
+    fieldIndex: i32;
+  }
+  Scope {
+    parent: Token;
+    identifier: Token;
+    enumValue: i32;
+  }
+  Unary {
+    op: Token;
+    postfix: ExprAST*;
+    prefix: ExprAST*;
+  }
+  Sizeof {
+    expr: ExprAST*;
+    typeArg: Type*;
+    value: i32;
+  }
+  Conditional {
+    cond: ExprAST*;
+    trueExpr: ExprAST*;
+    falseExpr: ExprAST*;
+  }
+  Binary {
+    op: Token;
+    lhs: ExprAST*;
+    rhs: ExprAST*;
+  }
+  Cast {
+    expr: ExprAST*;
+    castKind: CastKind;
+    fieldIndex: i32;
+  }
+  Paren {
+    expr: ExprAST*;
+  }
+  Let {
+    decl: DeclAST*;
+  }
 };
 
 enum CastKind {
@@ -108,32 +159,9 @@ enum CastKind {
 // Represents an expression in the AST.
 struct ExprAST {
   kind: ExprKind;
-
   type: Type*;
-
-  // primary_expr
-  // \{
-  // int
-  value: i32;
-
-  // \}
-  // binary
-  op: Token;
-  lhs: ExprAST*;
-  rhs: ExprAST*;
-
-  parent: Token;
-  identifier: Token;
-
-  cond: ExprAST*;
-
-  sizeofArg: Type*;
-
-  decl: DeclAST*;  // for let expressions.
-
-  castKind: CastKind;
-
   location: SourceLoc;
+  next: ExprAST*;
 };
 
 union DeclKind {
@@ -272,6 +300,14 @@ func newExpr(kind: ExprKind) -> ExprAST* {
   return result;
 }
 
+func newFieldIndex(name: Token, field: ExprAST*) -> FieldIndex* {
+  let result: FieldIndex* = calloc(1, sizeof(struct FieldIndex));
+  result->fieldName = name;
+  result->value = field;
+  result->index = -1;
+  return result;
+}
+
 func newDecl(kind: DeclKind) -> DeclAST* {
   let decl: DeclAST* = calloc(1, sizeof(struct DeclAST));
   decl->kind = kind;
@@ -393,32 +429,40 @@ func getBinOpPrecedence(tok: Token) -> i32 {
 
 func getExprPrecedence(expr: ExprAST*) -> i32 {
   switch (expr->kind) {
-    case ExprKind::BINARY:
-      if (isAssign(expr->op)) {
+    case ExprKind::Binary as binary:
+      if (isAssign(binary.op)) {
         return 5;
       }
-      if (expr->op.kind == TokenKind::COMMA) {
+      if (binary.op.kind == TokenKind::COMMA) {
         return 1;
       }
-      return getBinOpPrecedence(expr->op);
+      return getBinOpPrecedence(binary.op);
 
-    case ExprKind::UNARY:
+    case ExprKind::Unary as unary:
       // Unary postfix
-      if (expr->rhs == null) {
+      if (unary.prefix == null) {
         return 120;
       }
       return 110;
 
-    case ExprKind::CALL, ExprKind::INDEX, ExprKind::MEMBER, ExprKind::STRUCT,
-         ExprKind::ARRAY:
+    case ExprKind::Call,
+         ExprKind::Index,
+         ExprKind::Member,
+         ExprKind::Struct,
+         ExprKind::Array:
       return 120;
-    case ExprKind::CAST, ExprKind::SIZEOF:
+    case ExprKind::Cast,
+         ExprKind::Sizeof:
       return 110;
-    case ExprKind::CONDITIONAL:
+    case ExprKind::Conditional:
       return 9;
 
-    case ExprKind::INT, ExprKind::STR, ExprKind::VARIABLE, ExprKind::SCOPE,
-         ExprKind::ARG_LIST, ExprKind::PAREN, ExprKind::LET:
+    case ExprKind::Int,
+         ExprKind::Str,
+         ExprKind::Variable,
+         ExprKind::Scope,
+         ExprKind::Paren,
+         ExprKind::Let:
       return 200;
   }
 }

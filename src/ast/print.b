@@ -140,29 +140,29 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
   let nextPrec = curPrec + 1;
 
   switch (expr->kind) {
-    case ExprKind::LET:
-      printLet(expr->decl, indent);
+    case ExprKind::Let as letExpr:
+      printLet(letExpr.decl, indent);
 
-    case ExprKind::VARIABLE:
-      if (tokCmpStr(expr->identifier, "NULL")) {
+    case ExprKind::Variable as variable:
+      if (tokCmpStr(variable.identifier, "NULL")) {
         printf("null");
       } else {
-        printToken(expr->identifier);
+        printToken(variable.identifier);
       }
 
-    case ExprKind::INT:
-      printStr(expr->op.data, expr->op.end);
+    case ExprKind::Int as int:
+      printStr(int.token.data, int.token.end);
 
     // printf("%d", expr->value);
     // printToken(expr->op);
-    case ExprKind::STR:
+    case ExprKind::Str as str:
       printf("\"");
-      printStr(expr->identifier.data, expr->identifier.end);
+      printStr(str.identifier.data, str.identifier.end);
       printf("\"");
-    case ExprKind::BINARY:
-      let isComma = expr->op.kind == TokenKind::COMMA;
-      let isSplit = expr->lhs->location.line != expr->rhs->location.line;
-      printExprPrec(expr->lhs, curPrec, indent);
+    case ExprKind::Binary as binary:
+      let isComma = binary.op.kind == TokenKind::COMMA;
+      let isSplit = binary.lhs->location.line != binary.rhs->location.line;
+      printExprPrec(binary.lhs, curPrec, indent);
       if (!isComma) {
         if (isSplit) {
           printf("\n");
@@ -172,7 +172,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
         }
       }
 
-      printToken(expr->op);
+      printToken(binary.op);
       if (isComma && isSplit) {
         printf("\n");
         printIndent(indent + 2 * indent_width);
@@ -181,29 +181,29 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       }
 
       let newIndent = isSplit ? indent + indent_width : indent;
-      printExprPrec(expr->rhs, nextPrec, newIndent);
+      printExprPrec(binary.rhs, nextPrec, newIndent);
 
-    case ExprKind::INDEX:
-      printExprPrec(expr->lhs, nextPrec, indent);
+    case ExprKind::Index as index:
+      printExprPrec(index.array, nextPrec, indent);
       printf("[");
-      printExprPrec(expr->rhs, nextPrec, indent);
+      printExprPrec(index.index, nextPrec, indent);
       printf("]");
-    case ExprKind::CALL:
-      printExprPrec(expr->lhs, nextPrec, indent);
+    case ExprKind::Call as call:
+      printExprPrec(call.function, nextPrec, indent);
       printf("(");
       let split = false;
-      for (let cur = expr->rhs; cur != null; cur = cur->rhs) {
-        if (cur->rhs != null && cur->location.line != cur->rhs->location.line) {
+      for (let cur = call.args; cur != null; cur = cur->next) {
+        if (cur->next != null && cur->location.line != cur->next->location.line) {
           split = true;
         }
       }
-      for (let cur: ExprAST* = expr->rhs; cur != null; cur = cur->rhs) {
+      for (let cur: ExprAST* = call.args; cur != null; cur = cur->next) {
         if (split) {
           printf("\n");
           printIndent(indent + indent_width * 2);
         }
-        printExprPrec(cur->lhs, -1, indent);
-        if (cur->rhs != null) {
+        printExprPrec(cur, -1, indent);
+        if (cur->next != null) {
           printf(",");
           if (!split) {
             printf(" ");
@@ -211,53 +211,53 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
         }
       }
       printf(")");
-    case ExprKind::MEMBER:
-      printExprPrec(expr->lhs, curPrec, indent);
-      let isAs = expr->op.kind == TokenKind::AS;
+    case ExprKind::Member as member:
+      printExprPrec(member.object, curPrec, indent);
+      let isAs = member.op.kind == TokenKind::AS;
       if (isAs) {
         printf(" ");
       }
-      printToken(expr->op);
+      printToken(member.op);
       if (isAs) {
         printf(" ");
       }
-      printToken(expr->identifier);
-    case ExprKind::UNARY:
-      if (expr->lhs != null) {
-        printExprPrec(expr->lhs, curPrec, indent);
+      printToken(member.identifier);
+    case ExprKind::Unary as unary:
+      if (unary.postfix != null) {
+        printExprPrec(unary.postfix, curPrec, indent);
       }
-      printToken(expr->op);
-      if (expr->rhs != null) {
-        printExprPrec(expr->rhs, nextPrec, indent);
+      printToken(unary.op);
+      if (unary.prefix != null) {
+        printExprPrec(unary.prefix, nextPrec, indent);
       }
-    case ExprKind::SIZEOF:
+    case ExprKind::Sizeof as sizeofExpr:
       printf("sizeof(");
-      if (expr->sizeofArg != null) {
-        printType(expr->sizeofArg);
+      if (sizeofExpr.typeArg != null) {
+        printType(sizeofExpr.typeArg);
       } else {
-        printExprPrec(expr->rhs, nextPrec, indent);
+        printExprPrec(sizeofExpr.expr, nextPrec, indent);
       }
       printf(")");
-    case ExprKind::CONDITIONAL:
-      printExprPrec(expr->cond, nextPrec, indent);
-      if (expr->location.line != expr->lhs->location.line) {
+    case ExprKind::Conditional as cond:
+      printExprPrec(cond.cond, nextPrec, indent);
+      if (expr->location.line != cond.trueExpr->location.line) {
         printf("\n");
         printIndent(indent + 2 * indent_width);
       }
       printf(" ? ");
-      printExprPrec(expr->lhs, nextPrec, indent);
-      if (expr->lhs->location.line != expr->rhs->location.line) {
+      printExprPrec(cond.trueExpr, nextPrec, indent);
+      if (cond.trueExpr->location.line != cond.falseExpr->location.line) {
         printf("\n");
         printIndent(indent + 2 * indent_width);
       }
       printf(" : ");
-      printExprPrec(expr->rhs, nextPrec, indent);
-    case ExprKind::ARRAY:
+      printExprPrec(cond.falseExpr, nextPrec, indent);
+    case ExprKind::Array as array:
       printf("{");
       let hasSplit = false;
-      for (; expr != null; expr = expr->rhs) {
-        if (expr->rhs != null
-            && expr->rhs->location.line != expr->location.line) {
+      for (let elem = array.elements; elem != null; elem = elem->next) {
+        if (elem->next != null
+            && elem->next->location.line != elem->location.line) {
           printf("\n");
           printIndent(indent + indent_width);
           hasSplit = true;
@@ -265,47 +265,49 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
           printf(" ");
         }
 
-        printExprPrec(expr->lhs, nextPrec, indent);
-        printf(",");
+        printExprPrec(elem, nextPrec, indent);
+        if (elem->next != null) {
+          printf(",");
+        }
       }
       if (hasSplit) {
         printf("\n");
         printIndent(indent);
       }
       printf("}");
-    case ExprKind::STRUCT:
-      if (expr->parent.kind != TokenKind::TOK_EOF) {
-        printToken(expr->parent);
+    case ExprKind::Struct as structExpr:
+      if (structExpr.parent.kind != TokenKind::TOK_EOF) {
+        printToken(structExpr.parent);
         printf("::");
       }
-      printToken(expr->identifier);
+      printToken(structExpr.identifier);
       printf(" {");
-      if (expr->rhs != null) {
+      if (structExpr.fieldIndices != null) {
         printf("\n");
-        for (let field = expr->rhs; field != null; field = field->rhs) {
+        for (let field = structExpr.fieldIndices; field != null; field = field->next) {
           printIndent(indent + indent_width);
-          printToken(field->identifier);
+
+          // TODO: print field name
+          printToken(field->fieldName);
           printf(" = ");
-          printExprPrec(field->lhs, -1, indent + indent_width);
+          printExprPrec(field->value, -1, indent + indent_width);
           printf(",\n");
         }
         printIndent(indent);
       }
       printf("}");
-    case ExprKind::CAST:
-      printExprPrec(expr->lhs, curPrec, indent);
+    case ExprKind::Cast as cast:
+      printExprPrec(cast.expr, curPrec, indent);
       printf(" as ");
       printType(expr->type);
-    case ExprKind::SCOPE:
-      printToken(expr->parent);
+    case ExprKind::Scope as scope:
+      printToken(scope.parent);
       printf("::");
-      printToken(expr->identifier);
-    case ExprKind::PAREN:
+      printToken(scope.identifier);
+    case ExprKind::Paren as paren:
       printf("(");
-      printExprPrec(expr->lhs, -1, indent + indent_width);
+      printExprPrec(paren.expr, -1, indent + indent_width);
       printf(")");
-    case ExprKind::ARG_LIST:
-      break;
   }
 
   if (curPrec < parentPrec) {
