@@ -40,7 +40,7 @@ function M.setup(opts)
 		lint.linters_by_ft.bootstrap = { "bootstrap" }
 		lint.linters.bootstrap = {
 			name = "bootstrap",
-			cmd = M.bootstrapDir .. "bootstrap",
+			cmd = M.bootstrapDir .. "bootstrap-sema",
 			stdin = false,
 			stream = "both",
 			ignore_exitcode = true,

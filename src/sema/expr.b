@@ -496,6 +496,13 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
     case ExprKind::CALL:
       semaExpr(state, expr->lhs);
 
+      if (expr->lhs == null) {
+        failSemaExpr(expr, "Function callee null");
+      }
+      if (expr->lhs->type == null) {
+        failSemaExpr(expr, "Function callee type null");
+      }
+
       // We don't support function pointers
       let funType = expr->lhs->type->kind as TypeKind::Func*;
       if (funType == null) {
@@ -563,7 +570,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
     case ExprKind::VARIABLE:
       let local = lookupLocal(state, expr->identifier);
-      if (local == null) {
+      if (local == null || local->type == null) {
         failSemaExpr(expr, "Couldn't find variable in scope");
       }
 
