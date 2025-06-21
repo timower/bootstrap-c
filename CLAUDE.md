@@ -11,9 +11,10 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 ### Core Build
 - `make bootstrap` - Build the main compiler from source
 - `make stage1` - Create stage1 compiler using bootstrap
-- `make stage2` - Create stage2 compiler using stage1 
+- `make stage2` - Create stage2 compiler using stage1
 - `make format` - Build the code formatter
 - `make self` - Compile the compiler with itself (verification)
+- `make` - Compile bootstrap, format and bootstrap-sema
 
 ### Testing
 - `make test` - Run all tests using lit (LLVM Integrated Tester)
@@ -26,7 +27,7 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 - `./format <file.b>` - Format a specific source file
 
 ### Syntax Checking
-- `./bootstrap <file>` - Check syntax of individual files
+- `./bootstrap-sema <file>` - Check syntax of individual files
 
 ### Cleanup
 - `make clean` - Remove build artifacts and binaries
@@ -46,6 +47,7 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 - `src/libc.b` - Platform abstraction layer (POSIX/Windows)
 - `src/util.b` - Common utilities and data structures
 - `src/format.b` - Code formatter implementation
+- `src/bootstrap-sema.b` - Semantic analyzer, bootstrap without LLVM generation.
 
 ### Language Features
 - Strong typing: i8/i16/i32/i64, u8/u16/u32/u64, bool, pointers, arrays
@@ -68,8 +70,8 @@ Uses LLVM's `lit` testing framework:
 ### Making Changes
 1. Modify source files (`.b` files in `src/`)
 2. Run `make bootstrap` to build with previous stage
-3. Run `make test` to verify correctness
-4. Use `make format-all` to maintain code style
+3. Use `make format-all` to maintain code style
+4. Run `make test` to verify correctness
 5. Test multi-stage compilation with `make stage1 stage2`
 
 ### Adding New Features
@@ -77,6 +79,7 @@ Uses LLVM's `lit` testing framework:
 - Update corresponding parser, semantic analyzer, and IR generator
 - Add comprehensive tests for the new feature
 - Ensure backward compatibility with existing code
+- Make sure to format all modified code using `format-all`
 
 ## Build System Details
 

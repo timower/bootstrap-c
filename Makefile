@@ -32,7 +32,12 @@ ALL_SRC = $(shell find src/ -type f -name '*.b')
 MAIN_SRC = src/bootstrap.b
 OBJ = $(BUILD_DIR)/bootstrap.o
 
+all: bootstrap bootstrap-sema format
+
 bootstrap: $(OBJ)
+	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
+
+bootstrap-sema: $(BUILD_DIR)/bootstrap-sema.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
 format: $(BUILD_DIR)/format.o
@@ -89,9 +94,9 @@ format-check: format
 	done
 	@echo "All files are properly formatted"
 
-.PHONY: distclean clean self test lit lit-stage% format-all format-check
+.PHONY: distclean clean self test lit lit-stage% format-all format-check all
 clean:
-	rm -f build/* bootstrap stage*
+	rm -f build/* bootstrap bootstrap-sema format stage*
 
 distclean: clean
 	rm -f cache/*
