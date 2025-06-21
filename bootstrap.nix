@@ -10,6 +10,8 @@
   lib,
   lit,
   llvmPackages_19,
+  pkgsCross,
+  qemu-user,
 }:
 let
   targettriple = stdenv.hostPlatform.config;
@@ -27,7 +29,11 @@ stdenv.mkDerivation {
     llvmPackages_19.llvm
     parent-bootstrap
   ];
-  nativeCheckInputs = [ lit ];
+  nativeCheckInputs = [ 
+    lit 
+    pkgsCross.aarch64-multiplatform.buildPackages.gcc
+    qemu-user
+  ];
 
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
   LLCFLAGS = "--mtriple=${targettriple} --relocation-model=pic -O0 -filetype=obj";

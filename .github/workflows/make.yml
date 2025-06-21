@@ -27,9 +27,10 @@ jobs:
     - name: Install LLVM
       run: |
         sudo apt-get update
-        sudo apt-get install llvm python3-pip python3-venv
+        sudo apt-get install llvm python3-pip python3-venv gcc-aarch64-linux-gnu qemu-user
         sudo update-alternatives --install /usr/bin/FileCheck FileCheck /usr/bin/FileCheck-18  1
         sudo update-alternatives --install /usr/bin/split-file split-file /usr/bin/split-file-18  1
+        sudo update-alternatives --install /usr/bin/aarch64-unknown-linux-gnu-gcc aarch64-unknown-linux-gnu-gcc /usr/bin/aarch64-linux-gnu-gcc 1
 
     - name: Setup python and lit
       run: |
