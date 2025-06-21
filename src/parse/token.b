@@ -166,7 +166,7 @@ func getToken(state: ParseState*) -> Token {
 
   // Comments //
   if (lastChar == '/' && peekChar(state) == '/') {
-    while (!iseol(peekChar(state))) {
+    while (!iseol(peekChar(state)) && peekChar(state) != -1) {
       nextChar(state);
     }
 
@@ -184,7 +184,7 @@ func getToken(state: ParseState*) -> Token {
   for (let i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
     let len = strlen(tokens[i]) as i64;
     let remaining = state->end - tokenStart;
-    if (len < remaining && memcmp(tokenStart, tokens[i], len as u64) == 0) {
+    if (len <= remaining && memcmp(tokenStart, tokens[i], len as u64) == 0) {
       token.kind = i as enum TokenKind;
       token.data = tokenStart;
 
@@ -193,6 +193,12 @@ func getToken(state: ParseState*) -> Token {
 
       return token;
     }
+  }
+
+  // Check if we're at EOF before reporting unknown token
+  if (state->current >= state->end) {
+    token.kind = TokenKind::TOK_EOF;
+    return token;
   }
 
   failParse(state, "Unknown token");

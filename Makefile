@@ -58,7 +58,7 @@ $(PARENT_STAGE):
 self: bootstrap
 	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC)
 
-test: lit lit-stage2
+test: format-check lit lit-stage2
 
 lit: bootstrap
 	lit -v test/
@@ -76,11 +76,20 @@ stage%: $(BUILD_DIR)/stage%.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
 format-all: format
-	for source in $(ALL_SRC); do \
+	@for source in $(ALL_SRC); do \
 		./format $$source > /tmp/file.b ; cp /tmp/file.b $$source ; \
 	done
 
-.PHONY: distclean clean self test lit lit-stage% format-all
+format-check: format
+	@for source in $(ALL_SRC); do \
+		if ! ./format $$source | diff -q $$source - > /dev/null 2>&1; then \
+			echo "File $$source is not properly formatted"; \
+			exit 1; \
+		fi; \
+	done
+	@echo "All files are properly formatted"
+
+.PHONY: distclean clean self test lit lit-stage% format-all format-check
 clean:
 	rm -f build/* bootstrap stage*
 

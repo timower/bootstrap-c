@@ -104,7 +104,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   if (args.outputKind == OutputKind::LLVM) {
     printModule(&module);
   } else {
-    emitAsm(&module);
+    emitAsm(&module, args.target);
   }
 
   return 0;
