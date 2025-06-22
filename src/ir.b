@@ -52,6 +52,7 @@ struct BasicBlock {
   end: Instruction*;
 
   next: BasicBlock*;
+  prev: BasicBlock*;
 };
 
 enum BinaryOp {
@@ -166,6 +167,7 @@ struct Instruction {
   kind: InstrKind;
 
   next: Instruction*;
+  prev: Instruction*;
 };
 
 union Value {
@@ -227,4 +229,9 @@ func newGlobal() -> Global* {
 
 func newIRStruct() -> IRStruct* {
   return calloc(1, sizeof(struct IRStruct)) as IRStruct*;
+}
+
+func hasResult(instr: Instruction*) -> bool {
+  // Same check as in ir/print.b printInstr - non-void instructions have a name/result
+  return instr->type != null && instr->type->kind as TypeKind::Void* == null;
 }

@@ -184,7 +184,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       printExprPrec(binary.rhs, nextPrec, newIndent);
 
     case ExprKind::Index as index:
-      printExprPrec(index.array, nextPrec, indent);
+      printExprPrec(index.array, curPrec, indent);
       printf("[");
       printExprPrec(index.index, nextPrec, indent);
       printf("]");

@@ -250,7 +250,7 @@ func printInstr(instr: Instruction*) {
   fprintf(outFile, "  ");
 
   // Non void instructions have a name.
-  if (instr->type != null && instr->type->kind as TypeKind::Void* == null) {
+  if (hasResult(instr)) {
     fprintf(outFile, "%%tmp%d = ", instr->name);
   }
 

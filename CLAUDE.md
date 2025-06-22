@@ -57,6 +57,11 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 - Multi-file imports and modules
 - Cross-platform compilation (POSIX/Windows via `-target` flag)
 
+### Memory Management
+- The compiler is a short-running process and does not free allocated memory
+- Memory cleanup is not necessary as the OS reclaims all memory on process exit
+- Functions like `free()` are not imported or used in the codebase
+
 ## Testing Framework
 
 Uses LLVM's `lit` testing framework:

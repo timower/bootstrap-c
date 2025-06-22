@@ -91,6 +91,7 @@ func addBasicBlock(state: IRGenState*, label: i8*) -> BasicBlock* {
     fn->end = res;
   } else {
     fn->end->next = res;
+    res->prev = fn->end;
     fn->end = res;
   }
   return res;
@@ -108,6 +109,7 @@ func addInstr(state: IRGenState*, type: Type*, kind: InstrKind) -> Value {
     bb->end = res;
   } else {
     bb->end->next = res;
+    res->prev = bb->end;
     bb->end = res;
   }
 
