@@ -74,6 +74,41 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
         return *var;
       }
 
+    case ExprKind::BINARY:
+      let lhs = genConstant(state, expr->lhs);
+      let rhs = genConstant(state, expr->rhs);
+
+      if (let lhsConst = lhs as Value::IntConstant*) {
+        if (let rhsConst = rhs as Value::IntConstant*) {
+          let result: i32 = 0;
+          switch (expr->op.kind) {
+            case TokenKind::PLUS:
+              result = lhsConst->value + rhsConst->value;
+            case TokenKind::MINUS:
+              result = lhsConst->value - rhsConst->value;
+            case TokenKind::STAR:
+              result = lhsConst->value * rhsConst->value;
+            case TokenKind::SLASH:
+              if (rhsConst->value == 0) {
+                failIRGen("Division by zero in constant expression");
+              }
+              result = lhsConst->value / rhsConst->value;
+            case TokenKind::PERCENT:
+              if (rhsConst->value == 0) {
+                failIRGen("Modulo by zero in constant expression");
+              }
+              result = lhsConst->value % rhsConst->value;
+            default:
+              break;
+          }
+          return Value::IntConstant {
+            value = result,
+            type = expr->type,
+          };
+        }
+      }
+      break;
+
     default:
       break;
   }
