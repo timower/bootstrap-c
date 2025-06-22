@@ -444,7 +444,11 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
     case ExprKind::SCOPE:
       let decl = lookupType(state, expr->parent);
-      if (decl == null || decl->kind != DeclKind::ENUM) {
+      if (decl == null) {
+        failSemaExpr(expr, "Unknown type for scope expr");
+      }
+
+      if (decl->kind != DeclKind::ENUM) {
         failSemaExpr(expr, "Expected enum type for scope expr");
       }
 

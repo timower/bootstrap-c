@@ -11,7 +11,7 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 ### Core Build
 - `make bootstrap` - Build the main compiler from source
 - `make stage1` - Create stage1 compiler using bootstrap
-- `make stage2` - Create stage2 compiler using stage1 
+- `make stage2` - Create stage2 compiler using stage1
 - `make format` - Build the code formatter
 - `make self` - Compile the compiler with itself (verification)
 
@@ -23,7 +23,7 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 
 ### Code Formatting
 - `make format-all` - Format all .b source files in the project
-- `./format <file.b>` - Format a specific source file
+- `./format <file.b> > /tmp/file.b && cp /tmp/file.b <file.b>` - Format a specific source file
 
 ### Syntax Checking
 - `./bootstrap <file>` - Check syntax of individual files

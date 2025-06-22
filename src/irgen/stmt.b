@@ -232,8 +232,15 @@ func getCases(
       return cse;
 
     case ExprKind::BINARY:
-      let lhsCases = getCases(state, expr->lhs, unionAddr, cases, bb);
-      return getCases(state, expr->rhs, unionAddr, lhsCases, bb);
+      if (expr->op.kind == TokenKind::COMMA) {
+        let lhsCases = getCases(state, expr->lhs, unionAddr, cases, bb);
+        return getCases(state, expr->rhs, unionAddr, lhsCases, bb);
+      } else {
+        // Handle non-comma binary expressions like arithmetic
+        let cse = newCase(cases, bb);
+        cse->val = genConstant(state, expr);
+        return cse;
+      }
 
     case ExprKind::MEMBER:
       if (unionAddr == null) {

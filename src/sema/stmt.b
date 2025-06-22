@@ -37,6 +37,14 @@ func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
 
 func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
   switch (expr->kind) {
+    case ExprKind::BINARY:
+      if (expr->op.kind == TokenKind::COMMA) {
+        semaCaseExpr(state, switchType, expr->lhs);
+        semaCaseExpr(state, switchType, expr->rhs);
+        expr->type = switchType;
+      } else {
+        semaExpr(state, expr);
+      }
     case ExprKind::MEMBER:
       let scopeExpr = expr->lhs;
       let varName = expr->identifier;
