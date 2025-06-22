@@ -111,7 +111,13 @@ func newLocDecl(state: ParseState*, kind: DeclKind) -> DeclAST* {
   return res;
 }
 
-func newLocExpr(state: ParseState*, kind: ExprKind) -> ExprAST* {
+func newLocExpr(loc: SourceLoc, kind: ExprKind) -> ExprAST* {
+  let res = newExpr(kind);
+  res->location = loc;
+  return res;
+}
+
+func newCurLocExpr(state: ParseState*, kind: ExprKind) -> ExprAST* {
   let res = newExpr(kind);
   res->location = getLocation(state);
   return res;

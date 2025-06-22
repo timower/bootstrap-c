@@ -47,10 +47,10 @@ func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
 
 func getImportExprName(expr: ExprAST*) -> Token {
   switch (expr->kind) {
-    case ExprKind::VARIABLE:
-      return expr->identifier;
-    case ExprKind::MEMBER:
-      let lhsToken = getImportExprName(expr->lhs);
+    case ExprKind::Variable as varExpr:
+      return varExpr.identifier;
+    case ExprKind::Member as memberExpr:
+      let lhsToken = getImportExprName(memberExpr.object);
       let buf = malloc(256) as i8*;
 
       let end = sprintf(
@@ -58,8 +58,8 @@ func getImportExprName(expr: ExprAST*) -> Token {
           "%.*s/%.*s",
           lhsToken.end - lhsToken.data,
           lhsToken.data,
-          expr->identifier.end - expr->identifier.data,
-          expr->identifier.data);
+          memberExpr.identifier.end - memberExpr.identifier.data,
+          memberExpr.identifier.data);
 
       return Token {
         kind = TokenKind::IDENTIFIER,

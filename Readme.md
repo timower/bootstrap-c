@@ -46,8 +46,9 @@ TODO
    * Target command line flag.
  - [x] Fix windows/mingw builds.
  - [x] Fix `realpath` & `dprintf` usage.
+ - [x] Move decl, stmt and expr to Unions.
 
- - [ ] x86_64 backend
+ - [ ] aarch64 backend
 
  - [ ] Remove intrinsic lists for types, cache types.
  - [ ] `typeof(foo)` expression to do:
@@ -59,8 +60,6 @@ TODO
     * `a.foo(...)` -> `Foo::foo(a, ...)`
 
  - [ ] No semicolons for decls.
- - [ ] Move decl, stmt and expr to Unions.
-
 
  - [ ] `is<T>(uinion) -> bool` function.
      * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`
@@ -75,12 +74,13 @@ TODO
  - [ ] Actual constant expressions and decls.
  - [ ] Correctly padded structs.
  - [ ] Add target pointer size, Add iptr and uptr types.
- - [ ] armv7 or aarch64 backend
  - [ ] continue statement.
+ - [ ] x86_64 backend
 
 Formatter TODO
 --------------
 
+ - [ ] Add output & in-place argument
  - [ ] Preserve newlines and comments in unions.
  - [ ] Preserve char constants.
  - [ ] Fix trailing comments in block scopes.
