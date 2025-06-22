@@ -13,10 +13,12 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
   switch (to->kind) {
     // Allow integer expression casting
     case TypeKind::Int:
-      if (expr->kind == ExprKind::INT) {
-        let res = newExpr(ExprKind::INT);
+      if (let intExpr = expr->kind as ExprKind::Int*) {
+        let res = newExpr(ExprKind::Int {
+          value = intExpr->value,
+          token = intExpr->token,
+        });
         res->location = expr->location;
-        res->value = expr->value;
         res->type = to;
         return res;
       }
@@ -49,18 +51,19 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
         }
 
         let idx = 0;
-        let structDecl =
-            findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, fromStruct->tag, &idx);
+        let unionDeclKind = &unionDecl->kind as DeclKind::Union*;
+        let structDecl = findTypeIdx(unionDeclKind->subTypes, fromStruct->tag, &idx);
         if (structDecl == null) {
           failSemaExpr(expr, "No way to convert struct to unrelated union");
         }
 
-        let castExpr = newExpr(ExprKind::CAST);
+        let castExpr = newExpr(ExprKind::Cast {
+          expr = expr,
+          castKind = CastKind::StructUnion,
+          fieldIndex = idx,
+        });
         castExpr->location = expr->location;
-        castExpr->lhs = expr;
         castExpr->type = to;
-        castExpr->value = idx;
-        castExpr->castKind = CastKind::StructUnion;
         return castExpr;
       }
 
@@ -73,29 +76,29 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
 
 
 func semaIntCast(
-    expr: ExprAST*,
+    castKind: CastKind*,
     fromInt: TypeKind::Int*,
     toInt: TypeKind::Int*
 ) -> i32 {
   // Sign change, no-op for now.
   if (fromInt->size == toInt->size) {
-    expr->castKind = CastKind::Noop;
+    *castKind = CastKind::Noop;
     return 1;
   }
 
   // Same signedness but different type
   if (fromInt->size > toInt->size) {
-    expr->castKind = CastKind::Trunc;
+    *castKind = CastKind::Trunc;
     return 1;
   }
 
   if (fromInt->isSigned && toInt->isSigned) {
-    expr->castKind = CastKind::Sext;
+    *castKind = CastKind::Sext;
     return 1;
   }
 
   if (!fromInt->isSigned && !toInt->isSigned) {
-    expr->castKind = CastKind::Zext;
+    *castKind = CastKind::Zext;
     return 1;
   }
 
@@ -108,18 +111,19 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
     failSemaExpr(castExpr, "Cast without type?");
   }
 
+  let cast = castExpr->kind as ExprKind::Cast*;
   let to = castExpr->type;
-  let expr = castExpr->lhs;
+  let expr = cast->expr;
   let from = expr->type;
 
   if (typeEq(from, to)) {
-    castExpr->castKind = CastKind::Noop;
+    cast->castKind = CastKind::Noop;
     return 1;
   }
 
   // Allow casting int expressions '64 as i32'
-  if (expr->kind == ExprKind::INT) {
-    castExpr->castKind = CastKind::Noop;
+  if (let intExpr = expr->kind as ExprKind::Int*) {
+    cast->castKind = CastKind::Noop;
     expr->type = to;
     return 1;
   }
@@ -127,7 +131,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
   switch (from->kind) {
     case TypeKind::Int as fromInt:
       if (let toInt = to->kind as TypeKind::Int*) {
-        return semaIntCast(castExpr, &fromInt, toInt);
+        return semaIntCast(&cast->castKind, &fromInt, toInt);
       }
 
       // enums can be casted from integers
@@ -136,7 +140,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
           size = 32,
           isSigned = true,
         };
-        return semaIntCast(castExpr, &fromInt, &enumInt);
+        return semaIntCast(&cast->castKind, &fromInt, &enumInt);
       }
 
     case TypeKind::Enum:
@@ -146,7 +150,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
           size = 32,
           isSigned = true,
         };
-        return semaIntCast(castExpr, &enumInt, toInt);
+        return semaIntCast(&cast->castKind, &enumInt, toInt);
       }
 
     case TypeKind::Union as fromUnion:
@@ -165,16 +169,20 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
           }
 
           // Insert a deref expr.
-          let deref = newExpr(ExprKind::UNARY);
-          deref->op.kind = TokenKind::AND;
-          deref->rhs = castExpr->lhs;
-          deref->type = newType(TypeKind::Pointer {
-            pointee = deref->rhs->type,
+          let deref = newExpr(ExprKind::Unary {
+            op = Token {
+              kind = TokenKind::AND,
+            },
+            postfix = null,
+            prefix = cast->expr,
           });
-          castExpr->lhs = deref;
+          deref->type = newType(TypeKind::Pointer {
+            pointee = cast->expr->type,
+          });
+          cast->expr = deref;
 
-          castExpr->value = idx;
-          castExpr->castKind = CastKind::UnionStructPtr;
+          cast->fieldIndex = idx;
+          cast->castKind = CastKind::UnionStructPtr;
           return 1;
         }
       }
@@ -184,7 +192,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
         // void * can be casted from and to any other pointer..
         if (fromPtr.pointee->kind as TypeKind::Void* != null
             || toPtr->pointee->kind as TypeKind::Void* != null) {
-          castExpr->castKind = CastKind::Noop;
+          cast->castKind = CastKind::Noop;
           return 1;
         }
 
@@ -192,7 +200,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
         // This is a no-op for code gen.
         if (let fromArray = fromPtr.pointee->kind as TypeKind::Array*) {
           if (typeEq(fromArray->element, toPtr->pointee)) {
-            castExpr->castKind = CastKind::Noop;
+            cast->castKind = CastKind::Noop;
             return 1;
           }
         }
@@ -207,14 +215,14 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
           }
 
           let idx = 0;
-          let structDecl =
-              findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, toStruct->tag, &idx);
+          let unionDeclKind = &unionDecl->kind as DeclKind::Union*;
+          let structDecl = findTypeIdx(unionDeclKind->subTypes, toStruct->tag, &idx);
           if (structDecl == null) {
             failSemaExpr(expr, "No way to convert union to unrelated struct");
           }
 
-          castExpr->value = idx;
-          castExpr->castKind = CastKind::UnionStructPtr;
+          cast->fieldIndex = idx;
+          cast->castKind = CastKind::UnionStructPtr;
           return 1;
         }
       }
@@ -232,8 +240,8 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
           failSemaExpr(expr, "No way to convert struct to unrelated union");
         }
 
-        castExpr->value = idx;
-        castExpr->castKind == CastKind::StructUnion;
+        cast->fieldIndex = idx;
+        cast->castKind = CastKind::StructUnion;
         return 1;
       }
 
@@ -267,14 +275,22 @@ func getStringLength(tok: Token) -> i32 {
 }
 
 func semaString(state: SemaState*, expr: ExprAST*) {
+  let strExpr = expr->kind as ExprKind::Str*;
   expr->type = newType(TypeKind::Array {
     element = getCharType(),
-    size = getStringLength(expr->identifier),
+    size = getStringLength(strExpr->identifier),
   });
+
+  let init = newExpr(ExprKind::Str {
+    identifier = strExpr->identifier,
+  });
+  init->type = expr->type;
 
   // Add a global variable for the string.
   let root = getRoot(state);
-  let decl = newDecl(DeclKind::Var {});
+  let decl = newDecl(DeclKind::Var {
+    init = init,
+  });
   decl->type = expr->type;
 
   let name: i8* = malloc(32 as u64);
@@ -282,11 +298,6 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   decl->name.kind = TokenKind::IDENTIFIER;
   decl->name.data = name;
   decl->name.end = name + n;
-
-  let init = newExpr(ExprKind::STR);
-  (&decl->kind as DeclKind::Var*)->init = init;
-  init->identifier = expr->identifier;
-  init->type = expr->type;
 
   decl->next = root->extraDecls;
   root->extraDecls = decl;
@@ -297,44 +308,50 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   expr->type = ptrType;
 
   // transmute expr into a address of expr.
-  let varRef = newExpr(ExprKind::VARIABLE);
-  varRef->identifier = decl->name;
+  let varRef = newExpr(ExprKind::Variable {
+    identifier = decl->name,
+  });
 
-  expr->kind = ExprKind::UNARY;
-  expr->op.kind = TokenKind::AND;
-  expr->rhs = varRef;
+  expr->kind = ExprKind::Unary {
+    op = Token {
+      kind = TokenKind::AND,
+    },
+    postfix = null,
+    prefix = varRef,
+  };
 }
 
 func semaBinExpr(state: SemaState*, expr: ExprAST*) {
-  semaExpr(state, expr->lhs);
-  semaExpr(state, expr->rhs);
+  let binExpr = expr->kind as ExprKind::Binary*;
+  semaExpr(state, binExpr->lhs);
+  semaExpr(state, binExpr->rhs);
 
-  let lhsTypePtr = expr->lhs->type->kind as TypeKind::Pointer*;
-  let lhsTypeInt = expr->lhs->type->kind as TypeKind::Int*;
+  let lhsTypePtr = binExpr->lhs->type->kind as TypeKind::Pointer*;
+  let lhsTypeInt = binExpr->lhs->type->kind as TypeKind::Int*;
 
-  let rhsTypePtr = expr->rhs->type->kind as TypeKind::Pointer*;
-  let rhsTypeInt = expr->rhs->type->kind as TypeKind::Int*;
+  let rhsTypePtr = binExpr->rhs->type->kind as TypeKind::Pointer*;
+  let rhsTypeInt = binExpr->rhs->type->kind as TypeKind::Int*;
 
   // Handle special cases
-  switch (expr->op.kind) {
+  switch (binExpr->op.kind) {
     case TokenKind::COMMA:
-      expr->type = expr->rhs->type;
+      expr->type = binExpr->rhs->type;
       return;
 
     // comparision results in i32.
     case TokenKind::LESS, TokenKind::GREATER, TokenKind::LE_OP,
          TokenKind::GE_OP, TokenKind::EQ_OP, TokenKind::NE_OP:
-      if (!typeEq(expr->lhs->type, expr->rhs->type)) {
-        let lhsConv = doConvert(state, expr->lhs, expr->rhs->type);
+      if (!typeEq(binExpr->lhs->type, binExpr->rhs->type)) {
+        let lhsConv = doConvert(state, binExpr->lhs, binExpr->rhs->type);
 
         if (lhsConv == null) {
-          let rhsConv = doConvert(state, expr->rhs, expr->lhs->type);
+          let rhsConv = doConvert(state, binExpr->rhs, binExpr->lhs->type);
           if (rhsConv == null) {
             failSemaExpr(expr, ": Binary op on different types");
           }
-          expr->rhs = rhsConv;
+          binExpr->rhs = rhsConv;
         } else {
-          expr->lhs = lhsConv;
+          binExpr->lhs = lhsConv;
         }
       }
       expr->type = getBool();
@@ -352,126 +369,123 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
         return;
       }
       if (lhsTypePtr != null && rhsTypeInt != null) {
-        expr->type = expr->lhs->type;
+        expr->type = binExpr->lhs->type;
         return;
       }
     case TokenKind::PLUS:
       if (lhsTypeInt != null && rhsTypePtr != null) {
-        expr->type = expr->rhs->type;
+        expr->type = binExpr->rhs->type;
         return;
       }
       if (lhsTypePtr != null && rhsTypeInt != null) {
-        expr->type = expr->lhs->type;
+        expr->type = binExpr->lhs->type;
         return;
       }
     case TokenKind::ADD_ASSIGN, TokenKind::SUB_ASSIGN:
       if (lhsTypePtr != null && rhsTypeInt != null) {
-        expr->type = expr->lhs->type;
+        expr->type = binExpr->lhs->type;
         return;
       }
 
     case TokenKind::AND_OP, TokenKind::OR_OP:
-      checkBool(expr->lhs);
-      checkBool(expr->rhs);
-      expr->type = expr->lhs->type;
+      checkBool(binExpr->lhs);
+      checkBool(binExpr->rhs);
+      expr->type = binExpr->lhs->type;
       return;
 
     default:
       break;
   }
 
-  if (isAssign(expr->op)) {
-    let conv = doConvert(state, expr->rhs, expr->lhs->type);
+  if (isAssign(binExpr->op)) {
+    let conv = doConvert(state, binExpr->rhs, binExpr->lhs->type);
     if (conv == null) {
       failSemaExpr(expr, ": Assign doesn't match");
     }
-    expr->rhs = conv;
-    expr->type = expr->lhs->type;
+    binExpr->rhs = conv;
+    expr->type = binExpr->lhs->type;
     return;
   }
 
-  if (!typeEq(expr->lhs->type, expr->rhs->type)) {
-    let lhsConv = doConvert(state, expr->lhs, expr->rhs->type);
+  if (!typeEq(binExpr->lhs->type, binExpr->rhs->type)) {
+    let lhsConv = doConvert(state, binExpr->lhs, binExpr->rhs->type);
     if (lhsConv == null) {
-      let rhsConv = doConvert(state, expr->rhs, expr->lhs->type);
+      let rhsConv = doConvert(state, binExpr->rhs, binExpr->lhs->type);
       if (rhsConv == null) {
         failSemaExpr(expr, ": type mismatch");
       }
-      expr->rhs = rhsConv;
+      binExpr->rhs = rhsConv;
     } else {
-      expr->lhs = lhsConv;
+      binExpr->lhs = lhsConv;
     }
   }
 
-  expr->type = expr->lhs->type;
+  expr->type = binExpr->lhs->type;
 }
 
 func semaExpr(state: SemaState*, expr: ExprAST*) {
   switch (expr->kind) {
-    case ExprKind::ARG_LIST:
-      failSemaExpr(expr, "Arg list shouldn't occur");
-
-    case ExprKind::STRUCT:
+    case ExprKind::Struct as structExpr:
       let typeDecl: DeclAST* = null;
-      if (expr->parent.kind != TokenKind::TOK_EOF) {
-        let parentDecl = lookupType(state, expr->parent);
-        if (parentDecl == null || &parentDecl->kind as DeclKind::Union* == null) {
-          failSemaExpr(expr, "Expected uninion type");
+      if (structExpr.parent.kind != TokenKind::TOK_EOF) {
+        let parentDecl = lookupType(state, structExpr.parent);
+        if (parentDecl == null) {
+          failSemaExpr(expr, "Parent type not found");
         }
-        typeDecl = findType((&parentDecl->kind as DeclKind::Union*)->subTypes, expr->identifier);
+        let unionDecl = parentDecl->kind as DeclKind::Union*;
+        if (unionDecl == null) {
+          failSemaExpr(expr, "Expected union type");
+        }
+        typeDecl = findType(unionDecl->subTypes, structExpr.identifier);
       } else {
-        typeDecl = lookupType(state, expr->identifier);
+        typeDecl = lookupType(state, structExpr.identifier);
       }
       if (typeDecl == null || &typeDecl->kind as DeclKind::Struct* == null) {
         failSemaExpr(expr, "Expected struct type for struct init expression");
       }
 
       // TODO: verify field completeness.
-      for (let field = expr->rhs; field != null; field = field->rhs) {
-        let fieldDecl = findField(typeDecl, field->identifier, &field->value);
+      for (let field = structExpr.fieldIndices; field != null; field = field->next) {
+        let fieldDecl = findField(typeDecl, field->fieldName, &field->index);
         if (fieldDecl == null) {
-          failSemaExpr(field, " cannot find field");
+          failSemaExpr(field->value, " cannot find field");
         }
 
-        semaExpr(state, field->lhs);
-        let conv = doConvert(state, field->lhs, fieldDecl->type);
+        semaExpr(state, field->value);
+        let conv = doConvert(state, field->value, fieldDecl->type);
         if (conv == null) {
-          failSemaExpr(field->lhs, "cannot convert to field type");
+          failSemaExpr(field->value, "cannot convert to field type");
         }
-        field->lhs = conv;
+        field->value = conv;
       }
 
       expr->type = typeDecl->type;
 
-    case ExprKind::SCOPE:
-      let decl = lookupType(state, expr->parent);
+    case ExprKind::Scope as scopeExpr:
+      let decl = lookupType(state, scopeExpr.parent);
       if (decl == null) {
         failSemaExpr(expr, "Unknown type for scope expr");
       }
 
       switch (decl->kind) {
         case DeclKind::Enum:
-          let fieldDecl = findField(decl, expr->identifier, &expr->value);
+          let fieldDecl = findField(decl, scopeExpr.identifier, &scopeExpr.enumValue);
           if (fieldDecl == null) {
             failSemaExpr(expr, " Cannot find field");
           }
-        case DeclKind::Union as unionDecl:
-          let tagDecl = findTypeIdx(unionDecl.subTypes, expr->identifier, &expr->value);
-          if (tagDecl == null) {
-            failSemaExpr(expr, " Cannot find union tag");
-          }
+
         default:
-          failSemaExpr(expr, "Expected enum  type for scope expr");
+          failSemaExpr(expr, "Expected enum type for scope expr");
       }
 
       expr->type = decl->type;
 
-    case ExprKind::MEMBER:
-      semaExpr(state, expr->lhs);
+    case ExprKind::Member as memberExpr:
+      semaExpr(state, memberExpr.object);
 
       let structDecl = null;
-      if (expr->op.kind == TokenKind::PTR_OP) {
-        let ptrType = expr->lhs->type->kind as TypeKind::Pointer*;
+      if (memberExpr.op.kind == TokenKind::PTR_OP) {
+        let ptrType = memberExpr.object->type->kind as TypeKind::Pointer*;
         let structType = ptrType == null
              ? null as TypeKind::Struct*
              : ptrType->pointee->kind as TypeKind::Struct*;
@@ -479,8 +493,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
           failSemaExpr(expr, ": Expected pointer to struct type for -> expr");
         }
         structDecl = lookupStruct(state, structType);
-      } else if (expr->op.kind == TokenKind::DOT) {
-        let structType = expr->lhs->type->kind as TypeKind::Struct*;
+      } else if (memberExpr.op.kind == TokenKind::DOT) {
+        let structType = memberExpr.object->type->kind as TypeKind::Struct*;
         if (structType == null) {
           failSemaExpr(expr, "Expected struct type for . expr");
         }
@@ -493,74 +507,88 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(expr, "Unknown type for member expression");
       }
 
-      let fieldDecl = findField(structDecl, expr->identifier, &expr->value);
+      let fieldDecl = findField(structDecl, memberExpr.identifier, &memberExpr.fieldIndex);
       if (fieldDecl == null) {
         failSemaExpr(expr, " Cannot find field");
       }
 
       expr->type = fieldDecl->type;
 
-    case ExprKind::CALL:
-      semaExpr(state, expr->lhs);
+    case ExprKind::Call as callExpr:
+      semaExpr(state, callExpr.function);
 
-      if (expr->lhs == null) {
+      if (callExpr.function == null) {
         failSemaExpr(expr, "Function callee null");
       }
-      if (expr->lhs->type == null) {
+      if (callExpr.function->type == null) {
         failSemaExpr(expr, "Function callee type null");
       }
 
       // We don't support function pointers
-      let funType = expr->lhs->type->kind as TypeKind::Func*;
+      let funType = callExpr.function->type->kind as TypeKind::Func*;
       if (funType == null) {
         failSemaExpr(expr, "Must call function type");
       }
+
       let curArgTy = funType->args;
-      let cur = expr->rhs;
-      for (; cur != null; cur = cur->rhs) {
-        semaExpr(state, cur->lhs);
+      let cur = callExpr.args;
+      let last: ExprAST** = &callExpr.args;
+      for (; cur != null; cur = cur->next) {
+        semaExpr(state, cur);
 
         if (curArgTy != null) {
-          let conv = doConvert(state, cur->lhs, curArgTy);
+          let conv = doConvert(state, cur, curArgTy);
           if (conv == null) {
             printType(curArgTy);
             failSemaExpr(expr, " Arg type mismatch");
           }
-          cur->lhs = conv;
+
+          if (conv != cur) {
+            // Chain in 'conv' to replace 'cur'
+            conv->next = cur->next;
+            cur->next = null;
+            cur = conv;
+            if (last != null) {
+              *last = conv;
+            }
+          }
         }
+        last = &cur->next;
+
         if (curArgTy != null) {
           curArgTy = curArgTy->next;
         }
       }
+
       let isValidVararg = funType->isVarargs && curArgTy == null;
       if (!isValidVararg && (curArgTy == null) != (cur == null)) {
         failSemaExpr(expr, "Function call arg length mismatch");
       }
       expr->type = funType->result;
 
-    case ExprKind::CONDITIONAL:
-      semaExpr(state, expr->cond);
-      checkBool(expr->cond);
-      semaExpr(state, expr->lhs);
-      semaExpr(state, expr->rhs);
+    case ExprKind::Conditional as condExpr:
+      semaExpr(state, condExpr.cond);
+      checkBool(condExpr.cond);
+      semaExpr(state, condExpr.trueExpr);
+      semaExpr(state, condExpr.falseExpr);
 
-      if (!typeEq(expr->lhs->type, expr->rhs->type)) {
+      if (!typeEq(condExpr.trueExpr->type, condExpr.falseExpr->type)) {
         failSemaExpr(expr, "?: lhs and rhs should have same type");
       }
-      expr->type = expr->lhs->type;
+      expr->type = condExpr.trueExpr->type;
 
-    case ExprKind::ARRAY:
+    case ExprKind::Array as arrayExpr:
       let size = 0;
       let elementType: Type* = null;
-      for (let sub = expr; sub != null; sub = sub->rhs) {
-        semaExpr(state, sub->lhs);
+      for (let sub = arrayExpr.elements; sub != null; sub = sub->next) {
+        semaExpr(state, sub);
 
         // Decay types in arrays.
-        sub->lhs->type = doDecay(sub->lhs->type);
+        sub->type = doDecay(sub->type);
 
         if (elementType == null) {
-          elementType = sub->lhs->type;
-        } else if (!typeEq(elementType, sub->lhs->type)) {
+          elementType = sub->type;
+        } else if (!typeEq(elementType, sub->type)) {
           failSemaExpr(expr, "Init must have consistent type");
         }
 
@@ -572,11 +600,11 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         element = elementType,
       });
 
-    case ExprKind::STR:
+    case ExprKind::Str:
       semaString(state, expr);
 
-    case ExprKind::VARIABLE:
-      let local = lookupLocal(state, expr->identifier);
+    case ExprKind::Variable as varExpr:
+      let local = lookupLocal(state, varExpr.identifier);
       if (local == null || local->type == null) {
         failSemaExpr(expr, "Couldn't find variable in scope");
       }
@@ -584,71 +612,78 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       // enum value, transform this expr to an i32.
       switch (local->kind) {
         case DeclKind::EnumField as enumFieldKind:
-          expr->kind = ExprKind::INT;
-          expr->value = enumFieldKind.enumValue;
+          expr->kind = ExprKind::Int {
+            value = enumFieldKind.enumValue,
+            token = varExpr.identifier,
+          };
         case DeclKind::Const as constKind:
-          expr->kind = ExprKind::INT;
-          expr->value = constKind.enumValue;
+          expr->kind = ExprKind::Int {
+            value = constKind.enumValue,
+            token = varExpr.identifier,
+          };
         default:
           break;
       }
 
       expr->type = local->type;
 
-    case ExprKind::INT:
+    case ExprKind::Int:
       if (expr->type == null) {
         failSemaExpr(expr, "Expected int type to be set during parsing.");
       }
       return;
 
-    case ExprKind::BINARY:
+    case ExprKind::Binary:
       semaBinExpr(state, expr);
 
-    case ExprKind::INDEX:
-      semaExpr(state, expr->lhs);
+    case ExprKind::Index as indexExpr:
+      semaExpr(state, indexExpr.array);
 
-      let ptrToArray = getPointerToArray(expr->lhs->type);
+      let ptrToArray = getPointerToArray(indexExpr.array->type);
       if (ptrToArray != null) {
         // auto insert deref to turn expr into an array.
-        let derefExpr = newExpr(ExprKind::UNARY);
-        derefExpr->op.kind = TokenKind::STAR;
-        derefExpr->rhs = expr->lhs;
+        let derefExpr = newExpr(ExprKind::Unary {
+          op = Token {
+            kind = TokenKind::STAR,
+          },
+          prefix = indexExpr.array,
+        });
         derefExpr->type = newType(*ptrToArray);
 
-        expr->lhs = derefExpr;
+        indexExpr.array = derefExpr;
       }
 
-      let array = expr->lhs->type->kind as TypeKind::Array*;
+      let array = indexExpr.array->type->kind as TypeKind::Array*;
       if (array == null) {
         failSemaExpr(expr, " Index only works on arrays, or pointers to them.");
       }
 
-      semaExpr(state, expr->rhs);
-      if (expr->rhs->type->kind as TypeKind::Int* == null) {
+      semaExpr(state, indexExpr.index);
+      if (indexExpr.index->type->kind as TypeKind::Int* == null) {
         failSemaExpr(expr, "Can't index with non integer");
       }
       expr->type = array->element;
 
-    case ExprKind::UNARY:
-      if (expr->op.kind == TokenKind::AND) {
-        semaExpr(state, expr->rhs);
+    case ExprKind::Unary as unaryExpr:
+      if (unaryExpr.op.kind == TokenKind::AND) {
+        semaExpr(state, unaryExpr.prefix);
         expr->type = newType(TypeKind::Pointer {
-          pointee = expr->rhs->type,
+          pointee = unaryExpr.prefix->type,
         });
         return;
       }
 
-      if (expr->lhs != null) {
-        semaExpr(state, expr->lhs);
-        expr->type = expr->lhs->type;
+      if (unaryExpr.postfix != null) {
+        semaExpr(state, unaryExpr.postfix);
+        expr->type = unaryExpr.postfix->type;
       } else {
-        semaExpr(state, expr->rhs);
-        expr->type = expr->rhs->type;
+        semaExpr(state, unaryExpr.prefix);
+        expr->type = unaryExpr.prefix->type;
       }
 
       // Handle the specials
-      if (expr->op.kind == TokenKind::STAR) {
-        let ptrType = expr->rhs->type->kind as TypeKind::Pointer*;
+      if (unaryExpr.op.kind == TokenKind::STAR) {
+        let ptrType = unaryExpr.prefix->type->kind as TypeKind::Pointer*;
         if (ptrType == null) {
           failSemaExpr(expr, "Expected pointer type for *");
         }
@@ -656,50 +691,49 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
 
       // TODO: correct?
-      if (expr->op.kind == TokenKind::BANG) {
+      if (unaryExpr.op.kind == TokenKind::BANG) {
         expr->type = getBool();
       }
 
-    case ExprKind::SIZEOF:
-      if (expr->rhs != null) {
-        semaExpr(state, expr->rhs);
-        expr->value = getSize(state, expr->rhs->type);
+    case ExprKind::Sizeof as sizeofExpr:
+      if (sizeofExpr.expr != null) {
+        semaExpr(state, sizeofExpr.expr);
+        sizeofExpr.value = getSize(state, sizeofExpr.expr->type);
       } else {
-        expr->value = getSize(state, expr->sizeofArg);
+        sizeofExpr.value = getSize(state, sizeofExpr.typeArg);
       }
-      expr->kind = ExprKind::INT;
+
+      expr->kind = ExprKind::Int {
+        value = sizeofExpr.value,
+      };
       expr->type = getUPtr();
 
-    case ExprKind::CAST:
-      semaExpr(state, expr->lhs);
+    case ExprKind::Cast as castExpr:
+      semaExpr(state, castExpr.expr);
       if (!semaCast(state, expr)) {
         failSemaExpr(expr, " Can't cast");
       }
 
-    case ExprKind::PAREN:
-      semaExpr(state, expr->lhs);
-      expr->type = expr->lhs->type;
+    case ExprKind::Paren as parenExpr:
+      semaExpr(state, parenExpr.expr);
+      expr->type = parenExpr.expr->type;
 
-    case ExprKind::LET:
-      if (&expr->decl->kind as DeclKind::Var* == null
-          && &expr->decl->kind as DeclKind::Const* == null) {
-        failSemaExpr(expr, "Only let expressions allowed");
-      }
+    case ExprKind::Let as letExpr:
       let init: ExprAST* = null;
-      switch (expr->decl->kind) {
+      switch (letExpr.decl->kind) {
         case DeclKind::Var as varKind:
           init = varKind.init;
         case DeclKind::Const as constKind:
           init = constKind.init;
         default:
-          break;
+          failSemaExpr(expr, "Only let expressions allowed");
       }
       if (init == null) {
         failSemaExpr(expr, "Let expression must have an init");
       }
-      resolveTypeTags(state, expr->decl->type, expr->location);
-      semaVarDecl(state, expr->decl);
-      expr->type = expr->decl->type;
+      resolveTypeTags(state, letExpr.decl->type, expr->location);
+      semaVarDecl(state, letExpr.decl);
+      expr->type = letExpr.decl->type;
   }
 }
 
@@ -736,10 +770,11 @@ func semaVarDecl(state: SemaState*, decl: DeclAST*) {
         constKind.init = init;
 
         // TODO: support more const expressions.
-        if (init->kind != ExprKind::INT) {
+        if (let intExpr = init->kind as ExprKind::Int*) {
+          constKind.enumValue = intExpr->value;
+        } else {
           failSemaDecl(decl, "Const decl must have an int init");
         }
-        constKind.enumValue = init->value;
       default:
         break;
     }

@@ -26,13 +26,15 @@ func getFieldCount(decl: DeclAST*) -> i32 {
 // Semas the expression, and returns a bitset of matched field indexes.
 func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
   switch (expr->kind) {
-    case ExprKind::SCOPE, ExprKind::MEMBER:
-      return 1 << expr->value;
-    case ExprKind::BINARY:
-      if (expr->op.kind != TokenKind::COMMA) {
+    case ExprKind::Scope as scope:
+      return 1 << scope.enumValue;
+    case ExprKind::Member as memberExpr:
+      return 1 << memberExpr.fieldIndex;
+    case ExprKind::Binary as binExpr:
+      if (binExpr.op.kind != TokenKind::COMMA) {
         failSemaExpr(expr, "Unsupported case expression");
       }
-      return getFieldBitset(state, expr->lhs) | getFieldBitset(state, expr->rhs);
+      return getFieldBitset(state, binExpr.lhs) | getFieldBitset(state, binExpr.rhs);
     default:
       failSemaExpr(expr, "Unsupported case expression");
   }
@@ -40,38 +42,41 @@ func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
 
 func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
   switch (expr->kind) {
-    case ExprKind::BINARY:
-      if (expr->op.kind == TokenKind::COMMA) {
-        semaCaseExpr(state, switchType, expr->lhs);
-        semaCaseExpr(state, switchType, expr->rhs);
+    case ExprKind::Binary as binary:
+      if (binary.op.kind == TokenKind::COMMA) {
+        semaCaseExpr(state, switchType, binary.lhs);
+        semaCaseExpr(state, switchType, binary.rhs);
         expr->type = switchType;
       } else {
         semaExpr(state, expr);
       }
-    case ExprKind::MEMBER:
-      let scopeExpr = expr->lhs;
-      let varName = expr->identifier;
 
-      if (scopeExpr->kind != ExprKind::SCOPE) {
+    case ExprKind::Member as memberExpr:
+      let scopeExpr = memberExpr.object;
+      let varName = memberExpr.identifier;
+
+      if (scopeExpr->kind as ExprKind::Scope* == null) {
         failSemaExpr(scopeExpr, "Expected :: expression");
       }
 
-      let unionName = scopeExpr->parent;
-      let tagName = scopeExpr->identifier;
+      let scopeVar = scopeExpr->kind as ExprKind::Scope*;
+      let unionName = scopeVar->parent;
+      let tagName = scopeVar->identifier;
 
       let unionDecl = lookupType(state, unionName);
-      if (unionDecl == null) {
+      let unionDeclKind = unionDecl->kind as DeclKind::Union*;
+      if (unionDecl == null || unionDeclKind == null) {
         failSemaExpr(expr, "Unknown union");
       }
 
       let tagIdx = 0;
-      let tagDecl = findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, tagName, &tagIdx);
+      let tagDecl = findTypeIdx(unionDeclKind->subTypes, tagName, &tagIdx);
       if (tagDecl == null) {
         failSemaExpr(expr, "Unkown tag in union");
       }
 
       expr->type = unionDecl->type;
-      expr->value = tagIdx;
+      memberExpr.fieldIndex = tagIdx;
 
       // Make a new variable declaration.
       let varDecl = newDecl(DeclKind::Var {});
@@ -80,25 +85,26 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
 
       addLocalDecl(state, varDecl);
 
-    case ExprKind::SCOPE:
-      let decl = lookupType(state, expr->parent);
+    case ExprKind::Scope as scopeExpr:
+      let decl = lookupType(state, scopeExpr.parent);
       if (decl == null) {
         failSemaExpr(expr, "Couldn't find type");
       }
 
       switch (decl->type->kind) {
-        case TypeKind::Enum as e:
-          let fieldDecl = findField(decl, expr->identifier, &expr->value);
+        case TypeKind::Enum:
+          let fieldDecl = findField(decl, scopeExpr.identifier, &scopeExpr.enumValue);
           if (fieldDecl == null) {
             failSemaExpr(expr, " Cannot find field");
           }
 
           expr->type = decl->type;
         case TypeKind::Union:
+          let unionDeclKind = &decl->kind as DeclKind::Union*;
           let tagDecl = findTypeIdx(
-              (&decl->kind as DeclKind::Union*)->subTypes,
-              expr->identifier,
-              &expr->value);
+              unionDeclKind->subTypes,
+              scopeExpr.identifier,
+              &scopeExpr.enumValue);
           if (tagDecl == null) {
             failSemaExpr(expr, "Cannot find tag");
           }
@@ -110,8 +116,6 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
               expr,
               "Expected union or enum parent for member case expr");
       }
-
-      break;
 
     default:
       semaExpr(state, expr);
@@ -179,15 +183,18 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
 }
 
 func makeNullCmp(expr: ExprAST*) -> ExprAST* {
-  let cmpExpr = newExpr(ExprKind::BINARY);
-  cmpExpr->op = Token {
-    kind = TokenKind::NE_OP,
-  };
-  cmpExpr->lhs = expr;
-  cmpExpr->rhs = newExpr(ExprKind::INT);
-  cmpExpr->rhs->type = expr->type;
-  cmpExpr->rhs->value = 0;
+  let nullExpr = newExpr(ExprKind::Int {
+    value = 0,
+  });
+  nullExpr->type = expr->type;
 
+  let cmpExpr = newExpr(ExprKind::Binary {
+    op = Token {
+      kind = TokenKind::NE_OP,
+    },
+    lhs = expr,
+    rhs = nullExpr,
+  });
   cmpExpr->type = getBool();
 
   return cmpExpr;
@@ -224,7 +231,7 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
       semaExpr(&subState, ifStmt.cond);
 
       // Add != null for let expressions.
-      if (ifStmt.cond->kind == ExprKind::LET) {
+      if (ifStmt.cond->kind as ExprKind::Let* != null) {
         if (let ptrType = &ifStmt.cond->type->kind as TypeKind::Pointer*) {
           ifStmt.cond = makeNullCmp(ifStmt.cond);
         }
