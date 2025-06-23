@@ -1,0 +1,9 @@
+// RUN: split-file %s %t
+// RUN: %format %t/input.b > %t/output.b
+// RUN: diff %t/output.b %t/golden.b
+//--- input.b
+func add(a:i32,b:i32)->i32{return a+b;}
+//--- golden.b
+func add(a: i32, b: i32) -> i32 {
+  return a + b;
+}

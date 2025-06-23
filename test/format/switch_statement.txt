@@ -1,0 +1,16 @@
+// RUN: split-file %s %t
+// RUN: %format %t/input.b > %t/output.b
+// RUN: diff %t/output.b %t/golden.b
+//--- input.b
+func main(){switch(x){case 1:return 1;case 2:return 2;default:return 0;}}
+//--- golden.b
+func main() {
+  switch (x) {
+    case 1:
+      return 1;
+    case 2:
+      return 2;
+    default:
+      return 0;
+  }
+}

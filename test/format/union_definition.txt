@@ -1,0 +1,12 @@
+// RUN: split-file %s %t
+// RUN: %format %t/input.b > %t/output.b
+// RUN: diff %t/output.b %t/golden.b
+//--- input.b
+union Value{Foo{} Bar{ x: i32; }};
+//--- golden.b
+union Value {
+  Foo {}
+  Bar {
+    x: i32;
+  }
+};

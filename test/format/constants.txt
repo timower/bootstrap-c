@@ -1,0 +1,9 @@
+// RUN: split-file %s %t
+// RUN: %format %t/input.b > %t/output.b
+// RUN: diff %t/output.b %t/golden.b
+//--- input.b
+const PI=42;const MAX_SIZE=100;
+//--- golden.b
+const PI = 42;
+
+const MAX_SIZE = 100;

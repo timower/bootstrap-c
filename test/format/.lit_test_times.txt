@@ -1,0 +1,15 @@
+8.767009e-02 basic_function.txt
+-6.550813e-02 comments.txt
+-7.708216e-02 complex_nested.txt
+-1.015179e-01 constants.txt
+1.065888e-01 enum_definition.txt
+1.009040e-01 expressions.txt
+8.651805e-02 function_parameters.txt
+8.981514e-02 if_statement.txt
+-9.219575e-02 imports.txt
+-9.381866e-02 pointers_arrays.txt
+5.576897e-02 struct_definition.txt
+7.863712e-02 struct_initialization.txt
+7.218194e-02 switch_statement.txt
+5.741000e-02 union_definition.txt
+5.742908e-02 while_loop.txt

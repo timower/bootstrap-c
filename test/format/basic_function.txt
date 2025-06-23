@@ -1,0 +1,9 @@
+// RUN: split-file %s %t
+// RUN: %format %t/input.b > %t/output.b
+// RUN: diff %t/output.b %t/golden.b
+//--- input.b
+func main(){return 0;}
+//--- golden.b
+func main() {
+  return 0;
+}

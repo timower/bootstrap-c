@@ -1,0 +1,16 @@
+// RUN: split-file %s %t
+// RUN: %format %t/input.b > %t/output.b
+// RUN: diff %t/output.b %t/golden.b
+// TODO: fix same line to newline bug
+//--- input.b
+import foo;import bar.baz;
+
+import bup;
+import cat;
+//--- golden.b
+import foo;
+
+import bar.baz;
+
+import bup;
+import cat;

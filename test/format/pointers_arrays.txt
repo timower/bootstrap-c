@@ -1,0 +1,14 @@
+// RUN: split-file %s %t
+// RUN: %format %t/input.b > %t/output.b
+// RUN: diff %t/output.b %t/golden.b
+// TODO: fix single line array formatting
+//--- input.b
+func main(){let p:i32* = null;let arr:i32[]={1,2,3,4,5};let x=*p;let y=arr[0];return 0;}
+//--- golden.b
+func main() {
+  let p: i32* = null;
+  let arr: i32[] = { 1, 2, 3, 4, 5};
+  let x = *p;
+  let y = arr[0];
+  return 0;
+}

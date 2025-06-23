@@ -1,0 +1,25 @@
+// RUN: split-file %s %t
+// RUN: %format %t/input.b > %t/output.b
+// RUN: diff %t/output.b %t/golden.b
+// TODO: fix block after case bug
+//--- input.b
+func test(){let i=0;let x=1;if(true){while(i<10){switch(x){case 1:{let y=42;break;}default:break;}}}return 0;}
+//--- golden.b
+func test() {
+  let i = 0;
+  let x = 1;
+  if (true) {
+    while (i < 10) {
+      switch (x) {
+        case 1:
+{
+            let y = 42;
+            break;
+          }
+        default:
+          break;
+      }
+    }
+  }
+  return 0;
+}
