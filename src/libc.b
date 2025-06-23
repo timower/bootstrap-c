@@ -22,4 +22,7 @@ extern func strdup(s: i8*) -> i8*;
 extern func memcpy(dest: void*, src: void*, len: u64) -> i8*;
 
 extern func fopen(path: i8*, mode: i8*) -> void*;
+extern func fclose(file: void*) -> i32;
 extern func fprintf(file: void*, format: const i8*, ...) -> i32;
+extern func rename(oldname: i8*, newname: i8*) -> i32;
+extern func getpid() -> i32;

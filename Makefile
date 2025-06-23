@@ -32,15 +32,9 @@ ALL_SRC = $(shell find src/ -type f -name '*.b')
 MAIN_SRC = src/bootstrap.b
 OBJ = $(BUILD_DIR)/bootstrap.o
 
-all: bootstrap bootstrap-sema format
+all: bootstrap
 
 bootstrap: $(OBJ)
-	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
-
-bootstrap-sema: $(BUILD_DIR)/bootstrap-sema.o
-	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
-
-format: $(BUILD_DIR)/format.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
 $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
@@ -80,14 +74,14 @@ $(BUILD_DIR)/stage2.ll: stage1
 stage%: $(BUILD_DIR)/stage%.o
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
-format-all: format
+format-all: bootstrap
 	@for source in $(ALL_SRC); do \
-		./format $$source > /tmp/file.b ; cp /tmp/file.b $$source ; \
+		./bootstrap -format -i $$source ; \
 	done
 
-format-check: format
+format-check: bootstrap
 	@for source in $(ALL_SRC); do \
-		if ! ./format $$source | diff -q $$source - > /dev/null 2>&1; then \
+		if ! ./bootstrap -format $$source | diff -q $$source - > /dev/null 2>&1; then \
 			echo "File $$source is not properly formatted"; \
 			exit 1; \
 		fi; \
@@ -96,7 +90,7 @@ format-check: format
 
 .PHONY: distclean clean self test lit lit-stage% format-all format-check all
 clean:
-	rm -f build/* bootstrap bootstrap-sema format stage*
+	rm -f build/* bootstrap stage*
 
 distclean: clean
 	rm -f cache/*

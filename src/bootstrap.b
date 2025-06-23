@@ -1,4 +1,5 @@
 import libc;
+import util;
 
 import ast;
 import ast.print;
@@ -10,35 +11,102 @@ import irgen;
 import ir.print;
 import cmdline;
 
+func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
+  if (args->inPlace) {
+    if (args->inputFile == null) {
+      puts("Cannot use -i with stdin input");
+      exit(-1);
+    }
+    if (args->outputFile != null) {
+      puts("Cannot use both -i and -o");
+      exit(-1);
+    }
+
+    let len = strlen(args->inputFile);
+    let tempFile = malloc(len + 20);
+    sprintf(tempFile, "%s.tmp.%d", args->inputFile, getpid());
+    return tempFile;
+  }
+
+  return args->outputFile;
+}
+
+func getOutFile(fileName: i8*) -> void* {
+  if (fileName == null) {
+    return getStdout();
+  }
+
+  let file = fopen(fileName, "wb");
+  if (file == null) {
+    puts("Failed to open output file");
+    exit(-1);
+  }
+  return file;
+}
+
+func finishInPlace(args: CommandLineArgs*, fileName: i8*, file: void*) {
+  if (!args->inPlace) {
+    return;
+  }
+
+  fclose(file);
+
+  if (rename(fileName, args->inputFile) != 0) {
+    puts("Failed to replace original file");
+    exit(-1);
+  }
+}
+
 func main(argc: i32, argv: i8**) -> i32 {
   let args = parseOpts(argc, argv);
+  printFile = getStderr();
 
-  let decls = parseFile(args.inputFile);
+  let name: i8* = "stdin";
+  let buf = Buf {};
+  if (args.inputFile != null) {
+    name = args.inputFile;
+    buf = readFile(name);
+  } else {
+    buf = readStdin();
+  }
+
+  if (buf.mem == null) {
+    puts("Failed to read input");
+    return -1;
+  }
+
+  let parseOpts = ParseOptions {
+    concrete = (args.mode == Mode::Format),
+  };
+
+  let decls = parseBufOpts(name, buf, parseOpts);
   if (decls == null) {
     puts("Failed to parse file");
     return -1;
   }
 
-  let semaState = initSemaState(args.target);
+  if (args.mode == Mode::Format) {
+    let outFileName = getOutOrInplaceFileName(&args);
+    printFile = getOutFile(outFileName);
+    printTopLevel(decls);
+    finishInPlace(&args, outFileName, printFile);
+    return 0;
+  }
 
+  let semaState = initSemaState(args.target);
   debug("Begin sema");
   decls = semaTopLevel(&semaState, decls);
   debug("End sema");
+
+  if (args.mode == Mode::Sema) {
+    return 0;
+  }
 
   debug("Begin irgen");
   let module = genModule(decls);
   debug("End irgen");
 
-  if (args.outputFile != null) {
-    let file = fopen(args.outputFile, "wb");
-    if (file == null) {
-      puts("Failed to open output file");
-      return -1;
-    }
-    outFile = file;
-  } else {
-    outFile = getStdout();
-  }
+  outFile = getOutFile(args.outputFile);
 
   if (args.outputKind == OutputKind::LLVM) {
     debug("Begin print ir");

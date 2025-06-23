@@ -3,15 +3,17 @@ import libc;
 
 let indent_width = 2;
 
+let printFile: void* = null;
+
 func printStr(start: i8*, end: i8*) {
   for (let c = start; c != end; c++) {
-    putchar(*c as i32);
+    fprintf(printFile, "%c", *c as i32);
   }
 }
 
 func printToken(token: Token) {
   if (token.kind != TokenKind::IDENTIFIER) {
-    printf("%s", tokens[(token.kind as i32)]);
+    fprintf(printFile, "%s", tokens[(token.kind as i32)]);
     return;
   }
   printStr(token.data, token.end);
@@ -19,62 +21,62 @@ func printToken(token: Token) {
 
 func printType(type: Type*) {
   if (type == null) {
-    printf("nullType ");
+    fprintf(printFile, "nullType ");
     return;
   }
 
   if (type->isConst) {
-    printf("const ");
+    fprintf(printFile, "const ");
   }
 
   switch (type->kind) {
     case TypeKind::Int as int:
       if (int.isSigned) {
-        printf("i%d", int.size);
+        fprintf(printFile, "i%d", int.size);
       } else {
-        printf("u%d", int.size);
+        fprintf(printFile, "u%d", int.size);
       }
     case TypeKind::Void:
-      printf("void");
+      fprintf(printFile, "void");
     case TypeKind::Bool:
-      printf("bool");
+      fprintf(printFile, "bool");
     case TypeKind::Pointer as ptr:
       printType(ptr.pointee);
-      printf("*");
+      fprintf(printFile, "*");
     case TypeKind::Array as array:
       printType(array.element);
       if (array.size < 0) {
-        printf("[]");
+        fprintf(printFile, "[]");
       } else {
-        printf("[%d]", array.size);
+        fprintf(printFile, "[%d]", array.size);
       }
     case TypeKind::Struct as s:
-      printf("struct ");
+      fprintf(printFile, "struct ");
       printStr(s.tag.data, s.tag.end);
     case TypeKind::Func as fn:
-      printf("(");
+      fprintf(printFile, "(");
       for (let arg = fn.args; arg != null; arg = arg->next) {
         printType(arg);
         if (arg->next != null) {
-          printf(",");
+          fprintf(printFile, ",");
         }
       }
       if (fn.isVarargs) {
-        printf("  ...");
+        fprintf(printFile, "  ...");
       }
-      printf(") -> ");
+      fprintf(printFile, ") -> ");
       printType(fn.result);
     case TypeKind::Enum as e:
-      printf("enum ");
+      fprintf(printFile, "enum ");
       printStr(e.tag.data, e.tag.end);
     case TypeKind::Union as un:
-      printf("union ");
+      fprintf(printFile, "union ");
       printStr(un.tag.data, un.tag.end);
 
     case TypeKind::Tag as tag:
       if (tag.parent.kind != TokenKind::TOK_EOF) {
         printStr(tag.parent.data, tag.parent.end);
-        printf("::");
+        fprintf(printFile, "::");
       }
       printStr(tag.tag.data, tag.tag.end);
   }
@@ -82,7 +84,7 @@ func printType(type: Type*) {
 
 func printIndent(indent: i32) {
   for (let i = 0; i < indent; i++) {
-    printf(" ");
+    fprintf(printFile, " ");
   }
 }
 
@@ -99,28 +101,28 @@ func printLet(decl: DeclAST*, indent: i32) {
   }
 
   if (isExtern) {
-    printf("extern ");
+    fprintf(printFile, "extern ");
   }
 
   if (&decl->kind as DeclKind::Const* != null) {
-    printf("const ");
+    fprintf(printFile, "const ");
   } else {
-    printf("let ");
+    fprintf(printFile, "let ");
   }
   printToken(decl->name);
 
   if (decl->type != null) {
-    printf(": ");
+    fprintf(printFile, ": ");
     printType(decl->type);
   }
 
   if (init != null) {
-    printf(" =");
+    fprintf(printFile, " =");
     if (init->location.line != decl->location.line) {
-      printf("\n");
+      fprintf(printFile, "\n");
       printIndent(indent + indent_width * 2);
     } else {
-      printf(" ");
+      fprintf(printFile, " ");
     }
     printExprPrec(init, -1, indent);
   }
@@ -128,13 +130,13 @@ func printLet(decl: DeclAST*, indent: i32) {
 
 func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
   if (expr == null) {
-    printf("ERROR: null expr");
+    fprintf(printFile, "ERROR: null expr");
     return;
   }
 
   let curPrec = getExprPrecedence(expr);
   if (curPrec < parentPrec) {
-    printf("(");
+    fprintf(printFile, "(");
   }
 
   let nextPrec = curPrec + 1;
@@ -145,7 +147,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
 
     case ExprKind::Variable as variable:
       if (tokCmpStr(variable.identifier, "NULL")) {
-        printf("null");
+        fprintf(printFile, "null");
       } else {
         printToken(variable.identifier);
       }
@@ -153,31 +155,31 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
     case ExprKind::Int as int:
       printStr(int.token.data, int.token.end);
 
-    // printf("%d", expr->value);
+    // fprintf(printFile, "%d", expr->value);
     // printToken(expr->op);
     case ExprKind::Str as str:
-      printf("\"");
+      fprintf(printFile, "\"");
       printStr(str.identifier.data, str.identifier.end);
-      printf("\"");
+      fprintf(printFile, "\"");
     case ExprKind::Binary as binary:
       let isComma = binary.op.kind == TokenKind::COMMA;
       let isSplit = binary.lhs->location.line != binary.rhs->location.line;
       printExprPrec(binary.lhs, curPrec, indent);
       if (!isComma) {
         if (isSplit) {
-          printf("\n");
+          fprintf(printFile, "\n");
           printIndent(indent + 2 * indent_width);
         } else {
-          printf(" ");
+          fprintf(printFile, " ");
         }
       }
 
       printToken(binary.op);
       if (isComma && isSplit) {
-        printf("\n");
+        fprintf(printFile, "\n");
         printIndent(indent + 2 * indent_width);
       } else {
-        printf(" ");
+        fprintf(printFile, " ");
       }
 
       let newIndent = isSplit ? indent + indent_width : indent;
@@ -185,12 +187,12 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
 
     case ExprKind::Index as index:
       printExprPrec(index.array, curPrec, indent);
-      printf("[");
+      fprintf(printFile, "[");
       printExprPrec(index.index, nextPrec, indent);
-      printf("]");
+      fprintf(printFile, "]");
     case ExprKind::Call as call:
       printExprPrec(call.function, nextPrec, indent);
-      printf("(");
+      fprintf(printFile, "(");
       let split = false;
       for (let cur = call.args; cur != null; cur = cur->next) {
         if (cur->next != null && cur->location.line != cur->next->location.line) {
@@ -199,27 +201,27 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       }
       for (let cur: ExprAST* = call.args; cur != null; cur = cur->next) {
         if (split) {
-          printf("\n");
+          fprintf(printFile, "\n");
           printIndent(indent + indent_width * 2);
         }
         printExprPrec(cur, -1, indent);
         if (cur->next != null) {
-          printf(",");
+          fprintf(printFile, ",");
           if (!split) {
-            printf(" ");
+            fprintf(printFile, " ");
           }
         }
       }
-      printf(")");
+      fprintf(printFile, ")");
     case ExprKind::Member as member:
       printExprPrec(member.object, curPrec, indent);
       let isAs = member.op.kind == TokenKind::AS;
       if (isAs) {
-        printf(" ");
+        fprintf(printFile, " ");
       }
       printToken(member.op);
       if (isAs) {
-        printf(" ");
+        fprintf(printFile, " ");
       }
       printToken(member.identifier);
     case ExprKind::Unary as unary:
@@ -231,87 +233,87 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
         printExprPrec(unary.prefix, nextPrec, indent);
       }
     case ExprKind::Sizeof as sizeofExpr:
-      printf("sizeof(");
+      fprintf(printFile, "sizeof(");
       if (sizeofExpr.typeArg != null) {
         printType(sizeofExpr.typeArg);
       } else {
         printExprPrec(sizeofExpr.expr, nextPrec, indent);
       }
-      printf(")");
+      fprintf(printFile, ")");
     case ExprKind::Conditional as cond:
       printExprPrec(cond.cond, nextPrec, indent);
       if (expr->location.line != cond.trueExpr->location.line) {
-        printf("\n");
+        fprintf(printFile, "\n");
         printIndent(indent + 2 * indent_width);
       }
-      printf(" ? ");
+      fprintf(printFile, " ? ");
       printExprPrec(cond.trueExpr, nextPrec, indent);
       if (cond.trueExpr->location.line != cond.falseExpr->location.line) {
-        printf("\n");
+        fprintf(printFile, "\n");
         printIndent(indent + 2 * indent_width);
       }
-      printf(" : ");
+      fprintf(printFile, " : ");
       printExprPrec(cond.falseExpr, nextPrec, indent);
     case ExprKind::Array as array:
-      printf("{");
+      fprintf(printFile, "{");
       let hasSplit = false;
       let lastLine = expr->location.line;
       for (let elem = array.elements; elem != null; elem = elem->next) {
         if (lastLine != elem->location.line) {
           hasSplit = true;
-          printf("\n");
+          fprintf(printFile, "\n");
           printIndent(indent + indent_width);
         } else {
-          printf(" ");
+          fprintf(printFile, " ");
         }
 
         printExprPrec(elem, nextPrec, indent);
         if (elem->next != null) {
-          printf(",");
+          fprintf(printFile, ",");
         }
         lastLine = elem->location.line;
       }
       if (hasSplit) {
-        printf(",\n");
+        fprintf(printFile, ",\n");
         printIndent(indent);
       }
-      printf("}");
+      fprintf(printFile, "}");
     case ExprKind::Struct as structExpr:
       if (structExpr.parent.kind != TokenKind::TOK_EOF) {
         printToken(structExpr.parent);
-        printf("::");
+        fprintf(printFile, "::");
       }
       printToken(structExpr.identifier);
-      printf(" {");
+      fprintf(printFile, " {");
       if (structExpr.fieldIndices != null) {
-        printf("\n");
+        fprintf(printFile, "\n");
         for (let field = structExpr.fieldIndices; field != null; field = field->next) {
           printIndent(indent + indent_width);
 
           printToken(field->fieldName);
-          printf(" = ");
+          fprintf(printFile, " = ");
           printExprPrec(field->value, -1, indent + indent_width);
-          printf(",\n");
+          fprintf(printFile, ",\n");
         }
         printIndent(indent);
       }
-      printf("}");
+      fprintf(printFile, "}");
     case ExprKind::Cast as cast:
       printExprPrec(cast.expr, curPrec, indent);
-      printf(" as ");
+      fprintf(printFile, " as ");
       printType(expr->type);
     case ExprKind::Scope as scope:
       printToken(scope.parent);
-      printf("::");
+      fprintf(printFile, "::");
       printToken(scope.identifier);
     case ExprKind::Paren as paren:
-      printf("(");
+      fprintf(printFile, "(");
       printExprPrec(paren.expr, -1, indent + indent_width);
-      printf(")");
+      fprintf(printFile, ")");
   }
 
   if (curPrec < parentPrec) {
-    printf(")");
+    fprintf(printFile, ")");
   }
 }
 
@@ -328,12 +330,12 @@ func printIfStmt(stmt: StmtAST*, indent: i32) {
   printIndent(indent);
   while (stmt != null) {
     if (let ifStmt = &stmt->kind as StmtKind::If*) {
-      printf("if (");
+      fprintf(printFile, "if (");
       printExprIndent(ifStmt->cond, indent);
-      printf(") ");
+      fprintf(printFile, ") ");
       printStmtIndent(ifStmt->thenStmt, indent);
       if (ifStmt->elseStmt != null) {
-        printf(" else ");
+        fprintf(printFile, " else ");
         stmt = ifStmt->elseStmt;
       } else {
         stmt = null;
@@ -352,7 +354,7 @@ func printComments(comment: Comment*, indent: i32, line: i32) -> Comment* {
     printStr(comment->value.data, comment->value.end);
 
     if (line != 0 || comment->next != null) {
-      printf("\n");
+      fprintf(printFile, "\n");
     }
   }
   return comment;
@@ -365,9 +367,9 @@ func printStmtList(stmt: StmtAST*, indent: i32) {
     if (cur->next != null) {
       let lineDiff = cur->next->location.line - cur->endLocation.line;
       if (lineDiff > 1) {
-        printf("\n\n");
+        fprintf(printFile, "\n\n");
       } else {
-        printf("\n");
+        fprintf(printFile, "\n");
       }
     }
   }
@@ -379,78 +381,78 @@ func printStmtIndent(stmt: StmtAST*, indent: i32) {
   switch (stmt->kind) {
     case StmtKind::Compound as compStmt:
       // printIndent(indent);
-      printf("{\n");
+      fprintf(printFile, "{\n");
       printStmtList(compStmt.stmt, indent);
-      printf("\n");
+      fprintf(printFile, "\n");
       printIndent(indent);
       trailing = printComments(trailing, indent + indent_width, stmt->endLocation.line);
-      printf("}");
+      fprintf(printFile, "}");
     case StmtKind::Expr as exprStmt:
       printIndent(indent);
       if (exprStmt.expr != null) {
         printExprIndent(exprStmt.expr, indent);
       }
-      printf(";");
+      fprintf(printFile, ";");
     case StmtKind::For as forStmt:
       printIndent(indent);
-      printf("for (");
+      fprintf(printFile, "for (");
       printStmtIndent(forStmt.init, 0);
       if (forStmt.init->location.line != forStmt.cond->location.line) {
-        printf("\n");
+        fprintf(printFile, "\n");
         printStmtIndent(forStmt.cond, indent + 5);
       } else {
-        printf(" ");
+        fprintf(printFile, " ");
         printStmtIndent(forStmt.cond, 0);
       }
       if (forStmt.cond->location.line != forStmt.update->location.line) {
-        printf("\n");
+        fprintf(printFile, "\n");
         printIndent(indent + 5);
       } else {
-        printf(" ");
+        fprintf(printFile, " ");
       }
       printExprIndent(forStmt.update, indent);
-      printf(") ");
+      fprintf(printFile, ") ");
       printStmtIndent(forStmt.body, indent);
     case StmtKind::If:
       printIfStmt(stmt, indent);
     case StmtKind::Return as retStmt:
       printIndent(indent);
-      printf("return");
+      fprintf(printFile, "return");
       if (retStmt.expr != null) {
-        printf(" ");
+        fprintf(printFile, " ");
         printExprIndent(retStmt.expr, indent);
       }
-      printf(";");
+      fprintf(printFile, ";");
 
     case StmtKind::Switch as switchStmt:
       printIndent(indent);
-      printf("switch (");
+      fprintf(printFile, "switch (");
       printExprIndent(switchStmt.expr, indent);
-      printf(") {\n");
+      fprintf(printFile, ") {\n");
       printStmtList(switchStmt.body, indent);
-      printf("\n");
+      fprintf(printFile, "\n");
       printIndent(indent);
-      printf("}");
+      fprintf(printFile, "}");
     case StmtKind::Case as caseStmt:
       printIndent(indent);
-      printf("case ");
+      fprintf(printFile, "case ");
       printExprIndent(caseStmt.expr, 5);
-      printf(":\n");
+      fprintf(printFile, ":\n");
       printStmtList(caseStmt.body, indent);
     case StmtKind::Default as defaultStmt:
       printIndent(indent);
-      printf("default:\n");
+      fprintf(printFile, "default:\n");
       printStmtList(defaultStmt.body, indent);
 
     case StmtKind::Break:
       printIndent(indent);
-      printf("break;");
+      fprintf(printFile, "break;");
 
     case StmtKind::While as whileStmt:
       printIndent(indent);
-      printf("while (");
+      fprintf(printFile, "while (");
       printExprIndent(whileStmt.cond, indent);
-      printf(") ");
+      fprintf(printFile, ") ");
       printStmtIndent(whileStmt.body, indent);
   }
 
@@ -463,16 +465,16 @@ func printStmt(stmt: StmtAST*) {
 
 func printDeclNewlines(field: DeclAST*) {
   if (field->next == null) {
-    printf("\n");
+    fprintf(printFile, "\n");
     return;
   }
 
   // TODO: take comments into account.
   let lineDiff = field->next->location.line - field->location.line;
   if (lineDiff > 1) {
-    printf("\n\n");
+    fprintf(printFile, "\n\n");
   } else {
-    printf("\n");
+    fprintf(printFile, "\n");
   }
 }
 
@@ -481,10 +483,10 @@ func printStructBody(
     indent: i32,
     trailing: Comment*
 ) -> Comment* {
-  printf(" {");
+  fprintf(printFile, " {");
   let fields = (&decl->kind as DeclKind::Struct*)->fields;
   if (fields != null) {
-    printf("\n");
+    fprintf(printFile, "\n");
   }
   for (let field = fields; field != null;
        field = field->next) {
@@ -494,11 +496,11 @@ func printStructBody(
         field->location.line);
     printIndent(indent + indent_width);
 
-    // printf("%d: ", field->location.line);
+    // fprintf(printFile, "%d: ", field->location.line);
     printToken(field->name);
-    printf(": ");
+    fprintf(printFile, ": ");
     printType(field->type);
-    printf(";");
+    fprintf(printFile, ";");
 
     printComments(comments, indent + indent_width, 0);
 
@@ -512,7 +514,7 @@ func printStructBody(
   if (fields != null) {
     printIndent(indent);
   }
-  printf("}");
+  fprintf(printFile, "}");
   return trailing;
 }
 
@@ -524,10 +526,10 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printType(decl->type);
 
       trailing = printStructBody(decl, indent, trailing);
-      printf(";");
+      fprintf(printFile, ";");
     case DeclKind::Enum as enumKind:
       printType(decl->type);
-      printf(" {\n");
+      fprintf(printFile, " {\n");
       for (let field = enumKind.fields; field != null;
            field = field->next) {
         let comments = printComments(
@@ -536,20 +538,20 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
             field->location.line);
         printIndent(indent + indent_width);
 
-        // printf("%d: ", field->location.line);
+        // fprintf(printFile, "%d: ", field->location.line);
         printToken(field->name);
-        printf(",");
+        fprintf(printFile, ",");
         printComments(comments, indent + indent_width, 0);
         printDeclNewlines(field);
       }
       trailing = printComments(trailing, indent + indent_width, decl->endLocation.line);
-      printf("};");
+      fprintf(printFile, "};");
     case DeclKind::Union as unionKind:
       printType(decl->type);
-      printf(" {");
+      fprintf(printFile, " {");
 
       if (unionKind.subTypes != null) {
-        printf("\n");
+        fprintf(printFile, "\n");
       }
 
       for (let subType = unionKind.subTypes; subType != null;
@@ -568,14 +570,14 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
             trailing);
 
         if (subType->next == null) {
-          printf("\n");
+          fprintf(printFile, "\n");
         } else {
           let lineDiff =
               subType->next->decl->location.line - subType->decl->endLocation.line;
           if (lineDiff > 1) {
-            printf("\n\n");
+            fprintf(printFile, "\n\n");
           } else {
-            printf("\n");
+            fprintf(printFile, "\n");
           }
         }
       }
@@ -584,22 +586,22 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
           trailing,
           indent + indent_width,
           decl->endLocation.line);
-      printf("};");
+      fprintf(printFile, "};");
     case DeclKind::EnumField:
       printToken(decl->name);
     case DeclKind::Var:
       printLet(decl, indent);
-      printf(";");
+      fprintf(printFile, ";");
     case DeclKind::Const:
       printLet(decl, indent);
-      printf(";");
+      fprintf(printFile, ";");
     case DeclKind::Func as funcKind:
       if (funcKind.isExtern) {
-        printf("extern ");
+        fprintf(printFile, "extern ");
       }
-      printf("func ");
+      fprintf(printFile, "func ");
       printToken(decl->name);
-      printf("(");
+      fprintf(printFile, "(");
 
       let fnType = decl->type->kind as TypeKind::Func*;
       let isVarargs = fnType->isVarargs;
@@ -615,49 +617,49 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       for (let field: DeclAST* = funcKind.fields; field != null;
            field = field->next) {
         if (split) {
-          printf("\n");
+          fprintf(printFile, "\n");
           printIndent(indent + 2 * indent_width);
         }
         printToken(field->name);
-        printf(": ");
+        fprintf(printFile, ": ");
         printType(field->type);
         if (field->next != null || isVarargs) {
-          printf(",");
+          fprintf(printFile, ",");
           if (!split) {
-            printf(" ");
+            fprintf(printFile, " ");
           }
         }
       }
       if (isVarargs) {
         if (split) {
-          printf("\n");
+          fprintf(printFile, "\n");
           printIndent(indent + 2 * indent_width);
         }
-        printf("...");
+        fprintf(printFile, "...");
       }
       if (split) {
-        printf("\n");
+        fprintf(printFile, "\n");
       }
-      printf(")");
+      fprintf(printFile, ")");
       if (fnType->result->kind as TypeKind::Void* == null) {
-        printf(" -> ");
+        fprintf(printFile, " -> ");
         printType(fnType->result);
       }
 
       if (funcKind.body != null) {
-        printf(" ");
+        fprintf(printFile, " ");
         printStmt(funcKind.body);
       } else {
-        printf(";");
+        fprintf(printFile, ";");
       }
     case DeclKind::Import as importKind:
-      printf("import ");
+      fprintf(printFile, "import ");
       printExpr(importKind.path);
-      printf(";");
+      fprintf(printFile, ";");
   }
 
   if (trailing != null) {
-    printf(" ");
+    fprintf(printFile, " ");
     printComments(trailing, indent, 0);
   }
 }
@@ -709,7 +711,7 @@ func printTopLevel(decls: DeclAST*) {
     }
 
     for (let i = 0; i < newlines; i++) {
-      putchar(10);
+      fprintf(printFile, "\n");
     }
   }
 }

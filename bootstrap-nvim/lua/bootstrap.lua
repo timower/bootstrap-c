@@ -27,7 +27,8 @@ function M.setup(opts)
 	if M.options.conform then
 		local conform = require("conform")
 		conform.formatters.bformat = {
-			command = M.bootstrapDir .. "format",
+			command = M.bootstrapDir .. "bootstrap",
+			args = { "-format" },
 			env = {
 				ASAN_OPTIONS = "detect_leaks=0",
 			},
@@ -40,7 +41,8 @@ function M.setup(opts)
 		lint.linters_by_ft.bootstrap = { "bootstrap" }
 		lint.linters.bootstrap = {
 			name = "bootstrap",
-			cmd = M.bootstrapDir .. "bootstrap-sema",
+			cmd = M.bootstrapDir .. "bootstrap",
+			args = { "-sema" },
 			stdin = false,
 			stream = "both",
 			ignore_exitcode = true,
