@@ -68,9 +68,11 @@ self: bootstrap
 test: format-check lit lit-stage2
 
 lit: bootstrap
+	rm -rf test/**/Output
 	lit -v test/
 
 lit-stage%: stage%
+	rm -rf test/**/Output
 	env BOOTSTRAP=$< lit -v test/
 
 lit-coverage: bootstrap-coverage
