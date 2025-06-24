@@ -5,7 +5,7 @@
 /stage*
 /cache/*
 /test/.lit_test_times.txt
-/test/Output
+/test/**/Output
 /result
 .direnv/
 /bootstrap-sema
