@@ -58,6 +58,11 @@ func finishInPlace(args: CommandLineArgs*, fileName: i8*, file: void*) {
 }
 
 func main(argc: i32, argv: i8**) -> i32 {
+//   puts("define i32 @main() {");
+//   puts("  ret i32 0");
+//   puts("}");
+//   exit(0);
+
   let args = parseOpts(argc, argv);
   printFile = getStderr();
 

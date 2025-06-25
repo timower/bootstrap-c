@@ -1,5 +1,12 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll
+// RUN: lli %t.ll
 // Test tagged unions
+
+// CHECK: %union.Result = type
+// CHECK: alloca %union.Result
+// CHECK: getelementptr inbounds %union.Result
+// CHECK: switch i32
 
 union Result {
   Success {

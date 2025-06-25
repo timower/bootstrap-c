@@ -1,5 +1,13 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll
+// RUN: lli %t.ll
 // Test for loop statements (parseForStmt function)
+
+// CHECK: br label
+// CHECK: icmp slt
+// CHECK: br i1
+// CHECK: add i32
+// CHECK: icmp ne i32
 
 func main() -> i32 {
   // Basic for loop

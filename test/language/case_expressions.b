@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 // Test various valid case expression types
 
@@ -47,3 +48,8 @@ func main() -> i32 {
 
   return 0; // Success
 }
+
+// CHECK: define i32 @main()
+// CHECK: switch i32 %{{[0-9]+}}, label %{{[0-9]+}} [
+// CHECK: switch i32 %{{[0-9]+}}, label %{{[0-9]+}} [
+// CHECK: switch i32 %{{[0-9]+}}, label %{{[0-9]+}} [

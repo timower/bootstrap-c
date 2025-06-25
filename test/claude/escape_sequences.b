@@ -1,4 +1,5 @@
 // Test to improve getEscaped() function coverage
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 extern func printf(format: i8*, ...) -> i32;
@@ -22,3 +23,9 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: call i32 @printf(ptr {{.*}}before\\0Aafter\\0A{{.*}})
+// CHECK: call i32 @printf(ptr {{.*}}before\\09after\\0A{{.*}})
+// CHECK: call i32 @printf(ptr {{.*}}before\\0Dafter\\0A{{.*}})
+// CHECK: call i32 @printf(ptr {{.*}}\\5C\\0A{{.*}})

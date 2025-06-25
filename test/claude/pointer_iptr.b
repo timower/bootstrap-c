@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli  
 // Test pointer-sized integer type (getIPtr function)
 
@@ -40,3 +41,11 @@ func main() -> i32 {
   
   return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: getelementptr inbounds i8, ptr {{.*}}, i64 10
+// CHECK: getelementptr inbounds i8, ptr {{.*}}, i64 2
+// CHECK: ptrtoint ptr {{.*}} to i64
+// CHECK: ptrtoint ptr {{.*}} to i64
+// CHECK: sub i64 {{.*}}, {{.*}}
+// CHECK: icmp ne i64 {{.*}}, 8

@@ -1,5 +1,13 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll
+// RUN: lli %t.ll
 // Test array decay (doDecay function)
+
+// CHECK: alloca [5 x i32]
+// CHECK: getelementptr
+// CHECK: load i32
+// CHECK: icmp ne i32
+// CHECK: ret i32
 
 func main() -> i32 {
   // Test basic array access

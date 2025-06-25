@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 func main() -> i32 {
   return foo(12);
@@ -16,3 +17,9 @@ func bar(y: i32) -> i32 {
   }
   return foo(y - 1);
 }
+
+// CHECK: define i32 @main()
+// CHECK: define i32 @foo(
+// CHECK: define i32 @bar(
+// CHECK: call i32 @foo(
+// CHECK: call i32 @bar(

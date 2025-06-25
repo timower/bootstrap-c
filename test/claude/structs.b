@@ -1,5 +1,13 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll
+// RUN: lli %t.ll
 // Test struct expressions and initialization
+
+// CHECK: %struct.Rectangle = type
+// CHECK: %struct.Point = type
+// CHECK: alloca %struct.Rectangle
+// CHECK: alloca %struct.Point
+// CHECK: getelementptr inbounds %struct.Point
 
 struct Point {
   x: i32;

@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 // Test case to improve coverage of semaCast function
@@ -62,3 +63,10 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: sext i8 {{.*}} to i16
+// CHECK: sext i16 {{.*}} to i32
+// CHECK: sext i32 {{.*}} to i64
+// CHECK: trunc i8 {{.*}} to i8
+// CHECK: call i32 @printf(ptr {{.*}}

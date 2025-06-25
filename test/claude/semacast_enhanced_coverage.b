@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 // Test case to improve coverage of semaCast function
@@ -39,3 +40,12 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: alloca [5 x i32]
+// CHECK: alloca ptr
+// CHECK: bitcast ptr
+// CHECK: call i32 @printf(ptr {{.*}}, i32 %{{[0-9]+}})
+// CHECK: trunc i64 {{.*}} to i32
+// CHECK: trunc i32 {{.*}} to i16
+// CHECK: trunc i16 {{.*}} to i8

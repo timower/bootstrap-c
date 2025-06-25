@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 // Test case to improve coverage of getEscaped function
@@ -34,3 +35,10 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: call i32 @printf(ptr {{.*}}line1\0Aline2\0A{{.*}})
+// CHECK: call i32 @printf(ptr {{.*}}col1\09col2\0A{{.*}})
+// CHECK: call i32 @printf(ptr {{.*}}before\0Dafter\0A{{.*}})
+// CHECK: call i32 @printf(ptr {{.*}}text\00cbefore null\0A{{.*}})
+// CHECK: call i32 @printf(ptr {{.*}}backslash: \5C{{.*}})

@@ -1,5 +1,14 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll
+// RUN: lli %t.ll
 // Test constants and compile-time evaluation
+
+// CHECK: @GLOBAL_INT = constant i32 42
+// CHECK: store i32 42
+// CHECK: store i32 255
+// CHECK: store i32 63
+// CHECK: store i32 15
+// CHECK: store i32 100
 
 const GLOBAL_INT = 42;
 

@@ -1,4 +1,5 @@
 // Test to improve genConstant() function coverage by testing various constant scenarios
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 extern func printf(format: i8*, ...) -> i32;
@@ -71,3 +72,15 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: store i8 42
+// CHECK: store i16 1234
+// CHECK: store i32 123456
+// CHECK: store i64 9876543210
+// CHECK: store i8 -1
+// CHECK: store i16 65535
+// CHECK: store i32 -1
+// CHECK: store i64 -1
+// CHECK: store i1 true
+// CHECK: store i1 false

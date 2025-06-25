@@ -1,5 +1,13 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 // Test integer types and basic operations
+
+// CHECK-DAG: alloca i32
+// CHECK-DAG: alloca i8
+// CHECK-DAG: alloca i16
+// CHECK-DAG: alloca i64
+// CHECK: store i32 10
+// CHECK: store i8 100
 
 func main() -> i32 {
     let a: i32 = 10;

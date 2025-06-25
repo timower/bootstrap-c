@@ -1,4 +1,5 @@
 // RUN: split-file %s %t
+// RUN: %bootstrap %t/main.b | FileCheck %s
 // RUN: %bootstrap %t/main.b | lli
 //
 // Test multi-file imports and modules
@@ -40,3 +41,11 @@ func triple(x: i32) -> i32 {
 func getGreeting() -> i8* {
   return "Hello from utils!";
 }
+
+// CHECK: define i32 @main()
+// CHECK: define i32 @add(i32 %0, i32 %1)
+// CHECK: define i32 @double(i32 %0)
+// CHECK: define ptr @getGreeting()
+// CHECK: call i32 @add(i32 10, i32 5)
+// CHECK: call i32 @double(i32 %{{[0-9]+}})
+// CHECK: call ptr @getGreeting()

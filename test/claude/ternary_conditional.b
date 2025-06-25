@@ -1,5 +1,12 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll  
+// RUN: lli %t.ll
 // Test ternary conditional expressions (genConditional function)
+
+// CHECK: icmp sgt
+// CHECK: br i1
+// CHECK: phi i32
+// CHECK: icmp ne i32
 
 func main() -> i32 {
   let a = 5;

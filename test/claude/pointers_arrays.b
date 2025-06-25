@@ -1,5 +1,13 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 // Test pointers and arrays
+
+// CHECK: alloca i32
+// CHECK: alloca ptr
+// CHECK: store i32 42
+// CHECK: store ptr
+// CHECK: load ptr
+// CHECK: load i32
 
 func main() -> i32 {
     let value = 42;

@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 // Test case to improve coverage of isUnary function
@@ -45,3 +46,11 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: xor i32 {{.*}}, -1
+// CHECK: add i32 {{.*}}, 1
+// CHECK: sub i32 {{.*}}, 1
+// CHECK: alloca i32
+// CHECK: load ptr
+// CHECK: sub i32 0, {{.*}}

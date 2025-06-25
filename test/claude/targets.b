@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s -target posix | FileCheck %s
 // RUN: %bootstrap %s -target posix | lli
 // RUN: %bootstrap %s -target darwin | lli  
 // REQUIRES: system-darwin
@@ -17,3 +18,8 @@ func main() -> i32 {
   
   return 1;
 }
+
+// CHECK: define i32 @main()
+// CHECK: alloca i32
+// CHECK: store i32 42
+// CHECK: icmp eq i32 {{.*}}, 30

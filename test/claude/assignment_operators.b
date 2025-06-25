@@ -1,5 +1,17 @@
 // Test to improve genAssign() function coverage
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s | lli | FileCheck %s
+
+// CHECK: a += b: 15
+// CHECK: a -= c: 13
+// CHECK: a *= c: 26
+// CHECK: a /= f: 8
+// CHECK: d %= b: 3
+// CHECK: e <<= 1: 30
+// CHECK: e >>= 2: 7
+// CHECK: g &= h: 4
+// CHECK: g |= b: 5
+// CHECK: g ^= c: 7
+// CHECK: result = b + c: 7
 
 extern func printf(format: i8*, ...) -> i32;
 

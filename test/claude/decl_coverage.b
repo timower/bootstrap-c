@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 // Test case to improve coverage of isDecl function
 // The isDecl function is used in sizeof parsing to determine if the
@@ -54,4 +55,10 @@ func main() -> i32 {
 
   return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: call i32 @printf(ptr {{.*}}, i32 {{.*}}, i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
+// CHECK: alloca %TestStruct
+// CHECK: alloca i32
+// CHECK: alloca %TestUnion
 

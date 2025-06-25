@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 // Test enums
 
@@ -64,3 +65,12 @@ func main() -> i32 {
   
   return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: define i32 @getColorValue(i32 %0)
+// CHECK: define i1 @checkStatus(i32 %0)
+// CHECK: switch i32 %{{[0-9]+}}, label %{{[0-9]+}} [
+// CHECK: switch i32 %{{[0-9]+}}, label %{{[0-9]+}} [
+// CHECK: call i32 @getColorValue(i32 0)
+// CHECK: call i32 @getColorValue(i32 1)
+// CHECK: call i32 @getColorValue(i32 2)

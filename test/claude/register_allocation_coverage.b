@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 // Test case to improve coverage of register allocation functions
@@ -26,3 +27,13 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: define i32 @complex_expression(i32 %0, i32 %1, i32 %2, i32 %3)
+// CHECK: add i32 {{.*}}, {{.*}}
+// CHECK: sub i32 {{.*}}, {{.*}}
+// CHECK: mul i32 {{.*}}, {{.*}}
+// CHECK: sdiv i32 {{.*}}, {{.*}}
+// CHECK: srem i32 {{.*}}, {{.*}}
+// CHECK: call i32 @complex_expression(i32 10, i32 5, i32 8, i32 3)
+// CHECK: call i32 @printf(ptr {{.*}}, i32 {{.*}})

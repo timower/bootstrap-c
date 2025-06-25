@@ -1,5 +1,11 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll
+// RUN: lli %t.ll
 // Test integer casting (semaIntCast function)
+
+// CHECK: trunc i32
+// CHECK: icmp ne
+// CHECK: ret i32
 func testCast(val: i32) -> i8 {
   return val as i8;
 }

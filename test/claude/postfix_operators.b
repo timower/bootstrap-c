@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 // Test postfix unary operators (parseUnaryPostfix function)
 
@@ -43,3 +44,10 @@ func main() -> i32 {
   
   return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: load i32, ptr %{{[0-9]+}}
+// CHECK: add i32 %{{[0-9]+}}, 1
+// CHECK: store i32 %{{[0-9]+}}, ptr %{{[0-9]+}}
+// CHECK: sub i32 %{{[0-9]+}}, 1
+// CHECK: getelementptr inbounds [5 x i32]

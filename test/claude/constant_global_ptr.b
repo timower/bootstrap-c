@@ -1,3 +1,4 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 // Test constant global pointer expressions to improve genConstant coverage
 
@@ -10,3 +11,10 @@ func main() -> i32 {
     printf("Global var: %d, via pointer: %d\n", global_var, *global_ptr);
     return 0;
 }
+
+// CHECK: @global_var = global i32 42
+// CHECK: @global_ptr = global ptr @global_var
+// CHECK: define i32 @main()
+// CHECK: load i32, ptr @global_var
+// CHECK: load ptr, ptr @global_ptr
+// CHECK: load i32, ptr %{{[0-9]+}}

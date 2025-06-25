@@ -1,3 +1,4 @@
+// RUN: echo "func main() -> i32 { return 0; }" | %bootstrap | FileCheck %s
 // RUN: echo "func main() -> i32 { return 0; }" | %bootstrap | lli
 // Test reading from stdin (readStdin function)
 
@@ -7,3 +8,5 @@
 
 // The actual test content is provided via stdin in the RUN command above.
 // This file serves as the test case that ensures stdin reading works properly.
+
+// CHECK: define i32 @main()

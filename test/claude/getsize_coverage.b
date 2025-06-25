@@ -1,6 +1,7 @@
 // Test case to improve coverage of getSize function
 // This test exercises different type size calculations
 
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 extern func printf(format: i8*, ...) -> i32;
@@ -86,3 +87,15 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: alloca i1
+// CHECK: alloca i8
+// CHECK: alloca i16
+// CHECK: alloca i32
+// CHECK: alloca i64
+// CHECK: alloca ptr
+// CHECK: alloca [5 x i32]
+// CHECK: alloca %SimpleStruct
+// CHECK: alloca %EmptyStruct
+// CHECK: alloca %NestedStruct

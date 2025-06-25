@@ -1,4 +1,10 @@
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
+
+// CHECK: %struct.
+// CHECK: alloca %struct.
+// CHECK: call
+// CHECK: ret
 struct Foo {
   x: i32;
   y: i32;

@@ -1,4 +1,12 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll
+// RUN: lli %t.ll
+
+// CHECK: %struct.Foo = type
+// CHECK: %struct.Bar = type
+// CHECK: alloca %struct.Bar
+// CHECK: getelementptr
+// CHECK: ret i32
 struct Bar {
   z: i32;
   w: Foo;

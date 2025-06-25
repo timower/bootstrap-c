@@ -1,5 +1,13 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: FileCheck %s < %t.ll
+// RUN: lli %t.ll
 // Test function parameters, return types, and calling conventions
+
+// CHECK-DAG: define i32 @noParams()
+// CHECK-DAG: define i32 @singleParam(
+// CHECK-DAG: define i32 @multipleParams(
+// CHECK-DAG: define void @voidReturn(
+// CHECK-DAG: call i32 () @noParams()
 
 func noParams() -> i32 {
   return 42;

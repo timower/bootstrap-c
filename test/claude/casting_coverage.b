@@ -1,4 +1,5 @@
 // Test to improve semaCast() function coverage by testing various casting scenarios
+// RUN: %bootstrap %s | FileCheck %s
 // RUN: %bootstrap %s | lli
 
 extern func printf(format: i8*, ...) -> i32;
@@ -51,3 +52,14 @@ func main() -> i32 {
     
     return 0;
 }
+
+// CHECK: define i32 @main()
+// CHECK: sext i8 {{.*}} to i16
+// CHECK: sext i16 {{.*}} to i32
+// CHECK: sext i32 {{.*}} to i64
+// CHECK: zext i8 {{.*}} to i16
+// CHECK: zext i16 {{.*}} to i32
+// CHECK: zext i32 {{.*}} to i64
+// CHECK: trunc i64 {{.*}} to i32
+// CHECK: trunc i32 {{.*}} to i16
+// CHECK: trunc i16 {{.*}} to i8
