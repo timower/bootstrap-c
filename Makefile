@@ -23,6 +23,7 @@ BUILD_DIR ?= $(CURDIR)/build
 
 # Stores bootstrap stages from parent commits, cached to not rebuild them
 CACHE_DIR ?= $(CURDIR)/cache
+CACHE_SRC_DIR = $(CACHE_DIR)/src
 
 PARENT_STAGE ?= $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 
@@ -131,59 +132,14 @@ $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
 $(BUILD_DIR)/bootstrap.ll: $(PARENT_STAGE) $(ALL_SRC)
 	$(PARENT_STAGE) $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
 
-$(PARENT_STAGE):
-	$(eval TMP := $(shell mktemp -d))
-	git clone . $(TMP)
-	git -C $(TMP) reset --hard $(PARENT_COMMMIT)
-	cd $(TMP) && $(MAKE) CACHE_DIR=$(CACHE_DIR) stage2
-	mv $(TMP)/stage2 $@
-	rm -rf $(TMP)
-
-self: bootstrap
-	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC)
-
-test: format-check lit lit-stage2
-
-lit: bootstrap
-	lit -v test/
-
-lit-stage%: stage%
-	env BOOTSTRAP=$< lit -v test/
-
-lit-coverage: bootstrap-coverage
-	rm -f $(BUILD_DIR)/coverage/*
-	env BOOTSTRAP=$< lit -v test/
-	llvm-profdata merge -o $(BUILD_DIR)/coverage/merged.profdata $(BUILD_DIR)/coverage
-	opt --mtriple $(TRIPLE) -p pgo-instr-use -o /dev/null $(BUILD_DIR)/coverage.ll \
-		-pgo-test-profile-file=$(BUILD_DIR)/coverage/merged.profdata -pgo-view-raw-counts=text 2> $(BUILD_DIR)/coverage/coverage.txt
-	python3 ./test/parse_coverage.py $(BUILD_DIR)/coverage/coverage.txt
-
-$(BUILD_DIR)/stage1.ll: bootstrap
-	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
-
-$(BUILD_DIR)/stage2.ll: stage1
-	./stage1 $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
-
-stage%: $(BUILD_DIR)/stage%.o
-	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
-
-format-all: bootstrap
-	@for source in $(ALL_SRC); do \
-		./bootstrap -format -i $$source ; \
-	done
-
-format-check: bootstrap
-	@for source in $(ALL_SRC); do \
-		if ! ./bootstrap -format $$source | diff -q $$source - > /dev/null 2>&1; then \
-			echo "File $$source is not properly formatted"; \
-			exit 1; \
-		fi; \
-	done
-	@echo "All files are properly formatted"
-
-.PHONY: distclean clean self test lit lit-stage% lit-coverage format-all format-check all
-clean:
-	rm -rf build/* bootstrap bootstrap-coverage stage*
-
-distclean: clean
-	rm -f cache/*
+$(CACHE_DIR)/stage-%:
+	$(eval COMMIT_HASH := $(patsubst $(CACHE_DIR)/stage-%,%,$@))
+	$(eval PARENT_COMMIT := $(shell git rev-parse --short $(COMMIT_HASH)^ || echo ""))
+	$(eval PARENT_STAGE_DEP := $(CACHE_DIR)/stage-$(PARENT_COMMIT))
+	@if [ ! -f $(PARENT_STAGE_DEP) ] && [ ! -z $(PARENT_COMMIT) ]; \
+	then $(MAKE) CACHE_DIR=$(CACHE_DIR) $(PARENT_STAGE_DEP); fi
+	@trap 'git worktree remove $(CACHE_SRC_DIR) 2>/dev/null || true' EXIT; \
+	git worktree add $(CACHE_SRC_DIR) $(COMMIT_HASH); \
+	cd $(CACHE_SRC_DIR) && $(MAKE) CACHE_DIR=$(CACHE_DIR) PARENT_STAGE=$(PARENT_STAGE_DEP) stage2; \
+	mv $(CACHE_SRC_DIR)/stage2 $@; \
+	git worktree remove $(CACHE_SRC_DIR)
