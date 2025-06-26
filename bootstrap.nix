@@ -25,10 +25,11 @@ stdenv.mkDerivation {
     llvmPackages_19.llvm
     parent-bootstrap
   ];
-  nativeCheckInputs = [ 
-    lit 
+  nativeCheckInputs = [
+    lit
     pkgsCross.aarch64-multiplatform.buildPackages.gcc
     qemu-user
+    llvmPackages_19.clang
   ];
 
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
