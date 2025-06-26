@@ -86,3 +86,16 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
 
   return args;
 }
+
+func getOutFile(fileName: i8*) -> void* {
+  if (fileName == null) {
+    return getStdout();
+  }
+
+  let file = fopen(fileName, "wb");
+  if (file == null) {
+    puts("Failed to open output file");
+    exit(-1);
+  }
+  return file;
+}

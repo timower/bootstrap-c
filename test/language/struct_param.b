@@ -1,10 +1,13 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: lli %t.ll
+// RUN: FileCheck %s --input-file=%t.ll
 struct Foo {
   x: i32;
   y: i32;
 };
 
 func foo(f: Foo) -> i32 {
+  // CHECK: %struct.Foo = type
   return f.x - 2 * f.y;
 }
 

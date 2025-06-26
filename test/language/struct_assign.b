@@ -1,4 +1,6 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: lli %t.ll
+// RUN: FileCheck %s --input-file=%t.ll
 struct Bar {
   z: i32;
   w: Foo;
@@ -21,6 +23,8 @@ func main() -> i32 {
     ptr = &b,
   };
   let ptr = &x;
+  // CHECK: %struct.Foo = type
+  // CHECK: %struct.Bar = type
   ptr->ptr->w = *ptr;
 
   return b.w.ptr->z - 55;

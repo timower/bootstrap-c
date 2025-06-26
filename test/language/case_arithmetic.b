@@ -1,8 +1,11 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: lli %t.ll
+// RUN: FileCheck %s --input-file=%t.ll
 // Test arithmetic expressions in case statements
 
 func main() -> i32 {
   let x = 10;
+  // CHECK: switch i32
   switch (x) {
     case (5 + 5):
       return 0; // Success if arithmetic works
