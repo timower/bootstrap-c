@@ -11,11 +11,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1753004683,
-        "narHash": "sha256-Q6b5z37vv/z/LNju6+76h8wRLOocJuXL9A2HAqxdAvw=",
+        "lastModified": 1753004727,
+        "narHash": "sha256-m258fASlzeGJgErK6Hent1xniUoanb2nwb5CMF1kZao=",
         "owner": "timower",
         "repo": "bootstrap-c",
-        "rev": "caf554a0e373ac0f57585cf59fed7ea6f79267da",
+        "rev": "bc39c3db9b7ef694bb16a2fefcc05fa54316503f",
         "type": "github"
       },
       "original": {
@@ -38,11 +38,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1753004599,
-        "narHash": "sha256-vjugqmCMEgiPW//WmihxGfeeUUZ/aCVFOJgGq6tnBFQ=",
+        "lastModified": 1753004683,
+        "narHash": "sha256-Q6b5z37vv/z/LNju6+76h8wRLOocJuXL9A2HAqxdAvw=",
         "owner": "timower",
         "repo": "bootstrap-c",
-        "rev": "24cff414551a0cd3d73763a99217fce44de3be27",
+        "rev": "caf554a0e373ac0f57585cf59fed7ea6f79267da",
         "type": "github"
       },
       "original": {
@@ -67,11 +67,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1753004415,
-        "narHash": "sha256-n0la3KJ3vAmqx9q8Ik1/mPH/rpqv+STcfgija5EC7+M=",
+        "lastModified": 1753004599,
+        "narHash": "sha256-vjugqmCMEgiPW//WmihxGfeeUUZ/aCVFOJgGq6tnBFQ=",
         "owner": "timower",
         "repo": "bootstrap-c",
-        "rev": "5ce56041e5a77705ceb53da29d85acf4f4269a27",
+        "rev": "24cff414551a0cd3d73763a99217fce44de3be27",
         "type": "github"
       },
       "original": {
@@ -98,11 +98,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1740520542,
-        "narHash": "sha256-dR2pXRx+fH5IPnAAQocZ5W2dFKGErEdrkf6WfQQE5wY=",
+        "lastModified": 1753004415,
+        "narHash": "sha256-n0la3KJ3vAmqx9q8Ik1/mPH/rpqv+STcfgija5EC7+M=",
         "owner": "timower",
         "repo": "bootstrap-c",
-        "rev": "10a690174ce8c2db318bc40f9b6a0082322336c8",
+        "rev": "5ce56041e5a77705ceb53da29d85acf4f4269a27",
         "type": "github"
       },
       "original": {
@@ -131,6 +131,41 @@
         ]
       },
       "locked": {
+        "lastModified": 1740520542,
+        "narHash": "sha256-dR2pXRx+fH5IPnAAQocZ5W2dFKGErEdrkf6WfQQE5wY=",
+        "owner": "timower",
+        "repo": "bootstrap-c",
+        "rev": "10a690174ce8c2db318bc40f9b6a0082322336c8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "timower",
+        "ref": "dev",
+        "repo": "bootstrap-c",
+        "type": "github"
+      }
+    },
+    "bootstrap-parent_6": {
+      "inputs": {
+        "bootstrap-parent": "bootstrap-parent_7",
+        "flake-utils": [
+          "bootstrap-parent",
+          "bootstrap-parent",
+          "bootstrap-parent",
+          "bootstrap-parent",
+          "bootstrap-parent",
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "bootstrap-parent",
+          "bootstrap-parent",
+          "bootstrap-parent",
+          "bootstrap-parent",
+          "bootstrap-parent",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
         "lastModified": 1740427630,
         "narHash": "sha256-DBcMzEtMPuuT0UdhhTL2P6RFuU12IrZ0CqwQyqU6Srk=",
         "owner": "timower",
@@ -145,9 +180,10 @@
         "type": "github"
       }
     },
-    "bootstrap-parent_6": {
+    "bootstrap-parent_7": {
       "inputs": {
         "flake-utils": [
+          "bootstrap-parent",
           "bootstrap-parent",
           "bootstrap-parent",
           "bootstrap-parent",
@@ -156,6 +192,7 @@
           "flake-utils"
         ],
         "nixpkgs": [
+          "bootstrap-parent",
           "bootstrap-parent",
           "bootstrap-parent",
           "bootstrap-parent",

@@ -8,8 +8,10 @@ LLCFLAGS ?= -O0 --relocation-model=pic -filetype=obj
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 	BOOTSTRAP_FLAGS ?= -target darwin
+	TRIPLE = arm64-apple-macosx15.0.0
 else
 	BOOTSTRAP_FLAGS ?=
+	TRIPLE = x86_64-unknown-linux-gnu
 endif
 
 export ASAN_OPTIONS=detect_leaks=0
@@ -36,6 +38,12 @@ all: bootstrap
 
 bootstrap: $(OBJ)
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
+
+bootstrap-coverage: bootstrap
+	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) | \
+	opt --mtriple $(TRIPLE) -S -p simplifycfg -o $(BUILD_DIR)/coverage.ll
+	opt -S $(BUILD_DIR)/coverage.ll -p pgo-instr-gen,instrprof | \
+	clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
 
 $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
 	./bootstrap $(BOOTSTRAP_FLAGS) $< -o $@
@@ -65,6 +73,14 @@ lit: bootstrap
 lit-stage%: stage%
 	env BOOTSTRAP=$< lit -v test/
 
+lit-coverage: bootstrap-coverage
+	rm -f $(BUILD_DIR)/coverage/*
+	env BOOTSTRAP=$< lit -v test/
+	llvm-profdata merge -o $(BUILD_DIR)/coverage/merged.profdata $(BUILD_DIR)/coverage
+	opt --mtriple $(TRIPLE) -p pgo-instr-use -o /dev/null $(BUILD_DIR)/coverage.ll \
+		-pgo-test-profile-file=$(BUILD_DIR)/coverage/merged.profdata -pgo-view-raw-counts=text 2> $(BUILD_DIR)/coverage/coverage.txt
+	python3 ./test/parse_coverage.py $(BUILD_DIR)/coverage/coverage.txt
+
 $(BUILD_DIR)/stage1.ll: bootstrap
 	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
 
@@ -88,9 +104,9 @@ format-check: bootstrap
 	done
 	@echo "All files are properly formatted"
 
-.PHONY: distclean clean self test lit lit-stage% format-all format-check all
+.PHONY: distclean clean self test lit lit-stage% lit-coverage format-all format-check all
 clean:
-	rm -f build/* bootstrap stage*
+	rm -rf build/* bootstrap bootstrap-coverage stage*
 
 distclean: clean
 	rm -f cache/*

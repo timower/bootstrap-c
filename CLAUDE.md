@@ -18,7 +18,7 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 ### Testing
 - `make test` - Run all tests using lit (LLVM Integrated Tester)
 - `make lit` - Run tests with current bootstrap compiler
-- `make lit-stage1` - Run tests with stage1 compiler
+- `make lit-coverage` - Run tests with coverage
 - `lit -v test/` - Run tests with verbose output
 
 ### Code Formatting
@@ -31,7 +31,6 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 
 ### Cleanup
 - `make clean` - Remove build artifacts and binaries
-- `make distclean` - Clean everything including cached stages
 
 ## Architecture
 
@@ -75,7 +74,6 @@ Uses LLVM's `lit` testing framework:
 2. Run `make bootstrap` to build with previous stage
 3. Use `make format-all` to maintain code style
 4. Run `make test` to verify correctness
-5. Test multi-stage compilation with `make stage1 stage2`
 
 ### Adding New Features
 - Each commit should add exactly one language feature
@@ -107,4 +105,70 @@ Note: The Makefile automatically detects Darwin and sets the appropriate target 
 ### Environment Variables
 - `BOOTSTRAP_FLAGS` - Additional compiler flags (use `-target <platform>` for cross-compilation)
 - `BOOTSTRAP` - Override bootstrap compiler path for testing
-- `ASAN_OPTIONS=detect_leaks=0` - Required for AddressSanitizer builds
+- `LIT_FILTER` - Name of the test to execute in lit and related targets
+
+## Code Snippets
+```bootstrap
+extern func printf(format: i8*, ...) -> i32;
+
+// Enum
+enum Status {
+    ACTIVE,
+    INACTIVE,
+};
+
+// Struct
+struct Point {
+    x: i32;
+    y: i32;
+    status: Status;
+};
+
+// Tagged union
+union Result {
+    Ok { value: i32; }
+    Err { message: i8*; }
+};
+
+// Function with pointers
+func processPoint(point: Point*) -> i32 {
+    if (point->status == Status::ACTIVE) {
+        return point->x + point->y;
+    }
+    return 0;
+}
+
+func main() -> i32 {
+    // Array initialization and access
+    let numbers = {1, 2, 3, 4, 5};
+    printf("Array: [%d, %d, %d, %d, %d]\n", numbers[0], numbers[1], numbers[2], numbers[3], numbers[4]);
+
+    // Array with pointer arithmetic
+    let ptr_array = &numbers[0];
+    printf("Via pointer: %d, %d\n", *ptr_array, *(ptr_array + 2));
+
+    // Struct initialization
+    let point = Point { x = 10, y = 20, status = Status::ACTIVE };
+
+    // Pointer operations
+    let ptr = &point;
+    let sum = processPoint(ptr);
+
+    // Tagged union construction
+    let result: Result = Result::Ok { value = sum };
+
+    // Pattern matching on tagged union
+    switch (result) {
+        case Result::Ok as ok:
+            printf("Sum: %d\n", ok.value);
+        case Result::Err as err:
+            printf("Error: %s\n", err.message);
+    }
+
+    // Conditional expression and member access
+    let max = ptr->x > ptr->y ? ptr->x : ptr->y;
+    printf("Max coordinate: %d\n", max);
+
+    return 0;
+}
+```
