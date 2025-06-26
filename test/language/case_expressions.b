@@ -1,4 +1,6 @@
-// RUN: %bootstrap %s | lli
+// RUN: %bootstrap %s -o %t.ll
+// RUN: lli %t.ll
+// RUN: FileCheck %s --input-file=%t.ll
 // Test various valid case expression types
 
 enum Color {
@@ -16,6 +18,7 @@ union Shape {
 func main() -> i32 {
   // Test arithmetic expressions in case statements
   let x = 10;
+  // CHECK: switch i32
   switch (x) {
     case (5 + 5):
       break;
