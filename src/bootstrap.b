@@ -31,19 +31,6 @@ func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
   return args->outputFile;
 }
 
-func getOutFile(fileName: i8*) -> void* {
-  if (fileName == null) {
-    return getStdout();
-  }
-
-  let file = fopen(fileName, "wb");
-  if (file == null) {
-    puts("Failed to open output file");
-    exit(-1);
-  }
-  return file;
-}
-
 func finishInPlace(args: CommandLineArgs*, fileName: i8*, file: void*) {
   if (!args->inPlace) {
     return;

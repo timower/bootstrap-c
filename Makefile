@@ -30,20 +30,97 @@ PARENT_STAGE ?= $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 # TODO: when bootstrap can emit dep files, we can just list the main src here.
 ALL_SRC = $(shell find src/ -type f -name '*.b')
 
+ALL_TESTS = $(shell find test/ -name "*.b" | sed 's/^test\///' | tr '\n' ';')
+
 # We call the bootstrap compiler on the first source file.
 MAIN_SRC = src/bootstrap.b
 OBJ = $(BUILD_DIR)/bootstrap.o
 
-all: bootstrap
+.PHONY: all
+all: bootstrap ## Build the main bootstrap compiler
 
-bootstrap: $(OBJ)
+.PHONY: help
+help: ## Show this help message
+	@echo "Available targets:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+
+bootstrap: $(OBJ) ## Build the bootstrap compiler
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
-bootstrap-coverage: bootstrap
+.PHONY: self
+self: bootstrap ## Compile the compiler with itself (verification)
+	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC)
+
+mutated: $(BUILD_DIR)/mutated.o ## Build mutated version for testing
+	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
+
+bootstrap-coverage: bootstrap ## Build bootstrap with coverage instrumentation
 	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) | \
 	opt --mtriple $(TRIPLE) -S -p simplifycfg -o $(BUILD_DIR)/coverage.ll
 	opt -S $(BUILD_DIR)/coverage.ll -p pgo-instr-gen,instrprof | \
 	clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
+
+.PHONY: test
+test: format-check lit lit-stage2 lit-mutate ## Run all tests (format check + lit tests)
+
+.PHONY: lit
+lit: bootstrap ## Run LLVM lit tests with current bootstrap compiler
+	rm -rf test/**/Output
+	lit -v test/
+
+.PHONY: lit-stage%
+lit-stage%: stage%
+	rm -rf test/**/Output
+	env BOOTSTRAP=$< lit -v test/
+
+.PHONY: lit-mutate
+lit-mutate: mutated ## Run lit tests with mutated compiler (expect failures)
+	rm -rf test/**/Output
+	env BOOTSTRAP=mutated lit --xfail="$(ALL_TESTS)" -v test/
+
+.PHONY: lit-coverage
+lit-coverage: bootstrap-coverage ## Run tests with coverage analysis
+	rm -f $(BUILD_DIR)/coverage/*
+	env BOOTSTRAP=$< lit -v test/
+	llvm-profdata merge -o $(BUILD_DIR)/coverage/merged.profdata $(BUILD_DIR)/coverage
+	opt --mtriple $(TRIPLE) -p pgo-instr-use -o /dev/null \
+		$(BUILD_DIR)/coverage.ll -pgo-test-profile-file=$(BUILD_DIR)/coverage/merged.profdata \
+		-pgo-view-raw-counts=text 2> $(BUILD_DIR)/coverage/coverage.txt
+	python3 ./test/parse_coverage.py $(BUILD_DIR)/coverage/coverage.txt
+
+.PHONY: format-all
+format-all: bootstrap $(patsubst src/%.b,format-src/%.b,$(ALL_SRC)) ## Format all .b source files in the project
+
+.PHONY: format-src/%.b
+format-src/%.b: bootstrap
+	@./bootstrap -format -i $(patsubst format-src/%.b,src/%.b,$@)
+
+.PHONY: format-check
+format-check: bootstrap ## Check if all source files are properly formatted
+	@for source in $(ALL_SRC); do \
+		if ! ./bootstrap -format $$source | diff -q $$source - > /dev/null 2>&1; then \
+			echo "File $$source is not properly formatted"; \
+			exit 1; \
+		fi; \
+	done
+	@echo "All files are properly formatted"
+
+.PHONY: clean
+clean: ## Remove build artifacts and binaries
+	rm -rf build/* bootstrap bootstrap-coverage stage*
+
+distclean: clean ## Remove build artifacts and cached stages
+	rm -f cache/*
+
+$(BUILD_DIR)/stage1.ll: bootstrap
+	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
+
+$(BUILD_DIR)/stage2.ll: stage1
+	./stage1 $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
+
+stage%: $(BUILD_DIR)/stage%.o
+	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
 $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
 	./bootstrap $(BOOTSTRAP_FLAGS) $< -o $@
@@ -110,4 +187,3 @@ clean:
 
 distclean: clean
 	rm -f cache/*
-
