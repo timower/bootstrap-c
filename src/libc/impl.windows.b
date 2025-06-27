@@ -17,3 +17,10 @@ func realpath(path: i8*, resolved_path: i8*) -> i8* {
   }
   return result;
 }
+
+func access(path: const i8*, mode: i32) -> i32 {
+  if (GetFileAttributesA(path as i8*) == -1) {
+    return -1;
+  }
+  return 0;
+}

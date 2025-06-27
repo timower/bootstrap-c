@@ -11,3 +11,4 @@ func getStderr() -> void* {
 }
 
 extern func realpath(path: i8*, resolved_path: i8*) -> i8*;
+extern func access(path: const i8*, mode: i32) -> i32;

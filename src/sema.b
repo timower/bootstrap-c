@@ -45,6 +45,23 @@ func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
   }
 }
 
+func findCachedPath(state: SemaState*, importName: i8*) -> i8* {
+  for (let cur = state->pathCache; cur != null; cur = cur->next) {
+    if (strcmp(importName, cur->importName) == 0) {
+      return cur->resolvedPath;
+    }
+  }
+  return null;
+}
+
+func addToPathCache(state: SemaState*, importName: i8*, resolvedPath: i8*) {
+  let cache: PathCache* = calloc(1, sizeof(struct PathCache));
+  cache->importName = strdup(importName);
+  cache->resolvedPath = strdup(resolvedPath);
+  cache->next = state->pathCache;
+  state->pathCache = cache;
+}
+
 func getImportExprName(expr: ExprAST*) -> Token {
   switch (expr->kind) {
     case ExprKind::Variable as varExpr:
@@ -78,40 +95,56 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   }
 
   let name = getImportExprName((&decl->kind as DeclKind::Import*)->path);
+
+  // Create cache key from import name, target, and source directory
+  let cacheKey: i8* = malloc(512);
   let rootFile = strdup(decl->location.fileName);
   let rootDir = dirname(rootFile);
+  sprintf(cacheKey, "%s:%.*s:%s", rootDir, name.end - name.data, name.data, state->target);
 
-  let relPath: i8* = malloc(4096);
-
+  // Check cache first for the resolved absolute path
+  let cachedAbsPath = findCachedPath(state, cacheKey);
   let absPath: i8* = null;
-  let lastDir = strdup(rootDir);
-  while (true) {
-    sprintf(relPath, "%s/%.*s.b", rootDir, name.end - name.data, name.data);
-    absPath = realpath(relPath, null);
-    if (absPath != null) {
-      break;
+  let relPath: i8* = null;
+
+  if (cachedAbsPath != null) {
+    absPath = cachedAbsPath;
+    relPath = cachedAbsPath;    // Use absolute path for parsing too
+  } else {
+    // Not in cache, do full resolution
+    relPath = malloc(4096);
+    let lastDir = strdup(rootDir);
+    while (true) {
+      sprintf(relPath, "%s/%.*s.b", rootDir, name.end - name.data, name.data);
+      if (access(relPath, F_OK) == 0) {
+        absPath = realpath(relPath, null);
+        break;
+      }
+
+      sprintf(
+          relPath,
+          "%s/%.*s.%s.b",
+          rootDir,
+          name.end - name.data,
+          name.data,
+          state->target);
+      if (access(relPath, F_OK) == 0) {
+        absPath = realpath(relPath, null);
+        break;
+      }
+
+      rootDir = dirname(rootDir);
+
+      // Check if 'rootDir' == '/'
+      if (strcmp(lastDir, rootDir) == 0) {
+        failSemaDecl(decl, "Couldn't find file");
+      }
+
+      lastDir = strdup(rootDir);
     }
 
-    sprintf(
-        relPath,
-        "%s/%.*s.%s.b",
-        rootDir,
-        name.end - name.data,
-        name.data,
-        state->target);
-    absPath = realpath(relPath, null);
-    if (absPath != null) {
-      break;
-    }
-
-    rootDir = dirname(rootDir);
-
-    // Check if 'rootDir' == '/'
-    if (strcmp(lastDir, rootDir) == 0) {
-      failSemaDecl(decl, "Couldn't find file");
-    }
-
-    lastDir = strdup(rootDir);
+    // Add resolved path to cache
+    addToPathCache(state, cacheKey, absPath);
   }
 
   // Check if we already import this file.
