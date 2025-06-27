@@ -26,3 +26,5 @@ extern func fclose(file: void*) -> i32;
 extern func fprintf(file: void*, format: const i8*, ...) -> i32;
 extern func rename(oldname: i8*, newname: i8*) -> i32;
 extern func getpid() -> i32;
+
+const F_OK: i32 = 0;
