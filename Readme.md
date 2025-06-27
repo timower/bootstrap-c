@@ -47,13 +47,14 @@ TODO
  - [x] Fix windows/mingw builds.
  - [x] Fix `realpath` & `dprintf` usage.
  - [x] Move decl, stmt and expr to Unions.
+ - [x] `typeof(foo)` expression to do:
+     * `sizeof(typeof(foo))`
+     * `let x: typeof(foo) = 12`
+ - [ ] Function types & function pointer support.
 
  - [ ] aarch64 backend
 
  - [ ] Remove intrinsic lists for types, cache types.
- - [ ] `typeof(foo)` expression to do:
-     * `sizeof(typeof(foo))`
-     * `let x: typeof(foo) = 12`
  - [ ] Generics.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
  - [ ] Methods and method call syntax

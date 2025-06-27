@@ -54,6 +54,8 @@ func typeEq(one: Type*, two: Type*) -> bool {
       failSema(SourceLoc {}, "TODO: type eq func");
     case TypeKind::Tag:
       failSema(SourceLoc {}, "Type tag not resolved before eq");
+    case TypeKind::Typeof:
+      failSema(SourceLoc {}, "Typeof not resolved before eq");
   }
 
   return true;
@@ -103,50 +105,6 @@ func lookupType(state: SemaState*, tag: Token) -> DeclAST* {
   return null;
 }
 
-func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
-  if (type == null) {
-    return;
-  }
-
-  switch (type->kind) {
-    case TypeKind::Tag as tagType:
-      if (tagType.parent.kind != TokenKind::TOK_EOF) {
-        let parentDecl = lookupType(state, tagType.parent);
-        if (parentDecl == null) {
-          failSema(loc, "Can't resolve type tags, unknown parent type");
-        }
-
-        let tagDecl = findType((&parentDecl->kind as DeclKind::Union*)->subTypes, tagType.tag);
-        if (tagDecl == null) {
-          failSema(loc, "Can't resolve type tags, unknown sub type");
-        }
-
-        let next = type->next;
-        *type = *tagDecl->type;
-        type->next = next;
-      } else {
-        let typeDecl = lookupType(state, tagType.tag);
-        if (typeDecl == null) {
-          failSema(loc, "Can't resolve type tags, unknown type");
-        }
-        type->kind = typeDecl->type->kind;
-      }
-
-    case TypeKind::Pointer as p:
-      resolveTypeTags(state, p.pointee, loc);
-    case TypeKind::Array as a:
-      resolveTypeTags(state, a.element, loc);
-    case TypeKind::Func as f:
-      resolveTypeTags(state, f.result, loc);
-      resolveTypeTags(state, f.args, loc);
-
-    // TODO: is struct parent needed?
-    default:
-      break;
-  }
-
-  resolveTypeTags(state, type->next, loc);
-}
 
 func getPointerToArray(type: Type*) -> TypeKind::Array* {
   if (let fromPtr = type->kind as TypeKind::Pointer*) {
@@ -224,6 +182,10 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
         }
       }
       return maxSize + 4;      // i32 tag.
+
+    case TypeKind::Typeof:
+      failSema(SourceLoc {}, "Typeof not resolved before getSize");
+      return 0;
 
     default:
       printType(type);

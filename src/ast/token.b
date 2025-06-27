@@ -14,6 +14,7 @@ enum TokenKind {
   DEFAULT,
   EXTERN,
   SIZEOF,
+  TYPEOF,
   STRUCT,
   SWITCH,
   RETURN,
@@ -87,7 +88,7 @@ enum TokenKind {
 
 let tokens: const i8*[] = {
   "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
-  "continue", "default", "extern", "sizeof", "struct", "switch", "return",
+  "continue", "default", "extern", "sizeof", "typeof", "struct", "switch", "return",
   "import", "const", "while", "break", "union", "void", "bool", "true", "false",
   "enum", "case", "else", "func", "<<=", ">>=", "...",
   "for", "let", "::", "->", "++", "--",
