@@ -2,8 +2,6 @@ import ast;
 
 import state;
 import token;
-import type;
-
 import expr;
 import stmt;
 

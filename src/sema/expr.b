@@ -700,6 +700,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         semaExpr(state, sizeofExpr.expr);
         sizeofExpr.value = getSize(state, sizeofExpr.expr->type);
       } else {
+        resolveTypeTags(state, sizeofExpr.typeArg, expr->location);
         sizeofExpr.value = getSize(state, sizeofExpr.typeArg);
       }
 
@@ -781,4 +782,56 @@ func semaVarDecl(state: SemaState*, decl: DeclAST*) {
   } else if (&decl->kind as DeclKind::Const* != null) {
     failSemaDecl(decl, "Const decl must have an init");
   }
+}
+
+func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
+  if (type == null) {
+    return;
+  }
+
+  switch (type->kind) {
+    case TypeKind::Tag as tagType:
+      if (tagType.parent.kind != TokenKind::TOK_EOF) {
+        let parentDecl = lookupType(state, tagType.parent);
+        if (parentDecl == null) {
+          failSema(loc, "Can't resolve type tags, unknown parent type");
+        }
+
+        let tagDecl = findType((&parentDecl->kind as DeclKind::Union*)->subTypes, tagType.tag);
+        if (tagDecl == null) {
+          failSema(loc, "Can't resolve type tags, unknown sub type");
+        }
+
+        let next = type->next;
+        *type = *tagDecl->type;
+        type->next = next;
+      } else {
+        let typeDecl = lookupType(state, tagType.tag);
+        if (typeDecl == null) {
+          failSema(loc, "Can't resolve type tags, unknown type");
+        }
+        type->kind = typeDecl->type->kind;
+      }
+
+    case TypeKind::Pointer as p:
+      resolveTypeTags(state, p.pointee, loc);
+    case TypeKind::Array as a:
+      resolveTypeTags(state, a.element, loc);
+    case TypeKind::Func as f:
+      resolveTypeTags(state, f.result, loc);
+      resolveTypeTags(state, f.args, loc);
+
+    case TypeKind::Typeof as typeofType:
+      semaExpr(state, typeofType.expr);
+
+      let next = type->next;
+      *type = *typeofType.expr->type;
+      type->next = next;
+
+    // TODO: is struct parent needed?
+    default:
+      break;
+  }
+
+  resolveTypeTags(state, type->next, loc);
 }

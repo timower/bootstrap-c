@@ -78,6 +78,10 @@ func convertType(type: Type*) -> const i8* {
     case TypeKind::Tag:
       fprintf(getStderr(), "Unknown type to convert");
       exit(1);
+
+    case TypeKind::Typeof:
+      fprintf(getStderr(), "Typeof not resolved before IR generation");
+      exit(1);
   }
 
   return null;

@@ -172,24 +172,28 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 }
 
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
+  // First resolve all imports.
   for (let cur = decl; cur != null; cur = cur->next) {
     if (&cur->kind as DeclKind::Import* != null) {
       resolveImport(state, cur);
     }
   }
 
+  // Add all tagged types to the state, so we can solve them later.
   for (let cur = decl; cur != null; cur = cur->next) {
     addTaggedType(state, cur);
   }
 
-  for (let cur = decl; cur != null; cur = cur->next) {
-    resolveDeclTypeTags(state, cur);
-  }
-
+  // Add all functions, so typeof(func) works.
   for (let cur = decl; cur != null; cur = cur->next) {
     if (&cur->kind as DeclKind::Func* != null) {
       addLocalDecl(state, cur);
     }
+  }
+
+  // Reolve tagged types to struct / union and lower typeof().
+  for (let cur = decl; cur != null; cur = cur->next) {
+    resolveDeclTypeTags(state, cur);
   }
 
   // Do actual type checking and AST transformations.
