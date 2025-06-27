@@ -79,6 +79,11 @@ func printType(type: Type*) {
         fprintf(printFile, "::");
       }
       printStr(tag.tag.data, tag.tag.end);
+
+    case TypeKind::Typeof as typeofType:
+      fprintf(printFile, "typeof(");
+      printExpr(typeofType.expr);
+      fprintf(printFile, ")");
   }
 }
 

@@ -48,6 +48,9 @@ union TypeKind {
     tag: Token;
     parent: Token;    // optional, EOF if not used.
   }
+  Typeof {
+    expr: ExprAST*;
+  }
 };
 
 struct Type {
