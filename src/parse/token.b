@@ -263,18 +263,3 @@ func parseInteger(state: ParseState*, token: Token) -> i32 {
   }
   return num;
 }
-
-func isDecl(tok: Token) -> bool {
-  // We don't support typedef, so this is easy
-  switch (tok.kind) {
-    case TokenKind::STRUCT,
-         TokenKind::ENUM,
-         TokenKind::LET,
-         TokenKind::EXTERN,
-         TokenKind::FUNC,
-         TokenKind::UNION:
-      return true;
-    default:
-      return false;
-  }
-}
