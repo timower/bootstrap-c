@@ -49,6 +49,13 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
         expr->type = switchType;
       } else {
         semaExpr(state, expr);
+
+        // Try to evaluate constant expressions in case statements
+        let evaluated = evalConstant(state, expr);
+
+        // Replace the expression with its evaluated form
+        expr->kind = evaluated->kind;
+        expr->type = evaluated->type;
       }
 
     case ExprKind::Member as memberExpr:
