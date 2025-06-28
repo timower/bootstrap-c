@@ -61,10 +61,9 @@ func getToken(state: ParseState*) -> Token {
   let token = Token {};
 
   // TODO: const expressions and make these global
-  // TODO: typeof(array[0])
   // TODO: array size
-  let tokenSize = (sizeof(tokens) / sizeof(tokens[0])) as i32;
-  let intTypeSize = (sizeof(intTypes) / sizeof(intTypes[0])) as i32;
+  let tokenSize = (sizeof(typeof(tokens)) / sizeof(typeof(tokens[0]))) as i32;
+  let intTypeSize = (sizeof(typeof(intTypes)) / sizeof(typeof(intTypes[0]))) as i32;
 
   // Eat whitespace
   while (is_space(lastChar)) {
