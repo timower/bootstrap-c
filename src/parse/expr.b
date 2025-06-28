@@ -326,25 +326,11 @@ func parseUnary(state: ParseState*) -> ExprAST* {
     expect(state, TokenKind::OPEN_PAREN);
     getNextToken(state);
 
-    let expr: ExprAST* = null;
-
-    // TODO: fix...
-    if (match(state, TokenKind::TYPEOF)
-        || (isDecl(state->curToken) && !match(state, TokenKind::LET))) {
-      let typeArg = parseType(state);
-      expr = newLocExpr(loc, ExprKind::Sizeof {
-        expr = null,
-        typeArg = typeArg,
-        value = 0,
-      });
-    } else {
-      let innerExpr = parseUnary(state);
-      expr = newLocExpr(loc, ExprKind::Sizeof {
-        expr = innerExpr,
-        typeArg = null,
-        value = 0,
-      });
-    }
+    let typeArg = parseType(state);
+    let expr = newLocExpr(loc, ExprKind::Sizeof {
+      typeArg = typeArg,
+      value = 0,
+    });
 
     expect(state, TokenKind::CLOSE_PAREN);
     getNextToken(state);
