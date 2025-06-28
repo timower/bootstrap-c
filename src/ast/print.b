@@ -239,11 +239,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       }
     case ExprKind::Sizeof as sizeofExpr:
       fprintf(printFile, "sizeof(");
-      if (sizeofExpr.typeArg != null) {
-        printType(sizeofExpr.typeArg);
-      } else {
-        printExprPrec(sizeofExpr.expr, nextPrec, indent);
-      }
+      printType(sizeofExpr.typeArg);
       fprintf(printFile, ")");
     case ExprKind::Conditional as cond:
       printExprPrec(cond.cond, nextPrec, indent);
@@ -676,9 +672,9 @@ func printDecl(decl: DeclAST*) {
 func allowNoNewline(decl: DeclAST*, declNext: DeclAST*) -> bool {
   // Hack that relies on internal representation of union kind tags.
   let kind1: i32 = 0;
-  memcpy(&kind1, &decl->kind, sizeof(kind1));
+  memcpy(&kind1, &decl->kind, sizeof(typeof(kind1)));
   let kind2: i32 = 0;
-  memcpy(&kind2, &declNext->kind, sizeof(kind2));
+  memcpy(&kind2, &declNext->kind, sizeof(typeof(kind2)));
 
   if (kind1 != kind2) {
     return false;

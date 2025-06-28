@@ -117,7 +117,6 @@ union ExprKind {
     prefix: ExprAST*;
   }
   Sizeof {
-    expr: ExprAST*;
     typeArg: Type*;
     value: i32;
   }
