@@ -2,6 +2,8 @@
 //
 // RUN: not %bootstrap %t/empty_at_end.b 2>&1 | grep "Empty case not allowed"
 // RUN: %bootstrap %t/union_comma.b | lli
+// RUN: not %bootstrap %t/unknown_type.b 2>&1 | grep "Couldn't find type"
+// RUN: not %bootstrap %t/unknown_tag.b 2>&1 | grep "Cannot find tag"
 //
 //--- empty_at_end.b
 func main() -> i32 {
@@ -27,6 +29,31 @@ func main() -> i32 {
   let x: Foo = Foo::A {};
   switch (x) {
     case Foo::A, Foo::B:
+      return 0;
+    case Foo::C as c:
+      return 1;
+  }
+  return 1;
+}
+
+//--- unknown_type.b
+func main() -> i32 {
+  let x = 1;
+  switch (x) {
+    case Foo::A:
+      return 0;
+    case Foo::C as c:
+      return 1;
+  }
+  return 1;
+}
+
+//--- unknown_tag.b
+union Foo {};
+func main() -> i32 {
+  let x = 1;
+  switch (x) {
+    case Foo::A:
       return 0;
     case Foo::C as c:
       return 1;
