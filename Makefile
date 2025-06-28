@@ -63,7 +63,7 @@ bootstrap-coverage: bootstrap ## Build bootstrap with coverage instrumentation
 	clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
 
 .PHONY: test
-test: format-check lit lit-stage2 lit-mutate ## Run all tests (format check + lit tests)
+test: format-check lit-coverage lit-stage2 lit-mutate ## Run all tests (format check + lit tests)
 
 .PHONY: lit
 lit: bootstrap ## Run LLVM lit tests with current bootstrap compiler
@@ -91,20 +91,15 @@ lit-coverage: bootstrap-coverage ## Run tests with coverage analysis
 	python3 ./test/parse_coverage.py $(BUILD_DIR)/coverage/coverage.txt
 
 .PHONY: format-all
-format-all: bootstrap $(patsubst src/%.b,format-src/%.b,$(ALL_SRC)) ## Format all .b source files in the project
-
-.PHONY: format-src/%.b
-format-src/%.b: bootstrap
-	@./bootstrap -format -i $(patsubst format-src/%.b,src/%.b,$@)
+format-all: bootstrap ## Format all .b source files in the project
+	@echo "$(ALL_SRC)" | tr ' ' '\n' | xargs -P0 -I{} ./bootstrap -format -i {}
 
 .PHONY: format-check
 format-check: bootstrap ## Check if all source files are properly formatted
-	@for source in $(ALL_SRC); do \
-		if ! ./bootstrap -format $$source | diff -q $$source - > /dev/null 2>&1; then \
-			echo "File $$source is not properly formatted"; \
-			exit 1; \
-		fi; \
-	done
+	@echo "$(ALL_SRC)" | tr ' ' '\n' | xargs -P0 -I{} sh -c \
+		'if ! ./bootstrap -format {} | diff -q {} - > /dev/null 2>&1; then \
+			echo "File {} is not properly formatted"; exit 1; \
+		fi'
 	@echo "All files are properly formatted"
 
 .PHONY: clean

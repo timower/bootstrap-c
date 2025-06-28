@@ -117,6 +117,11 @@ def main():
             f"Total Coverage: {overall_coverage:.1f}% ({total_non_zero}/{total_blocks} blocks)"
         )
 
+        # Exit with error if coverage is below 90%
+        if overall_coverage < 90.0:
+            print(f"Error: Coverage {overall_coverage:.1f}% is below required 90%")
+            sys.exit(1)
+
     except FileNotFoundError:
         print(f"Error: File '{filepath}' not found")
         sys.exit(1)
