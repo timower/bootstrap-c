@@ -6,6 +6,12 @@ enum OutputKind {
   Asm,
 };
 
+enum Mode {
+  Compile,
+  Format,
+  Sema,
+};
+
 struct CommandLineArgs {
   // required.
   inputFile: i8*;
@@ -18,10 +24,16 @@ struct CommandLineArgs {
 
   // Posix or windows for now.
   target: i8*;
+
+  // defaults to Compile.
+  mode: Mode;
+
+  // format in-place.
+  inPlace: bool;
 };
 
 func usage() {
-  puts("Usage: compile [-debug] [-target target] [-emit-llvm | -emit-asm] [-o output] file.b");
+  puts("Usage: bootstrap [-debug] [-target target] [-emit-llvm | -emit-asm] [-o output] [-i] [-format | -sema] file.b");
   exit(1);
 }
 
@@ -31,6 +43,8 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
     outputFile = null,
     outputKind = OutputKind::LLVM,
     target = "posix",
+    mode = Mode::Compile,
+    inPlace = false,
   };
 
   for (let i = 1; i < argc; i += 1) {
@@ -55,6 +69,12 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
       i++;
     } else if (strcmp(arg, "-debug") == 0) {
       debugMode = true;
+    } else if (strcmp(arg, "-format") == 0) {
+      args.mode = Mode::Format;
+    } else if (strcmp(arg, "-sema") == 0) {
+      args.mode = Mode::Sema;
+    } else if (strcmp(arg, "-i") == 0) {
+      args.inPlace = true;
     } else {
       if (args.inputFile != null) {
         puts("Multiple input files not supported");
@@ -62,11 +82,6 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
       }
       args.inputFile = arg;
     }
-  }
-
-  if (args.inputFile == null) {
-    puts("No input file specified");
-    usage();
   }
 
   return args;
