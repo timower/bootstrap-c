@@ -57,3 +57,28 @@ func readFile(name: i8*) -> Buf {
     size = size,
   };
 }
+
+func readStdin() -> Buf {
+  let bufSize: u64 = 1024;
+  let mem: i8* = calloc(1, bufSize);
+
+  let res: i64 = 0;
+  let offset: u64 = 0;
+  while (res = read(0, mem + offset, bufSize - offset), res > 0) {
+    offset += res as u64;
+    if (offset + 128 > bufSize) {
+      bufSize *= 2;
+      mem = realloc(mem, bufSize);
+    }
+  }
+
+  if (res != 0) {
+    puts("Read Failed");
+    return Buf {};
+  }
+
+  return Buf {
+    mem = mem,
+    size = offset as i64,
+  };
+}

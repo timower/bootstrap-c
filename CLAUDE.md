@@ -12,9 +12,8 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 - `make bootstrap` - Build the main compiler from source
 - `make stage1` - Create stage1 compiler using bootstrap
 - `make stage2` - Create stage2 compiler using stage1
-- `make format` - Build the code formatter
 - `make self` - Compile the compiler with itself (verification)
-- `make` - Compile bootstrap, format and bootstrap-sema
+- `make` - Compile bootstrap
 
 ### Testing
 - `make test` - Run all tests using lit (LLVM Integrated Tester)
@@ -24,10 +23,11 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 
 ### Code Formatting
 - `make format-all` - Format all .b source files in the project
-- `./format <file.b> > /tmp/file.b && cp /tmp/file.b <file.b>` - Format a specific source file
+- `./bootstrap -format -i <file.b>` - Format a specific source file in place
+- `./bootstrap -format <file.b> -o <file.b>` - Format with explicit output file
 
 ### Syntax Checking
-- `./bootstrap-sema <file>` - Check syntax of individual files
+- `./bootstrap -sema <file>` - Check syntax of individual files
 
 ### Cleanup
 - `make clean` - Remove build artifacts and binaries
@@ -43,11 +43,9 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 5. **IR Representation** (`src/ir.b`, `src/ir/`) - Internal IR with LLVM printing
 
 ### Key Components
-- `src/bootstrap.b` - Main compiler entry point and command-line interface
+- `src/bootstrap.b` - Main compiler entry point with integrated formatter and semantic analyzer
 - `src/libc.b` - Platform abstraction layer (POSIX/Windows)
-- `src/util.b` - Common utilities and data structures
-- `src/format.b` - Code formatter implementation
-- `src/bootstrap-sema.b` - Semantic analyzer, bootstrap without LLVM generation.
+- `src/util.b` - Common utilities and data structures including file I/O
 
 ### Language Features
 - Strong typing: i8/i16/i32/i64, u8/u16/u32/u64, bool, pointers, arrays
