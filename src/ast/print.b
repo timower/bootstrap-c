@@ -625,23 +625,23 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       let isVarargs = fnType->isVarargs;
       let split = false;
 
-      for (let field: DeclAST* = funcKind.fields; field != null;
-           field = field->next) {
-        if (field->next != null
-            && field->location.line != field->next->location.line) {
+      for (let arg: DeclAST* = funcKind.args; arg != null;
+           arg = arg->next) {
+        if (arg->next != null
+            && arg->location.line != arg->next->location.line) {
           split = true;
         }
       }
-      for (let field: DeclAST* = funcKind.fields; field != null;
-           field = field->next) {
+      for (let arg: DeclAST* = funcKind.args; arg != null;
+           arg = arg->next) {
         if (split) {
           fprintf(printFile, "\n");
           printIndent(indent + 2 * indent_width);
         }
-        printToken(field->name);
+        printToken(arg->name);
         fprintf(printFile, ": ");
-        printType(field->type);
-        if (field->next != null || isVarargs) {
+        printType(arg->type);
+        if (arg->next != null || isVarargs) {
           fprintf(printFile, ",");
           if (!split) {
             fprintf(printFile, " ");

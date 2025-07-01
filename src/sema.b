@@ -36,8 +36,8 @@ func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
         resolveDeclTypeTags(state, tag->decl);
       }
     case DeclKind::Func as funcKind:
-      for (let field = funcKind.fields; field != null; field = field->next) {
-        resolveTypeTags(state, field->type, field->location);
+      for (let arg = funcKind.args; arg != null; arg = arg->next) {
+        resolveTypeTags(state, arg->type, arg->location);
       }
     default:
       // Nothing to do for other decl types
