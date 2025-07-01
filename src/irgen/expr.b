@@ -81,6 +81,10 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
         return *var;
       }
 
+      if (let funcPtr = var as Value::FuncPtr*) {
+        return *var;
+      }
+
     // Binary expressions are now handled in sema via evalConstant
     // genConstant should only receive pre-evaluated constant expressions
     default:
@@ -687,9 +691,11 @@ func genCall(state: IRGenState*, expr: ExprAST*) -> Value {
   }
 
   let fn = genExpr(state, callExpr->function);
-  let res =
-      addInstr(state, expr->type, InstrKind::Call {
+  let fnType = getFunctionType(callExpr);
+
+  let res = addInstr(state, expr->type, InstrKind::Call {
     fn = fn,
+    fnType = newType(*fnType),
     args = args,
     numArgs = numArgs as i32,
   });

@@ -50,13 +50,12 @@ TODO
  - [x] `typeof(foo)` expression to do:
      * `sizeof(typeof(foo))`
      * `let x: typeof(foo) = 12`
- - [ ] Function types & function pointer support.
 
- - [ ] aarch64 backend
+ - [x] Function types & function pointer support.
 
- - [ ] Remove intrinsic lists for types, cache types.
  - [ ] Generics.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
+
  - [ ] Methods and method call syntax
     * `a.foo(...)` -> `Foo::foo(a, ...)`
 
@@ -65,13 +64,16 @@ TODO
  - [ ] `is<T>(uinion) -> bool` function.
      * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`
 
- - [ ] Add references?
  - [ ] Add slice type.
     * syntax: `[i8]`
     * stored as `{ ptr: T*, len: isize }`
     * arrays become `[1, 2, 3]`
     * array to slice: `array[start:end]` start & end are optional
     * array or pointer to it? can be converted to slice implicitly
+
+ - [ ] aarch64 backend
+ - [ ] Remove intrinsic lists for types, cache types.
+ - [ ] Add references?
  - [ ] Actual constant expressions and decls.
  - [ ] Correctly padded structs.
  - [ ] Add target pointer size, Add iptr and uptr types.

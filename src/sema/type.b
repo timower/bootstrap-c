@@ -50,8 +50,26 @@ func typeEq(one: Type*, two: Type*) -> bool {
       }
       return false;
 
-    case TypeKind::Func:
-      failSema(SourceLoc {}, "TODO: type eq func");
+    case TypeKind::Func as f1:
+      if (let f2 = two->kind as TypeKind::Func*) {
+        if (f1.isVarargs != f2->isVarargs || !typeEq(f1.result, f2->result)) {
+          return false;
+        }
+
+        let arg1 = f1.args;
+        let arg2 = f2->args;
+
+        while (arg1 != null && arg2 != null) {
+          if (!typeEq(arg1, arg2)) {
+            return false;
+          }
+          arg1 = arg1->next;
+          arg2 = arg2->next;
+        }
+
+        return arg1 == null && arg2 == null;
+      }
+      return false;
     case TypeKind::Tag:
       failSema(SourceLoc {}, "Type tag not resolved before eq");
     case TypeKind::Typeof:

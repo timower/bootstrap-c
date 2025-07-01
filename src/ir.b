@@ -108,6 +108,7 @@ union InstrKind {
 
   Call {
     fn: Value;
+    fnType: Type*;
     args: Value*;
     numArgs: i32;
   }

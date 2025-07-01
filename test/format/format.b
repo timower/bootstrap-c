@@ -38,11 +38,11 @@ func foo(x: Foo) {
 
 func bar(str: const i8*, b: Bar::Void) {
   let y: void = 0;
-  let x: i8[5] = { 0, 1, 2};
-  let x: u32[] = { 0};
+  let x: i8[5] = { 0, 1, 2 };
+  let x: u32[] = { 0 };
 }
 
-let array = { "a", "b", "c"};
+let array = { "a", "b", "c" };
 
 let list = {
   "a",

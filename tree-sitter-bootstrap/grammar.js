@@ -51,12 +51,6 @@ module.exports = grammar({
     $.expression,
   ],
 
-  // TODO: get rid of this conflict using 'typeof'?
-  conflicts: $ => [
-    [$.expression, $._type_identifier],
-    [$._enumerator, $._type_identifier],
-  ],
-
   rules: {
     source_file: $ => repeat($._declaration),
 
@@ -233,11 +227,30 @@ module.exports = grammar({
         $._type_identifier,
         seq($._type_identifier, '::', $._type_identifier),
         seq(choice('struct', 'union', 'enum'), $._type_identifier),
+        $.function_type,
+        $.typeof_type,
       ),
       repeat(choice('*', $._array_decl))
     )),
 
     _array_decl: $ => seq('[', optional($._number), ']'),
+
+    function_type: $ => prec.right(seq(
+      'func',
+      repeat(choice('*', $._array_decl)),
+      '(',
+      sep($.type, ','),
+      optional($.variadic_param),
+      ')',
+      optional(seq('->', $.type))
+    )),
+
+    typeof_type: $ => seq(
+      'typeof',
+      '(',
+      $.expression,
+      ')'
+    ),
 
     _number: $ => /[-+]?(0[xbo])?[0-9a-fA-F]+/,
 
@@ -357,7 +370,7 @@ module.exports = grammar({
     sizeof_expression: $ => seq(
       'sizeof',
       '(',
-      choice($.type, $.expression),
+      $.type,
       ')',
     ),
 

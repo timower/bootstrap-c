@@ -35,6 +35,7 @@ func genMemcpy(state: IRGenState*, addr: Value, val: Value, type: Type*) {
 
   addInstr(state, null, InstrKind::Call {
     fn = fn,
+    fnType = state->intrinsics.memcpy->type,
     args = args,
     numArgs = 4,
   });

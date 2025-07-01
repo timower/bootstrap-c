@@ -524,10 +524,9 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(expr, "Function callee type null");
       }
 
-      // We don't support function pointers
-      let funType = callExpr.function->type->kind as TypeKind::Func*;
+      let funType = getFunctionType(&callExpr);
       if (funType == null) {
-        failSemaExpr(expr, "Must call function type");
+        failSemaExpr(expr, "Must call function or function pointer type");
       }
 
       let curArgTy = funType->args;

@@ -13,17 +13,19 @@ func paramTypeof(x: typeof(returnInt())) -> i32 {
 
 struct Test {
   x: typeof(returnTypeof());
-  // y: typeof(returnInt)*;
+  y: typeof(&returnInt);
 };
 
 func main() -> i32 {
   let x: typeof(Test {}.x) = 0;
   x = 2;
 
-  // TODO: y = &returnTypeof,
   let y = Test {
     x = 0,
+    y = &returnTypeof,
   };
+
+  x = (y.y)();
 
   return returnTypeof() - x + paramTypeof(x);
 }

@@ -558,10 +558,12 @@ func parseAssignment(state: ParseState*) -> ExprAST* {
 }
 
 
-// base_type := int2 | 'void' | 'struct' ident | 'enum' ident | ident
+// base_type := int2 | 'void' | 'struct' ident | 'enum' ident
+//            | ident | 'func' '(' type* ')' ('->' type)?
 // type := const? base_type ('*' | '[' int? ']' )*
 func parseType(state: ParseState*) -> Type* {
   let type = newType(TypeKind::Void {});
+  let fnType: TypeKind::Func* = null;
 
   if (match(state, TokenKind::CONST)) {
     getNextToken(state);
@@ -613,22 +615,26 @@ func parseType(state: ParseState*) -> Type* {
     type->kind = TypeKind::Typeof {
       expr = expr,
     };
+  } else if (match(state, TokenKind::FUNC)) {
+    getNextToken(state);
+    type->kind = TypeKind::Func {};
+    fnType = type->kind as TypeKind::Func*;
   } else if (match(state, TokenKind::IDENTIFIER)) {
     type->kind = TypeKind::Tag {
       tag = getNextToken(state),
     };
+
+    if (match(state, TokenKind::SCOPE)) {
+      getNextToken(state);
+      expect(state, TokenKind::IDENTIFIER);
+
+      let tagPtr = type->kind as TypeKind::Tag*;
+      tagPtr->parent = tagPtr->tag;
+      tagPtr->tag = getNextToken(state);
+    }
   } else {
     failParse(state, "Unknown type");
     return null;
-  }
-
-  if (match(state, TokenKind::SCOPE)) {
-    getNextToken(state);
-    expect(state, TokenKind::IDENTIFIER);
-
-    let tagPtr = type->kind as TypeKind::Tag*;
-    tagPtr->parent = tagPtr->tag;
-    tagPtr->tag = getNextToken(state);
   }
 
   // parse type suffixes (pointers & arrays)
@@ -661,6 +667,53 @@ func parseType(state: ParseState*) -> Type* {
       break;
     }
   }
+
+  if (fnType == null) {
+    return type;
+  }
+
+  expect(state, TokenKind::OPEN_PAREN);
+  getNextToken(state);
+
+  let args = null as Type*;
+  let isVarargs = false;
+
+  if (!match(state, TokenKind::CLOSE_PAREN)) {
+    if (match(state, TokenKind::ELLIPSIS)) {
+      getNextToken(state);
+      isVarargs = true;
+    } else {
+      args = parseType(state);
+      let currentArg = args;
+
+      while (match(state, TokenKind::COMMA)) {
+        getNextToken(state);
+
+        if (match(state, TokenKind::ELLIPSIS)) {
+          getNextToken(state);
+          isVarargs = true;
+          break;
+        }
+
+        let nextArg = parseType(state);
+        currentArg->next = nextArg;
+        currentArg = nextArg;
+      }
+    }
+  }
+
+  expect(state, TokenKind::CLOSE_PAREN);
+  getNextToken(state);
+
+  let returnType = newType(TypeKind::Void {});
+  if (match(state, TokenKind::PTR_OP)) {
+    getNextToken(state);
+    returnType = parseType(state);
+  }
+
+  fnType->result = returnType;
+  fnType->args = args;
+  fnType->isVarargs = isVarargs;
 
   return type;
 }
