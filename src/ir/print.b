@@ -59,7 +59,7 @@ func getType(value: Value) -> i8* {
       return convertType(z.type);
 
     case Value::FuncPtr as f:
-      return convertType(f.ptr->type);
+      return "ptr";
 
     case Value::Sizeof:
       return "i32";
@@ -201,9 +201,13 @@ func printFunc(fn: Function*) {
   let idx = 0;
   for (let arg = fnType->args; arg != null; arg = arg->next, idx++) {
     fprintf(outFile, "%s %%arg%d", convertType(arg), idx);
-    if (arg->next != null) {
+    if (arg->next != null || fnType->isVarargs) {
       fprintf(outFile, ", ");
     }
+  }
+
+  if (fnType->isVarargs) {
+    fprintf(outFile, "...");
   }
 
   fprintf(outFile, ")");
@@ -354,7 +358,7 @@ func printInstr(instr: Instruction*) {
           convertType(instr->type));
 
     case InstrKind::Call as c:
-      fprintf(outFile, "call %s %s(", getType(c.fn), getName(c.fn));
+      fprintf(outFile, "call %s %s(", convertType(c.fnType), getName(c.fn));
       for (let i = 0; i < c.numArgs; i++) {
         fprintf(outFile, "%s %s", getType(*(c.args + i)), getName(*(c.args + i)));
         if (i != c.numArgs - 1) {

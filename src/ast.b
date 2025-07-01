@@ -469,3 +469,11 @@ func getExprPrecedence(expr: ExprAST*) -> i32 {
       return 200;
   }
 }
+
+func getFunctionType(callExpr: ExprKind::Call*) -> TypeKind::Func* {
+  let ptrType = callExpr->function->type->kind as TypeKind::Pointer*;
+  if (ptrType != null) {
+    return ptrType->pointee->kind as TypeKind::Func*;
+  }
+  return callExpr->function->type->kind as TypeKind::Func*;
+}

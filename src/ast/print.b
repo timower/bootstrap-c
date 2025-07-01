@@ -20,11 +20,35 @@ func printToken(token: Token) {
 }
 
 func printType(type: Type*) {
-  if (type == null) {
-    fprintf(printFile, "nullType ");
+  let fnType = printTypeSub(type);
+  if (fnType == null) {
     return;
   }
 
+  fprintf(printFile, "(");
+  for (let arg = fnType->args; arg != null; arg = arg->next) {
+    printType(arg);
+    if (arg->next != null || fnType->isVarargs) {
+      fprintf(printFile, ", ");
+    }
+  }
+  if (fnType->isVarargs) {
+    fprintf(printFile, "...");
+  }
+  fprintf(printFile, ")");
+  if (fnType->result->kind as TypeKind::Void* == null) {
+    fprintf(printFile, " -> ");
+    printType(fnType->result);
+  }
+}
+
+func printTypeSub(type: Type*) -> TypeKind::Func* {
+  if (type == null) {
+    fprintf(printFile, "nullType ");
+    return null;
+  }
+
+  let res: TypeKind::Func* = null;
   if (type->isConst) {
     fprintf(printFile, "const ");
   }
@@ -41,10 +65,10 @@ func printType(type: Type*) {
     case TypeKind::Bool:
       fprintf(printFile, "bool");
     case TypeKind::Pointer as ptr:
-      printType(ptr.pointee);
+      res = printTypeSub(ptr.pointee);
       fprintf(printFile, "*");
     case TypeKind::Array as array:
-      printType(array.element);
+      res = printTypeSub(array.element);
       if (array.size < 0) {
         fprintf(printFile, "[]");
       } else {
@@ -54,18 +78,8 @@ func printType(type: Type*) {
       fprintf(printFile, "struct ");
       printStr(s.tag.data, s.tag.end);
     case TypeKind::Func as fn:
-      fprintf(printFile, "(");
-      for (let arg = fn.args; arg != null; arg = arg->next) {
-        printType(arg);
-        if (arg->next != null) {
-          fprintf(printFile, ",");
-        }
-      }
-      if (fn.isVarargs) {
-        fprintf(printFile, "  ...");
-      }
-      fprintf(printFile, ") -> ");
-      printType(fn.result);
+      fprintf(printFile, "func");
+      res = &fn;
     case TypeKind::Enum as e:
       fprintf(printFile, "enum ");
       printStr(e.tag.data, e.tag.end);
@@ -85,6 +99,8 @@ func printType(type: Type*) {
       printExpr(typeofType.expr);
       fprintf(printFile, ")");
   }
+
+  return res;
 }
 
 func printIndent(indent: i32) {
@@ -196,7 +212,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       printExprPrec(index.index, nextPrec, indent);
       fprintf(printFile, "]");
     case ExprKind::Call as call:
-      printExprPrec(call.function, nextPrec, indent);
+      printExprPrec(call.function, curPrec, indent);
       fprintf(printFile, "(");
       let split = false;
       for (let cur = call.args; cur != null; cur = cur->next) {
@@ -268,7 +284,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
           fprintf(printFile, " ");
         }
 
-        printExprPrec(elem, nextPrec, indent);
+        printExprPrec(elem, 0, indent);
         if (elem->next != null) {
           fprintf(printFile, ",");
         }
@@ -277,6 +293,8 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       if (hasSplit) {
         fprintf(printFile, ",\n");
         printIndent(indent);
+      } else {
+        fprintf(printFile, " ");
       }
       fprintf(printFile, "}");
     case ExprKind::Struct as structExpr:
