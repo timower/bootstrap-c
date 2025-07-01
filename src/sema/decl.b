@@ -29,8 +29,8 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
         };
 
         // Generate a local for each arg.
-        for (let field = funcKind.fields; field != null; field = field->next) {
-          addLocalDecl(&funcState, field);
+        for (let arg = funcKind.args; arg != null; arg = arg->next) {
+          addLocalDecl(&funcState, arg);
         }
         semaStmt(&funcState, funcKind.body);
       }

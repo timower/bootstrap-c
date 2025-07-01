@@ -182,7 +182,7 @@ union DeclKind {
     fields: DeclAST*;
   }
   Func {
-    fields: DeclAST*;
+    args: DeclAST*;
     body: StmtAST*;
     isExtern: bool;
   }

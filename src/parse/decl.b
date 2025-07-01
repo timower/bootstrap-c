@@ -224,7 +224,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   }
   getNextToken(state);  // eat )
 
-  (&decl->kind as DeclKind::Func*)->fields = firstParam;
+  (&decl->kind as DeclKind::Func*)->args = firstParam;
 
   funcType->args = decl->type->next;
   decl->type->next = null;
