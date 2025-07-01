@@ -545,7 +545,6 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       printType(decl->type);
 
       trailing = printStructBody(decl, indent, trailing);
-      fprintf(printFile, ";");
     case DeclKind::Enum as enumKind:
       printType(decl->type);
       fprintf(printFile, " {\n");
@@ -564,7 +563,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         printDeclNewlines(field);
       }
       trailing = printComments(trailing, indent + indent_width, decl->endLocation.line);
-      fprintf(printFile, "};");
+      fprintf(printFile, "}");
     case DeclKind::Union as unionKind:
       printType(decl->type);
       fprintf(printFile, " {");
@@ -605,7 +604,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
           trailing,
           indent + indent_width,
           decl->endLocation.line);
-      fprintf(printFile, "};");
+      fprintf(printFile, "}");
     case DeclKind::EnumField:
       printToken(decl->name);
     case DeclKind::Var:

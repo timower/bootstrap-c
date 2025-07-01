@@ -7,13 +7,13 @@ struct SourceLoc {
   fileName: i8*;
   // TODO: if needed:
   // ptr: i8*;
-};
+}
 
 struct Comment {
   location: SourceLoc;
   value: Token;
   next: Comment*;
-};
+}
 
 union TypeKind {
   Void {}
@@ -51,7 +51,7 @@ union TypeKind {
   Typeof {
     expr: ExprAST*;
   }
-};
+}
 
 struct Type {
   kind: TypeKind;
@@ -60,7 +60,7 @@ struct Type {
   next: Type*;
   isConst: bool;
   // TODO: Source loc
-};
+}
 
 
 struct FieldIndex {
@@ -71,7 +71,7 @@ struct FieldIndex {
   index: i32;
 
   next: FieldIndex*;
-};
+}
 
 union ExprKind {
   Int {
@@ -141,7 +141,7 @@ union ExprKind {
   Let {
     decl: DeclAST*;
   }
-};
+}
 
 enum CastKind {
   Noop,
@@ -155,7 +155,7 @@ enum CastKind {
   Trunc,
   Sext,
   Zext,
-};
+}
 
 
 // Represents an expression in the AST.
@@ -164,7 +164,7 @@ struct ExprAST {
   type: Type*;
   location: SourceLoc;
   next: ExprAST*;
-};
+}
 
 union DeclKind {
   Var {
@@ -197,7 +197,7 @@ union DeclKind {
   EnumField {
     enumValue: i32;
   }
-};
+}
 
 struct DeclAST {
   kind: DeclKind;
@@ -213,13 +213,13 @@ struct DeclAST {
 
   // Only for concrete parsing.
   comments: Comment*;
-};
+}
 
 struct DeclList {
   decl: DeclAST*;
 
   next: DeclList*;
-};
+}
 
 union StmtKind {
   Compound {
@@ -258,7 +258,7 @@ union StmtKind {
   Default {
     body: StmtAST*;
   }
-};
+}
 
 struct StmtAST {
   kind: StmtKind;
@@ -269,7 +269,7 @@ struct StmtAST {
   location: SourceLoc;
   endLocation: SourceLoc;
   comments: Comment*;
-};
+}
 
 
 // utils

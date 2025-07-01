@@ -4,7 +4,7 @@ struct Module {
   types: IRStruct*;
   globals: Global*;
   functions: Function*;
-};
+}
 
 struct IRStruct {
   name: i8*;
@@ -13,7 +13,7 @@ struct IRStruct {
   fields: Type*;
 
   next: IRStruct*;
-};
+}
 
 struct Global {
   name: i8*;
@@ -23,7 +23,7 @@ struct Global {
   init: Value;
 
   next: Global*;
-};
+}
 
 struct Function {
   name: i8*;
@@ -35,14 +35,14 @@ struct Function {
   end: BasicBlock*;
 
   next: Function*;
-};
+}
 
 struct Alloca {
   name: i32;
   type: Type*;
 
   next: Alloca*;
-};
+}
 
 struct BasicBlock {
   label: i8*;
@@ -53,7 +53,7 @@ struct BasicBlock {
 
   next: BasicBlock*;
   prev: BasicBlock*;
-};
+}
 
 enum BinaryOp {
   Add,
@@ -67,7 +67,7 @@ enum BinaryOp {
   And,
   Xor,
   Or,
-};
+}
 
 enum CmpOp {
   Eq,
@@ -76,7 +76,7 @@ enum CmpOp {
   Sle,
   Sgt,
   Sge,
-};
+}
 
 union InstrKind {
   StructGEP {
@@ -150,14 +150,14 @@ union InstrKind {
     val: Value;
   }
   ReturnVoid {}
-};
+}
 
 struct Case {
   val: Value;
   bb: BasicBlock*;
 
   next: Case*;
-};
+}
 
 struct Instruction {
   name: i32;
@@ -169,7 +169,7 @@ struct Instruction {
 
   next: Instruction*;
   prev: Instruction*;
-};
+}
 
 union Value {
   InstrPtr {
@@ -217,7 +217,7 @@ union Value {
   Zero {
     type: Type*;
   }
-};
+}
 
 
 func newFunction() -> Function* {

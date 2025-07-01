@@ -84,7 +84,7 @@ enum TokenKind {
   HAT,
   PIPE,
   QUESTION,  // clang-format on
-};
+}
 
 let tokens: const i8*[] = {
   "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
@@ -106,4 +106,4 @@ struct Token {
 
   data: i8*;
   end: i8*;
-};
+}

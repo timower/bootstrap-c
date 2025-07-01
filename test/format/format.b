@@ -17,7 +17,7 @@ struct Foo {
   // comment 3
   y: i64;  // comment 4
   // comment 5
-};
+}
 
 union Bar {
   Void {}
@@ -25,7 +25,7 @@ union Bar {
   X {
     y: i32;
   }
-};
+}
 
 
 // comment
@@ -62,7 +62,7 @@ func long(
 enum Enum {
   Option1,
   Option2,
-};
+}
 
 func main() -> i32 {
   let v = Bar::Void {} as Bar;

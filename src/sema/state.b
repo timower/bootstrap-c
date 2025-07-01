@@ -4,13 +4,13 @@ import ast.print;
 struct ImportList {
   name: i8*;
   next: ImportList*;
-};
+}
 
 struct PathCache {
   importName: i8*;
   resolvedPath: i8*;
   next: PathCache*;
-};
+}
 
 struct SemaState {
   parent: SemaState*;
@@ -32,7 +32,7 @@ struct SemaState {
   imports: ImportList*;
   target: i8*;
   pathCache: PathCache*;
-};
+}
 
 func newState(parent: SemaState*) -> SemaState {
   let state = SemaState {

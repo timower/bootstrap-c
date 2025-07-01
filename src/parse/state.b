@@ -5,7 +5,7 @@ struct ParseOptions {
   // If set to true, build a concere syntax tree,
   // preserving parens.
   concrete: bool;
-};
+}
 
 struct ParseState {
   // [start, end[ contains the current data buffer.
@@ -30,7 +30,7 @@ struct ParseState {
   // Only parsed if concrete is true.
   comments: Comment*;
   lastComment: Comment*;
-};
+}
 
 func getLocation(state: ParseState*) -> SourceLoc {
   return SourceLoc {
