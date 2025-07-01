@@ -84,7 +84,7 @@ module.exports = grammar({
     struct_decl: $ => seq(
       'struct',
       $._sub_struct,
-      ';',
+      optional(';'),
     ),
 
     enum_decl: $ => seq(
@@ -94,7 +94,7 @@ module.exports = grammar({
       sep($._enumerator, ','),
       optional(','),
       '}',
-      ';'
+      optional(';')
     ),
 
     union_decl: $ => seq(
@@ -103,7 +103,7 @@ module.exports = grammar({
       '{',
       repeat(alias($._sub_struct, $.union_tag)),
       '}',
-      ';'
+      optional(';')
     ),
 
     func_decl: $ => choice($._func_decl, $._func_def),

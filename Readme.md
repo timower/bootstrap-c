@@ -53,13 +53,15 @@ TODO
 
  - [x] Function types & function pointer support.
 
- - [ ] Generics.
+ - [x] No semicolons for decls.
+
+ - [ ] Generic functions.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
+ - [ ] Generic types
 
  - [ ] Methods and method call syntax
     * `a.foo(...)` -> `Foo::foo(a, ...)`
 
- - [ ] No semicolons for decls.
 
  - [ ] `is<T>(uinion) -> bool` function.
      * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`

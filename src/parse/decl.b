@@ -5,6 +5,12 @@ import token;
 import expr;
 import stmt;
 
+func optionalSemicolon(state: ParseState*) {
+  if (match(state, TokenKind::SEMICOLON)) {
+    getNextToken(state);
+  }
+}
+
 
 // Add any comments in state that are on the same line as decl to decl.
 func addTrailingCommentsDecl(state: ParseState*, decl: DeclAST*) {
@@ -323,8 +329,7 @@ func parseDecl(state: ParseState*) -> DeclAST* {
   if (match(state, TokenKind::STRUCT)) {
     let decl = parseStruct(state);
 
-    expect(state, TokenKind::SEMICOLON);
-    getNextToken(state);
+    optionalSemicolon(state);
 
     addTrailingCommentsDecl(state, decl);
 
@@ -334,8 +339,7 @@ func parseDecl(state: ParseState*) -> DeclAST* {
   if (match(state, TokenKind::ENUM)) {
     let decl = parseEnum(state);
 
-    expect(state, TokenKind::SEMICOLON);
-    getNextToken(state);
+    optionalSemicolon(state);
 
     addTrailingCommentsDecl(state, decl);
 
@@ -345,8 +349,7 @@ func parseDecl(state: ParseState*) -> DeclAST* {
   if (match(state, TokenKind::UNION)) {
     let decl = parseUnion(state);
 
-    expect(state, TokenKind::SEMICOLON);
-    getNextToken(state);
+    optionalSemicolon(state);
 
     addTrailingCommentsDecl(state, decl);
 
