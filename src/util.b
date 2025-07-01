@@ -19,7 +19,7 @@ func getEscaped(c: i8) -> i8 {
 struct Buf {
   mem: i8*;
   size: i64;
-};
+}
 
 func readFile(name: i8*) -> Buf {
   let fd = open(name, 0);  //  O_RDONLY

@@ -9,7 +9,7 @@ struct EmitState {
   // Virtual register to physical register mapping
   instrToReg: i32*;  // Map instruction names to physical registers
   instrToRegSize: i32;  // Size of the mapping array
-};
+}
 
 func initEmitState(state: EmitState*) {
   // Initialize register tracking

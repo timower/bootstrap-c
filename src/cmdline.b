@@ -4,13 +4,13 @@ import debug;
 enum OutputKind {
   LLVM,
   Asm,
-};
+}
 
 enum Mode {
   Compile,
   Format,
   Sema,
-};
+}
 
 struct CommandLineArgs {
   // required.
@@ -33,7 +33,7 @@ struct CommandLineArgs {
 
   // true if reading from stdin (inputFile is "-").
   readFromStdin: bool;
-};
+}
 
 func usage() {
   puts("Bootstrap Compiler");

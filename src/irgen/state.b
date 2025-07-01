@@ -10,25 +10,25 @@ struct IRGenState {
   scope: Scope*;
 
   intrinsics: Intrinsics;
-};
+}
 
 struct Scope {
   locals: Local*;
   breakBB: BasicBlock*;
 
   parent: Scope*;
-};
+}
 
 struct Local {
   name: Token;
   value: Value;
 
   next: Local*;
-};
+}
 
 struct Intrinsics {
   memcpy: Function*;
-};
+}
 
 func failIRGen(msg: i8*) {
   fprintf(getStderr(), "irgen fail: %s\n", msg);

@@ -14,7 +14,7 @@ extern func simpleVarargs(...);
 struct Foo {
   bar: func*() -> i32;
   x: i32;
-};
+}
 
 func main() -> i32 {
   let x: func*() -> i32 = &foo;
