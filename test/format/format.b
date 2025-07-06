@@ -2,7 +2,7 @@
 // RUN: diff %t %s
 // RUN: %bootstrap -format -i %t
 // RUN: diff %t %s
-// RUN: cat %s | %bootstrap -format -o %t
+// RUN: cat %s | %bootstrap -format - -o %t
 // RUN: diff %t %s
 //
 extern func printf(format: i8*, ...) -> i32;

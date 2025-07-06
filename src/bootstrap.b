@@ -48,10 +48,9 @@ func main(argc: i32, argv: i8**) -> i32 {
   let args = parseOpts(argc, argv);
   printFile = getStdout();
 
-  let name: i8* = "stdin";
+  let name: i8* = args.inputFile;
   let buf = Buf {};
-  if (args.inputFile != null) {
-    name = args.inputFile;
+  if (!args.readFromStdin) {
     buf = readFile(name);
   } else {
     buf = readStdin();
