@@ -30,10 +30,32 @@ struct CommandLineArgs {
 
   // format in-place.
   inPlace: bool;
+
+  // true if reading from stdin (inputFile is "-").
+  readFromStdin: bool;
 };
 
 func usage() {
-  puts("Usage: bootstrap [-debug] [-target target] [-emit-llvm | -emit-asm] [-o output] [-i] [-format | -sema] file.b");
+  puts("Bootstrap Compiler");
+  puts("");
+  puts("Usage: bootstrap [OPTIONS] input.b");
+  puts("");
+  puts("OPTIONS:");
+  puts("  -o <file>           Write output to <file> (default: stdout)");
+  puts("  -emit-llvm          Emit LLVM IR (default)");
+  puts("  -emit-asm           Emit assembly code");
+  puts("  -target <target>    Target platform (posix, windows, darwin)");
+  puts("  -format             Format source code");
+  puts("  -sema               Run semantic analysis only");
+  puts("  -i                  Format in-place (use with -format)");
+  puts("  -stdin-filename <f> Set filename when reading from stdin");
+  puts("  -debug              Enable debug mode");
+  puts("  -                   Read from stdin");
+  puts("");
+  puts("Examples:");
+  puts("  bootstrap hello.b              # Compile to LLVM IR");
+  puts("  bootstrap -format -i hello.b   # Format file in-place");
+  puts("  bootstrap -sema hello.b        # Check syntax only");
   exit(1);
 }
 
@@ -45,6 +67,7 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
     target = "posix",
     mode = Mode::Compile,
     inPlace = false,
+    readFromStdin = false,
   };
 
   for (let i = 1; i < argc; i += 1) {
@@ -75,13 +98,31 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
       args.mode = Mode::Sema;
     } else if (strcmp(arg, "-i") == 0) {
       args.inPlace = true;
+    } else if (strcmp(arg, "-stdin-filename") == 0) {
+      if (i + 1 >= argc) {
+        puts("Expected filename after -stdin-filename");
+        usage();
+      }
+      args.inputFile = *(argv + i + 1);
+      args.readFromStdin = true;
+      i++;
     } else {
       if (args.inputFile != null) {
         puts("Multiple input files not supported");
         usage();
       }
-      args.inputFile = arg;
+      if (strcmp(arg, "-") == 0) {
+        args.readFromStdin = true;
+        args.inputFile = "stdin";
+      } else {
+        args.inputFile = arg;
+      }
     }
+  }
+
+  if (args.inputFile == null) {
+    puts("No input file specified");
+    usage();
   }
 
   return args;

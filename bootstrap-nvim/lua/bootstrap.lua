@@ -28,7 +28,7 @@ function M.setup(opts)
 		local conform = require("conform")
 		conform.formatters.bformat = {
 			command = M.bootstrapDir .. "bootstrap",
-			args = { "-format" },
+			args = { "-format", "-" },
 			env = {
 				ASAN_OPTIONS = "detect_leaks=0",
 			},
@@ -42,9 +42,15 @@ function M.setup(opts)
 		lint.linters.bootstrap = {
 			name = "bootstrap",
 			cmd = M.bootstrapDir .. "bootstrap",
-			args = { "-sema" },
-			stdin = false,
-			stream = "both",
+			args = {
+				"-sema",
+				"-stdin-filename",
+				function()
+					return vim.api.nvim_buf_get_name(0)
+				end,
+			},
+			stdin = true,
+			stream = "stderr",
 			ignore_exitcode = true,
 			env = {
 				ASAN_OPTIONS = "detect_leaks=0",
