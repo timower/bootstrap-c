@@ -1,6 +1,7 @@
 {
   # Arguments
   bootstrap_rev ? "dev",
+  enable_lsp ? true,
 
   # From inputs
   parent-bootstrap,
@@ -12,6 +13,8 @@
   llvmPackages_19,
   pkgsCross,
   qemu-user,
+  go,
+  gopls,
 }:
 let
   targettriple = stdenv.hostPlatform.config;
@@ -21,10 +24,16 @@ stdenv.mkDerivation {
   version = bootstrap_rev;
 
   src = ./.;
-  nativeBuildInputs = [
-    llvmPackages_19.llvm
-    parent-bootstrap
-  ];
+  nativeBuildInputs =
+    [
+      llvmPackages_19.llvm
+      parent-bootstrap
+    ]
+    ++ lib.optionals enable_lsp [
+      go
+      gopls
+    ];
+
   nativeCheckInputs = [
     lit
     pkgsCross.aarch64-multiplatform.buildPackages.gcc

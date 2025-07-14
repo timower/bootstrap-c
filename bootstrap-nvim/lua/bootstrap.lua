@@ -3,9 +3,10 @@ local M = {}
 M.options = nil
 
 local defaults = {
-	conform = true,
-	lua_lint = true,
+	conform = false,
+	lua_lint = false,
 	treesitter = true,
+	lspconfig = true,
 }
 
 local scriptPath = debug.getinfo(1).source:sub(2)
@@ -72,6 +73,16 @@ function M.setup(opts)
 				files = { "src/parser.c" }, -- note that some parsers also require src/scanner.c or src/scanner.cc
 			},
 		}
+	end
+
+	if M.options.lspconfig then
+		require("lspconfig").bootstrap.setup({
+			cmd = {
+				M.bootstrapDir .. "/bootstrap-lsp/bootstrap-lsp",
+				"-bootstrap-path",
+				M.bootstrapDir .. "bootstrap",
+			},
+		})
 	end
 end
 

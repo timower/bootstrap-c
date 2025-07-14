@@ -13,7 +13,7 @@ func main(argc: i32, argv: i8**) -> i32 {
       fprintf(outFile, "}\n");
     case Mode::Format:
       return 0;
-    case Mode::Sema:
+    case Mode::Sema, Mode::SemaLsp:
       return 0;
   }
   return 0;

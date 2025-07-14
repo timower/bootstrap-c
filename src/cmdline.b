@@ -10,6 +10,7 @@ enum Mode {
   Compile,
   Format,
   Sema,
+  SemaLsp,
 }
 
 struct CommandLineArgs {
@@ -96,6 +97,8 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
       args.mode = Mode::Format;
     } else if (strcmp(arg, "-sema") == 0) {
       args.mode = Mode::Sema;
+    } else if (strcmp(arg, "-sema-lsp") == 0) {
+      args.mode = Mode::SemaLsp;
     } else if (strcmp(arg, "-i") == 0) {
       args.inPlace = true;
     } else if (strcmp(arg, "-stdin-filename") == 0) {

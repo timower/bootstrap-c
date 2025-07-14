@@ -1,8 +1,8 @@
 CC, ?= clang
-CFLAGS ?= -g -Wall -fsanitize=address
-LDFLAGS ?= -fsanitize=address
+CFLAGS ?= -g -Wall
+LDFLAGS ?=
 
-LLCFLAGS ?= -O0 --relocation-model=pic -filetype=obj
+LLCFLAGS ?= -O3 --frame-pointer=all --relocation-model=pic -filetype=obj
 
 # Auto-detect platform and set appropriate target
 UNAME_S := $(shell uname -s)

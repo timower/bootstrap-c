@@ -82,12 +82,20 @@ TODO
  - [ ] continue statement.
  - [ ] x86_64 backend
 
+LSP TODO
+--------
+
+ - [x] Report all sema'd files in -sema-lsp
+ - [x] Send empty list of diagnostics for clean files.
+ - [x] Add formatter support.
+ - [ ] Workspace symbols? Autocomplete? ...
+
 Formatter TODO
 --------------
 
- - [ ] Add output & in-place argument
- - [ ] Preserve newlines and comments in unions.
- - [ ] Preserve char constants.
+ - [x] Add output & in-place argument
+ - [x] Preserve newlines and comments in unions.
+ - [x] Preserve char constants.
  - [ ] Fix trailing comments in block scopes.
  - [ ] Preserve newline between comments, and comments & code.
  - [ ] Fix newline bugs

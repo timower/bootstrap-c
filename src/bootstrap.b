@@ -79,10 +79,16 @@ func main(argc: i32, argv: i8**) -> i32 {
     return 0;
   }
 
-  let semaState = initSemaState(args.target);
+  let semaState = initSemaState(args.target, args.mode == Mode::SemaLsp);
+
   debug("Begin sema");
   decls = semaTopLevel(&semaState, decls);
   debug("End sema");
+
+  if (args.mode == Mode::SemaLsp) {
+    // TODO: dump dep graph, dump refs, ...
+    return 0;
+  }
 
   if (args.mode == Mode::Sema) {
     return 0;

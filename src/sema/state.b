@@ -13,6 +13,8 @@ struct PathCache {
 }
 
 struct SemaState {
+  target: i8*;
+
   parent: SemaState*;
 
   // Return type of the current function.
@@ -27,17 +29,26 @@ struct SemaState {
   // Extra decls added during sema, used for string literals.
   // Should only be added to the root sema state.
   extraDecls: DeclAST*;
+
+  // Used to give each string a unique name.
   strCount: i32;
 
+  // List of files imported.
   imports: ImportList*;
-  target: i8*;
+
+  // Cache of loaded paths to reduce realpath use.
   pathCache: PathCache*;
+
+  // Set to true to give LSP related output during sema.
+  semaLspMode: bool;
 }
 
 func newState(parent: SemaState*) -> SemaState {
   let state = SemaState {
     parent = parent,
     result = parent->result,
+    target = parent->target,
+    semaLspMode = parent->semaLspMode,
   };
   return state;
 }
@@ -91,10 +102,11 @@ func getNullDecl(name: i8*) -> DeclAST* {
   return nullDecl;
 }
 
-func initSemaState(target: i8*) -> SemaState {
+func initSemaState(target: i8*, lspMode: bool) -> SemaState {
   let nullDecl = getNullDecl("null");
   return SemaState {
     target = target,
     locals = newDeclList(nullDecl),
+    semaLspMode = lspMode,
   };
 }
