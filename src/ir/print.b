@@ -149,13 +149,16 @@ func getName(value: Value) -> i8* {
       if (isAggregate(z.type)) {
         return "zeroinitializer";
       }
-      if (z.type->kind as TypeKind::Int* != null) {
-        return "0";
+      switch (z.type->kind) {
+        case TypeKind::Array:
+          return "zeroinitializer";
+        case TypeKind::Int:
+          return "0";
+        case TypeKind::Bool:
+          return "false";
+        default:
+          return "null";
       }
-      if (z.type->kind as TypeKind::Bool* != null) {
-        return "false";
-      }
-      return "null";
 
     case Value::Sizeof as s:
       let buf = malloc(128);
