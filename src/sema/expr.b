@@ -611,7 +611,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       if (state->semaLspMode) {
         let name = varExpr.identifier;
         printLoc(expr->location);
-        fprintf(getStderr(), "ref: %p\n", local);
+        fprintf(getStderr(), "ref: %p: %d\n", local, name.end - name.data);
       }
 
       // enum value, transform this expr to an i32.

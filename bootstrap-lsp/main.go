@@ -48,6 +48,7 @@ type Symbols struct {
 type SymbolRef struct {
 	position Position
 	id       string
+	length   int
 }
 
 type Symbol struct {
@@ -235,6 +236,8 @@ func handleRequest(server *Server, req RPCRequest) {
 		handleCompletion(server, req)
 	case "textDocument/definition":
 		handleDefinition(server, req)
+	case "textDocument/references":
+		handleReferences(server, req)
 	case "workspace/symbol":
 		handleWorkspaceSymbol(server, req)
 	case "textDocument/documentSymbol":
@@ -291,6 +294,7 @@ func handleInitialize(server *Server, req RPCRequest) {
 			},
 			DocumentFormattingProvider: true,
 			DefinitionProvider:         true,
+			ReferencesProvider:         true,
 			/*
 				CompletionProvider: &CompletionOptions{
 					TriggerCharacters: []string{".", "\""},
@@ -425,6 +429,24 @@ func handleCompletion(server *Server, req RPCRequest) {
 	// sendResult(req.ID, result)
 }
 
+func findSymbol(symbols *Symbols, relPath string, pos Position) (string, bool) {
+	refs, ok := symbols.symbolRefs[relPath]
+	if !ok {
+		return "", false
+	}
+
+	for _, ref := range refs {
+		// TODO: make map?
+		if ref.position.Line == pos.Line {
+			if pos.Character >= ref.position.Character &&
+				pos.Character < ref.position.Character+ref.length {
+				return ref.id, true
+			}
+		}
+	}
+	return "", false
+}
+
 // handleDefinition processes the 'textDocument/definition' request
 func handleDefinition(server *Server, req RPCRequest) {
 	var params TextDocumentPositionParams
@@ -438,45 +460,82 @@ func handleDefinition(server *Server, req RPCRequest) {
 	relPath, err := filepath.Rel(server.rootPath, path)
 	if err != nil {
 		log.Printf("Error making rel path: %v", err)
+		sendError(req.ID, InternalError, "Path Error", nil)
 		return
 	}
+
 	server.symbols.mu.RLock()
 	defer server.symbols.mu.RUnlock()
-	refs, ok := server.symbols.symbolRefs[relPath]
+
+	id, ok := findSymbol(&server.symbols, relPath, params.Position)
 	if !ok {
-		log.Printf("No refs in %s\n", relPath)
+		log.Printf("No symbol not found")
 		sendResult(req.ID, nil)
 		return
 	}
 
-	for _, ref := range refs {
-		// TODO: make map?
-		if ref.position.Line == params.Position.Line {
-			sym, ok := server.symbols.symbols[ref.id]
-			if !ok {
-				log.Printf("Ref on line, but not in symbol defs...\n")
-				continue
-			}
-			if params.Position.Character < ref.position.Character ||
-				params.Position.Character >= ref.position.Character+len(sym.name) {
-				continue
-			}
+	sym, ok := server.symbols.symbols[id]
+	if !ok {
+		sendResult(req.ID, nil)
+		return
+	}
 
-			sendResult(req.ID, Location{
-				URI: filepathToURI(sym.file),
-				Range: Range{
-					Start: sym.position,
-					End: Position{
-						Line:      sym.position.Line,
-						Character: sym.position.Character + len(sym.name),
+	sendResult(req.ID, Location{
+		URI: filepathToURI(sym.file),
+		Range: Range{
+			Start: sym.position,
+			End: Position{
+				Line:      sym.position.Line,
+				Character: sym.position.Character + len(sym.name),
+			},
+		},
+	})
+}
+
+func handleReferences(server *Server, req RPCRequest) {
+	var params TextDocumentPositionParams
+	err := json.Unmarshal(req.Params, &params)
+	if err != nil {
+		sendError(req.ID, InvalidParams, "Invalid params", nil)
+		return
+	}
+
+	path := uriToPath(params.TextDocument.URI)
+	relPath, err := filepath.Rel(server.rootPath, path)
+	if err != nil {
+		log.Printf("Error making rel path: %v", err)
+		return
+	}
+
+	server.symbols.mu.RLock()
+	defer server.symbols.mu.RUnlock()
+
+	id, ok := findSymbol(&server.symbols, relPath, params.Position)
+	if !ok {
+		sendResult(req.ID, nil)
+		return
+	}
+
+	result := []Location{}
+
+	for path, refs := range server.symbols.symbolRefs {
+		for _, ref := range refs {
+			if ref.id == id {
+				result = append(result, Location{
+					URI: filepathToURI(path),
+					Range: Range{
+						Start: ref.position,
+						End: Position{
+							Line:      ref.position.Line,
+							Character: ref.position.Character + ref.length,
+						},
 					},
-				},
-			})
-			return
+				})
+			}
 		}
 	}
-	log.Printf("Not found! %s\n", relPath)
-	sendResult(req.ID, nil)
+
+	sendResult(req.ID, result)
 }
 
 // handleWorkspaceSymbol processes the 'workspace/symbol' request
@@ -629,19 +688,28 @@ func semaFile(s *Server, path string) {
 				continue
 			}
 			symbolDefs[symbol.id] = symbol
-			symbolRefs[file] = append(symbolRefs[file], SymbolRef{position: symbol.position, id: symbol.id})
+			symbolRefs[file] = append(symbolRefs[file], SymbolRef{
+				id:       symbol.id,
+				position: symbol.position,
+				length:   len(symbol.name),
+			})
 			continue
 		}
 
 		if strings.HasPrefix(msg, "ref:") {
 			parts := strings.Split(msg, ": ")
-			if len(parts) != 2 {
+			if len(parts) != 3 {
 				log.Printf("Ref too many parts")
 				continue
 			}
 
 			id := parts[1]
-			symbolRefs[file] = append(symbolRefs[file], SymbolRef{position: pos, id: id})
+			length, _ := strconv.Atoi(parts[2])
+			symbolRefs[file] = append(symbolRefs[file], SymbolRef{
+				id:       id,
+				position: pos,
+				length:   length,
+			})
 			continue
 		}
 
