@@ -142,6 +142,7 @@ type ServerCapabilities struct {
 	WorkspaceSymbolProvider    bool                     `json:"workspaceSymbolProvider,omitempty"`
 	DocumentSymbolProvider     bool                     `json:"documentSymbolProvider,omitempty"`
 	DocumentFormattingProvider bool                     `json:"documentFormattingProvider,omitempty"`
+	ReferencesProvider         bool                     `json:"referencesProvider,omitempty"`
 }
 
 // ServerInfo defines the server name and version
