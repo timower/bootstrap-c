@@ -8,9 +8,17 @@ import sema.expr;
 import sema.decl;
 
 func addTaggedType(state: SemaState*, decl: DeclAST*) {
-  if (&decl->kind as DeclKind::Struct* != null || &decl->kind as DeclKind::Enum* != null || &decl->kind as DeclKind::Union* != null) {
+  if (&decl->kind as DeclKind::Struct* != null
+      || &decl->kind as DeclKind::Enum* != null
+      || &decl->kind as DeclKind::Union* != null) {
     if (findType(state->types, *getTypeTag(decl->type)) != null) {
       failSemaDecl(decl, ": Type redef");
+    }
+
+    if (state->semaLspMode) {
+      let tag = getTypeTag(decl->type);
+      printLoc(decl->location);
+      fprintf(getStderr(), "decl: %p: %.*s\n", decl, tag->end - tag->data, tag->data);
     }
 
     // Add the struct to the types.

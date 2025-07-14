@@ -102,6 +102,11 @@ format-check: bootstrap ## Check if all source files are properly formatted
 		fi'
 	@echo "All files are properly formatted"
 
+.PHONY: lsp
+lsp:
+	cd bootstrap-lsp && go build
+
+
 .PHONY: clean
 clean: ## Remove build artifacts and binaries
 	rm -rf build/* bootstrap bootstrap-coverage stage*
