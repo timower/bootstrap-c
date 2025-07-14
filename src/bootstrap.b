@@ -45,6 +45,7 @@ func finishInPlace(args: CommandLineArgs*, fileName: i8*, file: void*) {
 }
 
 func main(argc: i32, argv: i8**) -> i32 {
+  initTokenSystem();
   let args = parseOpts(argc, argv);
   printFile = getStdout();
 
@@ -107,6 +108,5 @@ func main(argc: i32, argv: i8**) -> i32 {
     debug("Begin emit");
     emitAsm(&module, args.target);
   }
-
   return 0;
 }

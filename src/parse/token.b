@@ -5,8 +5,24 @@ let intTypes: const i8*[] = {
   "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
 };
 
+const intTypeCount = (sizeof(typeof(intTypes)) / sizeof(typeof(intTypes[0])));
+
+let intTypeHashes: i64[8];
+
+func initIntTypeHashes() {
+  for (let i = 0; i < intTypeCount; i++) {
+    let len = strlen(intTypes[i]) as i32;
+    intTypeHashes[i] = packTokenHash(intTypes[i], len);
+  }
+}
+
+func initTokenSystem() {
+  initTokenHashes();
+  initIntTypeHashes();
+}
+
 func iseol(c: i32) -> bool {
-  return c == 10 || c == 13;
+  return c == '\n' || c == '\r';
 }
 
 
@@ -39,15 +55,15 @@ func peekChar(state: ParseState*) -> i32 {
 
 /// True if the current character is an EOL character
 func is_space(c: i32) -> bool {
-  return iseol(c) || c == 32 || c == 9;
+  return iseol(c) || c == ' ' || c == '\t';
 }
 
 func is_alpha(c: i32) -> bool {
-  return (c >= 97 && c <= 122) || (c >= 65 && c <= 90);
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
 func is_digit(c: i32) -> bool {
-  return c >= 48 && c <= 57;
+  return c >= '0' && c <= '9';
 }
 
 func is_alnum(c: i32) -> bool {
@@ -59,11 +75,6 @@ func getToken(state: ParseState*) -> Token {
   let lastChar = nextChar(state);
 
   let token = Token {};
-
-  // TODO: const expressions and make these global
-  // TODO: array size
-  let tokenSize = (sizeof(typeof(tokens)) / sizeof(typeof(tokens[0]))) as i32;
-  let intTypeSize = (sizeof(typeof(intTypes)) / sizeof(typeof(intTypes[0]))) as i32;
 
   // Eat whitespace
   while (is_space(lastChar)) {
@@ -77,25 +88,30 @@ func getToken(state: ParseState*) -> Token {
   }
 
   // identifier [a-zA-Z][a-zA-Z0-9]*
-  if (is_alpha(lastChar) || lastChar == 95) {
-    while (is_alnum(peekChar(state)) || peekChar(state) == 95) {
+  if (is_alpha(lastChar) || lastChar == '_') {
+    while (is_alnum(peekChar(state)) || peekChar(state) == '_') {
       nextChar(state);
     }
 
     token.data = tokenStart;
     token.end = state->current;    // one past the end!
 
-    // Check if it's a keyword.
-    for (let i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
-      if (tokCmpStr(token, tokens[i])) {
-        token.kind = i as enum TokenKind;
+    // Check if it's a keyword using hash lookup.
+    let tokenHash = getTokenHash(token);
+    if (tokenHash == 0) {
+      token.kind = TokenKind::IDENTIFIER;
+      return token;
+    }
+    for (let i = TokenKind::CONTINUE as i32; i < tokenCount; i++) {
+      if (tokenHashes[i].hash == tokenHash) {
+        token.kind = tokenHashes[i].kind;
         return token;
       }
     }
 
-    // i32 types [iu](8|16|32|64)
-    for (let i = 0; i < intTypeSize; i++) {
-      if (tokCmpStr(token, intTypes[i])) {
+    // i32 types [iu](8|16|32|64) using hash lookup
+    for (let i = 0; i < intTypeCount; i++) {
+      if (intTypeHashes[i] == tokenHash) {
         token.kind = TokenKind::INT2;
         return token;
       }
@@ -156,7 +172,7 @@ func getToken(state: ParseState*) -> Token {
   }
 
   // pre-processor
-  if (lastChar == 35) {
+  if (lastChar == '#') {
     while (!iseol(peekChar(state))) {
       nextChar(state);
     }
@@ -179,18 +195,28 @@ func getToken(state: ParseState*) -> Token {
     }
   }
 
-  // Asume operator
-  for (let i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
-    let len = strlen(tokens[i]) as i64;
-    let remaining = state->end - tokenStart;
-    if (len <= remaining && memcmp(tokenStart, tokens[i], len as u64) == 0) {
-      token.kind = i as enum TokenKind;
-      token.data = tokenStart;
-
-      state->current = tokenStart + len;
-      token.end = state->current;
-
-      return token;
+  // Assume operator - try different lengths for hash lookup
+  let remaining = state->end - tokenStart;
+  for (let i = TokenKind::LEFT_ASSIGN as i32; i < tokenCount; i++) {
+    let len = tokenHashes[i].len;
+    if (len <= remaining as i32) {
+      if (len == 1) {
+        if (*tokens[i] == *tokenStart) {
+          token.kind = tokenHashes[i].kind;
+          token.data = tokenStart;
+          state->current = tokenStart + len;
+          token.end = state->current;
+          return token;
+        }
+      }
+      let opHash = packTokenHash(tokenStart, len as i32);
+      if (tokenHashes[i].hash == opHash) {
+        token.kind = tokenHashes[i].kind;
+        token.data = tokenStart;
+        state->current = tokenStart + len;
+        token.end = state->current;
+        return token;
+      }
     }
   }
 

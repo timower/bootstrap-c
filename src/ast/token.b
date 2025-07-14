@@ -1,3 +1,5 @@
+import libc;
+
 enum TokenKind {
   TOK_EOF,
 
@@ -100,6 +102,37 @@ let tokens: const i8*[] = {
   "!", "~", "-", "+", "*", "/",
   "%", "<", ">", "^", "|", "?",
 };
+
+struct TokenHashEntry {
+  hash: i64;
+  kind: TokenKind;
+  len: i32;
+}
+
+let tokenHashes: TokenHashEntry[128];
+
+const tokenCount = sizeof(typeof(tokens)) / sizeof(typeof(tokens[0]));
+
+func packTokenHash(str: const i8*, len: i32) -> i64 {
+  if (len > 7) {
+    return 0;    // Fallback for tokens longer than 7 chars
+  }
+
+  let result: i64 = len as i64;
+  for (let i = 0; i < len; i++) {
+    result |= (*(str + i) as i64) << (8 * (i + 1) as i64);
+  }
+  return result;
+}
+
+func initTokenHashes() {
+  for (let i = 0; i < tokenCount; i++) {
+    let len = strlen(tokens[i]) as i32;
+    tokenHashes[i].hash = packTokenHash(tokens[i], len);
+    tokenHashes[i].kind = i as enum TokenKind;
+    tokenHashes[i].len = len;
+  }
+}
 
 struct Token {
   kind: TokenKind;

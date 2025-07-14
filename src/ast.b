@@ -287,6 +287,16 @@ func tokCmp(one: Token, two: Token) -> bool {
   return memcmp(one.data, two.data, len1 as u64) == 0;
 }
 
+
+func getTokenHash(token: Token) -> i64 {
+  let len = (token.end - token.data) as i32;
+  return packTokenHash(token.data, len);
+}
+
+func tokCmpHash(token: Token, hash: i64) -> bool {
+  return getTokenHash(token) == hash;
+}
+
 func tokCmpStr(one: Token, str: const i8*) -> bool {
   let len1 = one.end - one.data;
   let len2 = strlen(str) as i64;
