@@ -14,7 +14,7 @@ func optionalSemicolon(state: ParseState*) {
 
 // Add any comments in state that are on the same line as decl to decl.
 func addTrailingCommentsDecl(state: ParseState*, decl: DeclAST*) {
-  let comments = getLineComments(state, decl->endLocation.line);
+  let comments = getLineComments(state, decl->endLocation->line);
   if (comments == null) {
     return;
   }

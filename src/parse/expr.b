@@ -94,11 +94,10 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
       let member = getNextToken(state);
 
       if (!match(state, TokenKind::OPEN_BRACE)) {
-        let result = newCurLocExpr(state, ExprKind::Scope {
+        let result = newLocExpr(loc, ExprKind::Scope {
           parent = ident,
           identifier = member,
         });
-        result->location = loc;
         return result;
       }
 
@@ -562,6 +561,8 @@ func parseAssignment(state: ParseState*) -> ExprAST* {
 // type := const? base_type ('*' | '[' int? ']' )*
 func parseType(state: ParseState*) -> Type* {
   let type = newType(TypeKind::Void {});
+  type->location = getLocation(state);
+
   let fnType: TypeKind::Func* = null;
 
   if (match(state, TokenKind::CONST)) {
@@ -570,9 +571,10 @@ func parseType(state: ParseState*) -> Type* {
   }
 
   if (match(state, TokenKind::INT2)) {
-    let isSigned = *state->curToken.data == 105;
-    let end = state->curToken.end;
-    let size = strtol(state->curToken.data + 1, &end, 10) as i32;
+    let data = state->curToken.location->data;
+    let isSigned = *data == 'i';
+    let end = data + state->curToken.len;
+    let size = strtol(data + 1, &end, 10) as i32;
     getNextToken(state);
     type->kind = TypeKind::Int {
       size = size,

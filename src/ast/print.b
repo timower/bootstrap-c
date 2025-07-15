@@ -5,10 +5,12 @@ let indent_width = 2;
 
 let printFile: void* = null;
 
-func printStr(start: i8*, end: i8*) {
-  for (let c = start; c != end; c++) {
-    fprintf(printFile, "%c", *c as i32);
-  }
+func printStr(start: i8*, len: i32) {
+  fprintf(printFile, "%.*s", len, start);
+}
+
+func printRawToken(token: Token) {
+  printStr(token.location->data, token.len);
 }
 
 func printToken(token: Token) {
@@ -16,7 +18,7 @@ func printToken(token: Token) {
     fprintf(printFile, "%s", tokens[(token.kind as i32)]);
     return;
   }
-  printStr(token.data, token.end);
+  printRawToken(token);
 }
 
 func printType(type: Type*) {
@@ -76,23 +78,23 @@ func printTypeSub(type: Type*) -> TypeKind::Func* {
       }
     case TypeKind::Struct as s:
       fprintf(printFile, "struct ");
-      printStr(s.tag.data, s.tag.end);
+      printToken(s.tag);
     case TypeKind::Func as fn:
       fprintf(printFile, "func");
       res = &fn;
     case TypeKind::Enum as e:
       fprintf(printFile, "enum ");
-      printStr(e.tag.data, e.tag.end);
+      printToken(e.tag);
     case TypeKind::Union as un:
       fprintf(printFile, "union ");
-      printStr(un.tag.data, un.tag.end);
+      printToken(un.tag);
 
     case TypeKind::Tag as tag:
       if (tag.parent.kind != TokenKind::TOK_EOF) {
-        printStr(tag.parent.data, tag.parent.end);
+        printToken(tag.parent);
         fprintf(printFile, "::");
       }
-      printStr(tag.tag.data, tag.tag.end);
+      printToken(tag.tag);
 
     case TypeKind::Typeof as typeofType:
       fprintf(printFile, "typeof(");
@@ -139,7 +141,7 @@ func printLet(decl: DeclAST*, indent: i32) {
 
   if (init != null) {
     fprintf(printFile, " =");
-    if (init->location.line != decl->location.line) {
+    if (init->location->line != decl->location->line) {
       fprintf(printFile, "\n");
       printIndent(indent + indent_width * 2);
     } else {
@@ -174,17 +176,17 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       }
 
     case ExprKind::Int as int:
-      printStr(int.token.data, int.token.end);
+      printRawToken(int.token);
 
     // fprintf(printFile, "%d", expr->value);
     // printToken(expr->op);
     case ExprKind::Str as str:
       fprintf(printFile, "\"");
-      printStr(str.identifier.data, str.identifier.end);
+      printRawToken(str.identifier);
       fprintf(printFile, "\"");
     case ExprKind::Binary as binary:
       let isComma = binary.op.kind == TokenKind::COMMA;
-      let isSplit = binary.lhs->location.line != binary.rhs->location.line;
+      let isSplit = binary.lhs->location->line != binary.rhs->location->line;
       printExprPrec(binary.lhs, curPrec, indent);
       if (!isComma) {
         if (isSplit) {
@@ -216,7 +218,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       fprintf(printFile, "(");
       let split = false;
       for (let cur = call.args; cur != null; cur = cur->next) {
-        if (cur->next != null && cur->location.line != cur->next->location.line) {
+        if (cur->next != null && cur->location->line != cur->next->location->line) {
           split = true;
         }
       }
@@ -259,13 +261,13 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       fprintf(printFile, ")");
     case ExprKind::Conditional as cond:
       printExprPrec(cond.cond, nextPrec, indent);
-      if (expr->location.line != cond.trueExpr->location.line) {
+      if (expr->location->line != cond.trueExpr->location->line) {
         fprintf(printFile, "\n");
         printIndent(indent + 2 * indent_width);
       }
       fprintf(printFile, " ? ");
       printExprPrec(cond.trueExpr, nextPrec, indent);
-      if (cond.trueExpr->location.line != cond.falseExpr->location.line) {
+      if (cond.trueExpr->location->line != cond.falseExpr->location->line) {
         fprintf(printFile, "\n");
         printIndent(indent + 2 * indent_width);
       }
@@ -274,9 +276,9 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
     case ExprKind::Array as array:
       fprintf(printFile, "{");
       let hasSplit = false;
-      let lastLine = expr->location.line;
+      let lastLine = expr->location->line;
       for (let elem = array.elements; elem != null; elem = elem->next) {
-        if (lastLine != elem->location.line) {
+        if (lastLine != elem->location->line) {
           hasSplit = true;
           fprintf(printFile, "\n");
           printIndent(indent + indent_width);
@@ -288,7 +290,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
         if (elem->next != null) {
           fprintf(printFile, ",");
         }
-        lastLine = elem->location.line;
+        lastLine = elem->location->line;
       }
       if (hasSplit) {
         fprintf(printFile, ",\n");
@@ -367,10 +369,10 @@ func printIfStmt(stmt: StmtAST*, indent: i32) {
 }
 
 func printComments(comment: Comment*, indent: i32, line: i32) -> Comment* {
-  for (; comment != null && (line == 0 || comment->location.line < line);
+  for (; comment != null && (line == 0 || comment->location->line < line);
        comment = comment->next) {
     printIndent(indent);
-    printStr(comment->value.data, comment->value.end);
+    printRawToken(comment->value);
 
     if (line != 0 || comment->next != null) {
       fprintf(printFile, "\n");
@@ -384,7 +386,7 @@ func printStmtList(stmt: StmtAST*, indent: i32) {
     printStmtIndent(cur, indent + indent_width);
 
     if (cur->next != null) {
-      let lineDiff = cur->next->location.line - cur->endLocation.line;
+      let lineDiff = cur->next->location->line - cur->endLocation->line;
       if (lineDiff > 1) {
         fprintf(printFile, "\n\n");
       } else {
@@ -395,7 +397,7 @@ func printStmtList(stmt: StmtAST*, indent: i32) {
 }
 
 func printStmtIndent(stmt: StmtAST*, indent: i32) {
-  let trailing = printComments(stmt->comments, indent, stmt->location.line);
+  let trailing = printComments(stmt->comments, indent, stmt->location->line);
 
   switch (stmt->kind) {
     case StmtKind::Compound as compStmt:
@@ -404,7 +406,7 @@ func printStmtIndent(stmt: StmtAST*, indent: i32) {
       printStmtList(compStmt.stmt, indent);
       fprintf(printFile, "\n");
       printIndent(indent);
-      trailing = printComments(trailing, indent + indent_width, stmt->endLocation.line);
+      trailing = printComments(trailing, indent + indent_width, stmt->endLocation->line);
       fprintf(printFile, "}");
     case StmtKind::Expr as exprStmt:
       printIndent(indent);
@@ -416,14 +418,14 @@ func printStmtIndent(stmt: StmtAST*, indent: i32) {
       printIndent(indent);
       fprintf(printFile, "for (");
       printStmtIndent(forStmt.init, 0);
-      if (forStmt.init->location.line != forStmt.cond->location.line) {
+      if (forStmt.init->location->line != forStmt.cond->location->line) {
         fprintf(printFile, "\n");
         printStmtIndent(forStmt.cond, indent + 5);
       } else {
         fprintf(printFile, " ");
         printStmtIndent(forStmt.cond, 0);
       }
-      if (forStmt.cond->location.line != forStmt.update->location.line) {
+      if (forStmt.cond->location->line != forStmt.update->location->line) {
         fprintf(printFile, "\n");
         printIndent(indent + 5);
       } else {
@@ -489,7 +491,7 @@ func printDeclNewlines(field: DeclAST*) {
   }
 
   // TODO: take comments into account.
-  let lineDiff = field->next->location.line - field->location.line;
+  let lineDiff = field->next->location->line - field->location->line;
   if (lineDiff > 1) {
     fprintf(printFile, "\n\n");
   } else {
@@ -512,7 +514,7 @@ func printStructBody(
     let comments = printComments(
         field->comments,
         indent + indent_width,
-        field->location.line);
+        field->location->line);
     printIndent(indent + indent_width);
 
     // fprintf(printFile, "%d: ", field->location.line);
@@ -529,7 +531,7 @@ func printStructBody(
   trailing = printComments(
       trailing,
       indent + indent_width,
-      decl->endLocation.line);
+      decl->endLocation->line);
   if (fields != null) {
     printIndent(indent);
   }
@@ -538,7 +540,7 @@ func printStructBody(
 }
 
 func printDeclIndent(decl: DeclAST*, indent: i32) {
-  let trailing = printComments(decl->comments, indent, decl->location.line);
+  let trailing = printComments(decl->comments, indent, decl->location->line);
 
   switch (decl->kind) {
     case DeclKind::Struct as structKind:
@@ -553,7 +555,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         let comments = printComments(
             field->comments,
             indent + indent_width,
-            field->location.line);
+            field->location->line);
         printIndent(indent + indent_width);
 
         // fprintf(printFile, "%d: ", field->location.line);
@@ -562,7 +564,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         printComments(comments, indent + indent_width, 0);
         printDeclNewlines(field);
       }
-      trailing = printComments(trailing, indent + indent_width, decl->endLocation.line);
+      trailing = printComments(trailing, indent + indent_width, decl->endLocation->line);
       fprintf(printFile, "}");
     case DeclKind::Union as unionKind:
       printType(decl->type);
@@ -577,7 +579,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         let comments = printComments(
             subType->decl->comments,
             indent + indent_width,
-            subType->decl->location.line);
+            subType->decl->location->line);
         printIndent(indent + indent_width);
 
         let structType = subType->decl->type->kind as TypeKind::Struct*;
@@ -591,7 +593,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
           fprintf(printFile, "\n");
         } else {
           let lineDiff =
-              subType->next->decl->location.line - subType->decl->endLocation.line;
+              subType->next->decl->location->line - subType->decl->endLocation->line;
           if (lineDiff > 1) {
             fprintf(printFile, "\n\n");
           } else {
@@ -603,7 +605,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       trailing = printComments(
           trailing,
           indent + indent_width,
-          decl->endLocation.line);
+          decl->endLocation->line);
       fprintf(printFile, "}");
     case DeclKind::EnumField:
       printToken(decl->name);
@@ -628,7 +630,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       for (let arg: DeclAST* = funcKind.args; arg != null;
            arg = arg->next) {
         if (arg->next != null
-            && arg->location.line != arg->next->location.line) {
+            && arg->location->line != arg->next->location->line) {
           split = true;
         }
       }
@@ -714,7 +716,7 @@ func printTopLevel(decls: DeclAST*) {
 
     let newlines = 0;
     if (decl->next != null) {
-      let lineDiff = decl->next->location.line - decl->endLocation.line;
+      let lineDiff = decl->next->location->line - decl->endLocation->line;
       if (lineDiff > 2) {
         newlines = 3;
       } else {

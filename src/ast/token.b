@@ -1,7 +1,8 @@
+import libc;
+
 enum TokenKind {
   TOK_EOF,
 
-  // clang-format off
   // constants
   IDENTIFIER,
   CONSTANT,
@@ -83,7 +84,7 @@ enum TokenKind {
   GREATER,
   HAT,
   PIPE,
-  QUESTION,  // clang-format on
+  QUESTION,
 }
 
 let tokens: const i8*[] = {
@@ -101,9 +102,52 @@ let tokens: const i8*[] = {
   "%", "<", ">", "^", "|", "?",
 };
 
+struct SourceLoc {
+  data: i8*;
+  fileName: i8*;
+  line: i32;
+  column: i32;
+  // TODO: add import location.
+}
+
 struct Token {
   kind: TokenKind;
+  len: i32;
+  location: SourceLoc*;
+}
 
-  data: i8*;
-  end: i8*;
+func tokCmp(one: Token, two: Token) -> bool {
+  if (one.kind != two.kind) {
+    return false;
+  }
+
+  if (one.len != two.len) {
+    return false;
+  }
+
+  let len = one.len as u32;
+  return memcmp(one.location->data, two.location->data, len as u64) == 0;
+}
+
+func tokCmpStr(one: Token, str: const i8*) -> bool {
+  let len = strlen(str);
+  if (one.len != len as i32) {
+    return false;
+  }
+
+  return memcmp(one.location->data, str, len as u64) == 0;
+}
+
+func newInternalToken(bufSize: u64) -> Token {
+  let alloc = malloc(sizeof(SourceLoc) + bufSize);
+  let loc = alloc as SourceLoc*;
+  loc->data = (alloc as i8*) + sizeof(SourceLoc);
+  loc->fileName = "<builtin>";
+  loc->line = 1;
+  loc->column = 1;
+  return Token {
+    kind = TokenKind::IDENTIFIER,
+    len = 0,
+    location = loc,
+  };
 }

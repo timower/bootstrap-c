@@ -7,7 +7,12 @@ struct ParseOptions {
   concrete: bool;
 }
 
+const source_slab_size = 512;
+
 struct ParseState {
+  // Any parse options the parser was constructed with.
+  options: ParseOptions;
+
   // [start, end[ contains the current data buffer.
   start: i8*;
   end: i8*;
@@ -20,11 +25,11 @@ struct ParseState {
 
   // current file name.
   fileName: i8*;
-
   line: i32;
   lineStart: i8*;
 
-  options: ParseOptions;
+  currentSlab: SourceLoc*;
+  slabFree: i32;
 
   // Any comments that should be taken up by the next node.
   // Only parsed if concrete is true.
@@ -32,29 +37,40 @@ struct ParseState {
   lastComment: Comment*;
 }
 
-func getLocation(state: ParseState*) -> SourceLoc {
-  let col = (state->curToken.data - state->lineStart) as i32;
-  if (state->curToken.kind == TokenKind::TOK_EOF) {
-    col = (state->current - state->lineStart) as i32;
+func getLocation(state: ParseState*) -> SourceLoc* {
+  if (state->slabFree == 0) {
+    state->currentSlab = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
+    state->slabFree = source_slab_size;
   }
-  return SourceLoc {
-    line = state->line,
-    column = col + 1,
-    fileName = state->fileName,
-  };
+
+  let result = state->currentSlab;
+  state->currentSlab++;
+  state->slabFree--;
+
+  let offset = state->current;
+
+  // TODO: remove once getLocation is only used in parse/token.b
+  if (state->curToken.kind != TokenKind::TOK_EOF) {
+    offset = state->curToken.location->data;
+  }
+  result->data = offset;
+  result->column = (offset - state->lineStart) as i32 + 1;
+  result->line = state->line;
+  result->fileName = state->fileName;
+  return result;
 }
 
 
 // Pops any comments on the given line from state.
 func getLineComments(state: ParseState*, line: i32) -> Comment* {
   let firstComment = state->comments;
-  if (firstComment == null || firstComment->location.line > line) {
+  if (firstComment == null || firstComment->location->line > line) {
     return null;
   }
 
   let lastComment = firstComment;
   while (lastComment->next != null
-      && lastComment->next->location.line <= line) {
+      && lastComment->next->location->line <= line) {
     lastComment = lastComment->next;
   }
 
@@ -82,7 +98,7 @@ func appendComments(list: Comment*, other: Comment*) -> Comment* {
 
 func failParseArg(state: ParseState*, msg: const i8*, arg: const i8*) {
   let location = getLocation(state);
-  fprintf(getStderr(), "%s:%d:%d: ", state->fileName, location.line, location.column);
+  fprintf(getStderr(), "%s:%d:%d: ", state->fileName, location->line, location->column);
 
   fprintf(getStderr(), ": %s%s\n", msg, arg);
   exit(1);
@@ -115,7 +131,7 @@ func newLocDecl(state: ParseState*, kind: DeclKind) -> DeclAST* {
   return res;
 }
 
-func newLocExpr(loc: SourceLoc, kind: ExprKind) -> ExprAST* {
+func newLocExpr(loc: SourceLoc*, kind: ExprKind) -> ExprAST* {
   let res = newExpr(kind);
   res->location = loc;
   return res;

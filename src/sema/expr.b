@@ -106,7 +106,7 @@ func semaIntCast(
 }
 
 func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
-  resolveTypeTags(state, castExpr->type, castExpr->location);
+  resolveTypeTags(state, castExpr->type);
   if (castExpr->type == null) {
     failSemaExpr(castExpr, "Cast without type?");
   }
@@ -262,7 +262,9 @@ func checkBool(expr: ExprAST*) {
 func getStringLength(tok: Token) -> i32 {
   let len = 0;
 
-  for (let c = tok.data; c < tok.end; c++) {
+  let data = tok.location->data;
+  let end = data + tok.len;
+  for (let c = data; c < end; c++) {
     if (*c == '\\') {
       c++;
       len++;
@@ -293,12 +295,10 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   });
   decl->type = expr->type;
 
-  let name: i8* = malloc(32 as u64);
-  let n = sprintf(name, "str.%d", root->strCount++);
-  decl->name.kind = TokenKind::IDENTIFIER;
-  decl->name.data = name;
-  decl->name.end = name + n;
+  let name = newInternalToken(32);
+  name.len = sprintf(name.location->data, "str.%d", root->strCount++);
 
+  decl->name = name;
   decl->next = root->extraDecls;
   root->extraDecls = decl;
 
@@ -611,7 +611,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       if (state->semaLspMode) {
         let name = varExpr.identifier;
         printLoc(expr->location);
-        fprintf(getStderr(), "ref: %p: %d\n", local, name.end - name.data);
+        fprintf(getStderr(), "ref: %p: %d\n", local, name.len);
       }
 
       // enum value, transform this expr to an i32.
@@ -701,7 +701,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
 
     case ExprKind::Sizeof as sizeofExpr:
-      resolveTypeTags(state, sizeofExpr.typeArg, expr->location);
+      resolveTypeTags(state, sizeofExpr.typeArg);
       sizeofExpr.value = getSize(state, sizeofExpr.typeArg);
 
       expr->kind = ExprKind::Int {
@@ -732,7 +732,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       if (init == null) {
         failSemaExpr(expr, "Let expression must have an init");
       }
-      resolveTypeTags(state, letExpr.decl->type, expr->location);
+      resolveTypeTags(state, letExpr.decl->type);
       semaVarDecl(state, letExpr.decl);
       expr->type = letExpr.decl->type;
   }
@@ -857,7 +857,7 @@ func semaVarDecl(state: SemaState*, decl: DeclAST*) {
   }
 }
 
-func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
+func resolveTypeTags(state: SemaState*, type: Type*) {
   if (type == null) {
     return;
   }
@@ -867,12 +867,12 @@ func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
       if (tagType.parent.kind != TokenKind::TOK_EOF) {
         let parentDecl = lookupType(state, tagType.parent);
         if (parentDecl == null) {
-          failSema(loc, "Can't resolve type tags, unknown parent type");
+          failSemaType(type, "Can't resolve type tags, unknown parent type");
         }
 
         let tagDecl = findType((&parentDecl->kind as DeclKind::Union*)->subTypes, tagType.tag);
         if (tagDecl == null) {
-          failSema(loc, "Can't resolve type tags, unknown sub type");
+          failSemaType(type, "Can't resolve type tags, unknown sub type");
         }
 
         let next = type->next;
@@ -881,18 +881,18 @@ func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
       } else {
         let typeDecl = lookupType(state, tagType.tag);
         if (typeDecl == null) {
-          failSema(loc, "Can't resolve type tags, unknown type");
+          failSemaType(type, "Can't resolve type tags, unknown type");
         }
         type->kind = typeDecl->type->kind;
       }
 
     case TypeKind::Pointer as p:
-      resolveTypeTags(state, p.pointee, loc);
+      resolveTypeTags(state, p.pointee);
     case TypeKind::Array as a:
-      resolveTypeTags(state, a.element, loc);
+      resolveTypeTags(state, a.element);
     case TypeKind::Func as f:
-      resolveTypeTags(state, f.result, loc);
-      resolveTypeTags(state, f.args, loc);
+      resolveTypeTags(state, f.result);
+      resolveTypeTags(state, f.args);
 
     case TypeKind::Typeof as typeofType:
       semaExpr(state, typeofType.expr);
@@ -906,5 +906,5 @@ func resolveTypeTags(state: SemaState*, type: Type*, loc: SourceLoc) {
       break;
   }
 
-  resolveTypeTags(state, type->next, loc);
+  resolveTypeTags(state, type->next);
 }

@@ -1,16 +1,8 @@
 import libc;
 import ast.token;
 
-struct SourceLoc {
-  line: i32;
-  column: i32;
-  fileName: i8*;
-  // TODO: if needed:
-  // ptr: i8*;
-}
-
 struct Comment {
-  location: SourceLoc;
+  location: SourceLoc*;
   value: Token;
   next: Comment*;
 }
@@ -59,7 +51,8 @@ struct Type {
   // Intrinsic list for function arguments.
   next: Type*;
   isConst: bool;
-  // TODO: Source loc
+
+  location: SourceLoc*;
 }
 
 
@@ -162,7 +155,7 @@ enum CastKind {
 struct ExprAST {
   kind: ExprKind;
   type: Type*;
-  location: SourceLoc;
+  location: SourceLoc*;
   next: ExprAST*;
 }
 
@@ -208,8 +201,8 @@ struct DeclAST {
   // To form linked list of declarations
   next: DeclAST*;
 
-  location: SourceLoc;
-  endLocation: SourceLoc;
+  location: SourceLoc*;
+  endLocation: SourceLoc*;
 
   // Only for concrete parsing.
   comments: Comment*;
@@ -266,37 +259,13 @@ struct StmtAST {
   // To form linked list of statements
   next: StmtAST*;
 
-  location: SourceLoc;
-  endLocation: SourceLoc;
+  location: SourceLoc*;
+  endLocation: SourceLoc*;
   comments: Comment*;
 }
 
 
 // utils
-func tokCmp(one: Token, two: Token) -> bool {
-  if (one.kind != two.kind) {
-    return false;
-  }
-
-  let len1 = one.end - one.data;
-  let len2 = two.end - two.data;
-  if (len1 != len2) {
-    return false;
-  }
-
-  return memcmp(one.data, two.data, len1 as u64) == 0;
-}
-
-func tokCmpStr(one: Token, str: const i8*) -> bool {
-  let len1 = one.end - one.data;
-  let len2 = strlen(str) as i64;
-  if (len1 != len2) {
-    return false;
-  }
-
-  return memcmp(one.data, str, len1 as u64) == 0;
-}
-
 func newExpr(kind: ExprKind) -> ExprAST* {
   let result: ExprAST* = calloc(1, sizeof(struct ExprAST));
   result->kind = kind;
