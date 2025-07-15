@@ -70,10 +70,10 @@ func typeEq(one: Type*, two: Type*) -> bool {
         return arg1 == null && arg2 == null;
       }
       return false;
-    case TypeKind::Tag:
-      failSema(SourceLoc {}, "Type tag not resolved before eq");
-    case TypeKind::Typeof:
-      failSema(SourceLoc {}, "Typeof not resolved before eq");
+    case TypeKind::Tag as tag:
+      failSemaType(one, "Type tag not resolved before eq");
+    case TypeKind::Typeof as t:
+      failSemaType(one, "Typeof not resolved before eq");
   }
 
   return true;
@@ -87,8 +87,8 @@ func getTypeTag(type: Type*) -> Token* {
       return &u.tag;
     case TypeKind::Enum as e:
       return &e.tag;
-    case TypeKind::Tag:
-      failSema(SourceLoc {}, "Tags not resolved!");
+    case TypeKind::Tag as t:
+      failSemaType(type, "Tags not resolved!");
     default:
       return null;
   }
@@ -177,7 +177,7 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
 
     case TypeKind::Array as arr:
       if (arr.size < 0) {
-        failSema(SourceLoc {}, "Unsized array in sizeof");
+        failSemaType(type, "Unsized array in sizeof");
       }
       return arr.size * getSize(state, arr.element);
 
@@ -185,7 +185,7 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
     case TypeKind::Struct as s:
       let decl = lookupType(state, s.tag);
       if (decl == null) {
-        failSema(SourceLoc {}, "Unkown type to get size of");
+        failSemaType(type, "Unkown type to get size of");
       }
 
       return getStructDeclSize(state, decl);
@@ -202,12 +202,12 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
       return maxSize + 4;      // i32 tag.
 
     case TypeKind::Typeof:
-      failSema(SourceLoc {}, "Typeof not resolved before getSize");
+      failSemaType(type, "Typeof not resolved before getSize");
       return 0;
 
     default:
       printType(type);
-      failSema(SourceLoc {}, "Unknown type for size");
+      failSemaType(type, "Unknown type for size");
       return 0;
   }
 }
@@ -220,7 +220,7 @@ func sizeArrayTypes(declType: Type*, initType: Type*) {
       let initArray = initType->kind as TypeKind::Array*;
       array.size = initArray->size;
       if (array.size < 0) {
-        failSema(SourceLoc {}, "Coudln't infer array size");
+        failSemaType(declType, "Coudln't infer array size");
       }
       sizeArrayTypes(array.element, initArray->element);
 

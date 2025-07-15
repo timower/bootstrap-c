@@ -18,7 +18,7 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
     if (state->semaLspMode) {
       let tag = getTypeTag(decl->type);
       printLoc(decl->location);
-      fprintf(getStderr(), "decl: %p: %.*s\n", decl, tag->end - tag->data, tag->data);
+      fprintf(getStderr(), "decl: %p: %.*s\n", decl, tag->len, tag->location->data);
     }
 
     // Add the struct to the types.
@@ -29,13 +29,13 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
 }
 
 func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
-  resolveTypeTags(state, decl->type, decl->location);
+  resolveTypeTags(state, decl->type);
 
   switch (decl->kind) {
     case DeclKind::Struct as structKind:
       // Resolve tags in fields.
       for (let field = structKind.fields; field != null; field = field->next) {
-        resolveTypeTags(state, field->type, field->location);
+        resolveTypeTags(state, field->type);
       }
     case DeclKind::Union as unionKind:
       let maxSize = 0;
@@ -45,7 +45,7 @@ func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
       }
     case DeclKind::Func as funcKind:
       for (let arg = funcKind.args; arg != null; arg = arg->next) {
-        resolveTypeTags(state, arg->type, arg->location);
+        resolveTypeTags(state, arg->type);
       }
     default:
       // Nothing to do for other decl types
@@ -76,21 +76,15 @@ func getImportExprName(expr: ExprAST*) -> Token {
       return varExpr.identifier;
     case ExprKind::Member as memberExpr:
       let lhsToken = getImportExprName(memberExpr.object);
-      let buf = malloc(256) as i8*;
-
-      let end = sprintf(
-          buf,
+      let res = newInternalToken(512);
+      res.len = sprintf(
+          res.location->data,
           "%.*s/%.*s",
-          lhsToken.end - lhsToken.data,
-          lhsToken.data,
-          memberExpr.identifier.end - memberExpr.identifier.data,
-          memberExpr.identifier.data);
-
-      return Token {
-        kind = TokenKind::IDENTIFIER,
-        data = buf,
-        end = buf + end,
-      };
+          lhsToken.len,
+          lhsToken.location->data,
+          memberExpr.identifier.len,
+          memberExpr.identifier.location->data);
+      return res;
 
     default:
       failSemaExpr(expr, "Unexpected expression in import");
@@ -106,9 +100,9 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 
   // Create cache key from import name, target, and source directory
   let cacheKey: i8* = malloc(512);
-  let rootFile = strdup(decl->location.fileName);
+  let rootFile = strdup(decl->location->fileName);
   let rootDir = dirname(rootFile);
-  sprintf(cacheKey, "%s:%.*s:%s", rootDir, name.end - name.data, name.data, state->target);
+  sprintf(cacheKey, "%s:%.*s:%s", rootDir, name.len, name.location->data, state->target);
 
   // Check cache first for the resolved absolute path
   let cachedAbsPath = findCachedPath(state, cacheKey);
@@ -123,7 +117,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
     relPath = malloc(4096);
     let lastDir = strdup(rootDir);
     while (true) {
-      sprintf(relPath, "%s/%.*s.b", rootDir, name.end - name.data, name.data);
+      sprintf(relPath, "%s/%.*s.b", rootDir, name.len, name.location->data);
       if (access(relPath, F_OK) == 0) {
         absPath = realpath(relPath, null);
         break;
@@ -133,8 +127,8 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
           relPath,
           "%s/%.*s.%s.b",
           rootDir,
-          name.end - name.data,
-          name.data,
+          name.len,
+          name.location->data,
           state->target);
       if (access(relPath, F_OK) == 0) {
         absPath = realpath(relPath, null);
@@ -180,7 +174,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 }
 
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
-  let fileName = decl->location.fileName;
+  let fileName = decl->location->fileName;
 
   // First resolve all imports.
   for (let cur = decl; cur != null; cur = cur->next) {

@@ -27,29 +27,29 @@ func convertType(type: Type*) -> const i8* {
       return "ptr";
 
     case TypeKind::Struct as s:
-      let len = s.tag.end - s.tag.data;
+      let len = s.tag.len as i64;
       let buf: i8* = null;
       if (s.parent != null) {
         let parent = s.parent->kind as TypeKind::Union*;
-        let parentLen = parent->tag.end - parent->tag.data;
+        let parentLen = parent->tag.len as i64;
         buf = malloc((len + parentLen + 10) as u64);
         sprintf(
             buf,
             "%%struct.%.*s.%.*s",
             parentLen,
-            parent->tag.data,
+            parent->tag.location->data,
             len,
-            s.tag.data);
+            s.tag.location->data);
       } else {
         buf = malloc((len + 10) as u64);
-        sprintf(buf, "%%struct.%.*s", len, s.tag.data);
+        sprintf(buf, "%%struct.%.*s", len, s.tag.location->data);
       }
       return buf;
 
     case TypeKind::Union as u:
-      let len = u.tag.end - u.tag.data;
+      let len = u.tag.len as i64;
       let buf: i8* = malloc((len + 10) as u64);
-      sprintf(buf, "%%union.%.*s", len, u.tag.data);
+      sprintf(buf, "%%union.%.*s", len, u.tag.location->data);
       return buf;
 
     case TypeKind::Array as arr:

@@ -55,14 +55,22 @@ func newState(parent: SemaState*) -> SemaState {
 
 
 // 2. sema
-func printLoc(loc: SourceLoc) {
-  fprintf(getStderr(), "%s:%d:%d: ", loc.fileName, loc.line, loc.column);
+func printLoc(loc: SourceLoc*) {
+  if (loc == null) {
+    fprintf(getStderr(), "%s:%d:%d: ", "<null>", 0, 0);
+  } else {
+    fprintf(getStderr(), "%s:%d:%d: ", loc->fileName, loc->line, loc->column);
+  }
 }
 
-func failSema(loc: SourceLoc, msg: const i8*) {
+func failSema(loc: SourceLoc*, msg: const i8*) {
   printLoc(loc);
   fprintf(getStderr(), "sema error: %s\n", msg);
   exit(1);
+}
+
+func failSemaType(type: Type*, msg: const i8*) {
+  failSema(type->location, msg);
 }
 
 func failSemaExpr(expr: ExprAST*, msg: const i8*) {
@@ -90,11 +98,11 @@ func getRoot(state: SemaState*) -> SemaState* {
   return state;
 }
 
+
 func getNullDecl(name: i8*) -> DeclAST* {
-  let nullTok = Token {};
-  nullTok.kind = TokenKind::IDENTIFIER;
-  nullTok.data = name;
-  nullTok.end = name + strlen(name);
+  let nullTok = newInternalToken(4);
+  nullTok.len = 4;
+  memcpy(nullTok.location->data, "null", 4);
 
   // Add null as a nullptr
   let nullDecl = newDecl(DeclKind::EnumField {});

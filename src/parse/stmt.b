@@ -6,7 +6,7 @@ import expr;
 
 // Add any comments in state that are on the same line as decl to decl.
 func addTrailingCommentsStmt(state: ParseState*, stmt: StmtAST*) {
-  let comments = getLineComments(state, stmt->endLocation.line);
+  let comments = getLineComments(state, stmt->endLocation->line);
   if (comments == null) {
     return;
   }

@@ -54,6 +54,12 @@ func is_alnum(c: i32) -> bool {
   return is_digit(c) || is_alpha(c);
 }
 
+func setTokenData(token: Token*, state: ParseState*, tokenStart: i8*) {
+  token->location = getLocation(state);
+  token->location->data = tokenStart;
+  token->len = (state->current - tokenStart) as i32;
+}
+
 func getToken(state: ParseState*) -> Token {
   let tokenStart = state->current;
   let lastChar = nextChar(state);
@@ -82,8 +88,7 @@ func getToken(state: ParseState*) -> Token {
       nextChar(state);
     }
 
-    token.data = tokenStart;
-    token.end = state->current;    // one past the end!
+    setTokenData(&token, state, tokenStart);
 
     // Check if it's a keyword.
     for (let i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
@@ -111,10 +116,13 @@ func getToken(state: ParseState*) -> Token {
       if (next == '\\') {
         nextChar(state);
       }
+      if (next == -1) {
+        token.kind = TokenKind::TOK_EOF;
+        return token;
+      }
     }
-    token.data = tokenStart;
     nextChar(state);    // eat closing '
-    token.end = state->current;
+    setTokenData(&token, state, tokenStart);
     token.kind = TokenKind::CONSTANT;
     return token;
   }
@@ -125,10 +133,12 @@ func getToken(state: ParseState*) -> Token {
       if (next == '\\') {
         nextChar(state);
       }
+      if (next == -1) {
+        token.kind = TokenKind::TOK_EOF;
+        return token;
+      }
     }
-    token.data = tokenStart + 1;    // eat the starting "
-    token.end = state->current;
-
+    setTokenData(&token, state, tokenStart + 1);    // eat the starting "
     nextChar(state);    // eat closing "
     token.kind = TokenKind::STRING_LITERAL;
     return token;
@@ -149,15 +159,14 @@ func getToken(state: ParseState*) -> Token {
         nextChar(state);
       }
     }
-    token.data = tokenStart;
-    token.end = state->current;
+    setTokenData(&token, state, tokenStart);
     token.kind = TokenKind::CONSTANT;
     return token;
   }
 
   // pre-processor
-  if (lastChar == 35) {
-    while (!iseol(peekChar(state))) {
+  if (lastChar == '#') {
+    while (!iseol(peekChar(state)) && peekChar(state) != -1) {
       nextChar(state);
     }
     return getToken(state);
@@ -171,8 +180,7 @@ func getToken(state: ParseState*) -> Token {
 
     if (state->options.concrete) {
       token.kind = TokenKind::COMMENT;
-      token.data = tokenStart;
-      token.end = state->current;
+      setTokenData(&token, state, tokenStart);
       return token;
     } else {
       return getToken(state);
@@ -185,10 +193,8 @@ func getToken(state: ParseState*) -> Token {
     let remaining = state->end - tokenStart;
     if (len <= remaining && memcmp(tokenStart, tokens[i], len as u64) == 0) {
       token.kind = i as enum TokenKind;
-      token.data = tokenStart;
-
       state->current = tokenStart + len;
-      token.end = state->current;
+      setTokenData(&token, state, tokenStart);
 
       return token;
     }
@@ -229,7 +235,7 @@ func getNextToken(state: ParseState*) -> Token {
 }
 
 func parseInteger(state: ParseState*, token: Token) -> i32 {
-  let start = token.data;
+  let start = token.location->data;
   if (*start == '\'') {
     let next = *(start + 1);
     if (next == '\\') {
@@ -256,9 +262,9 @@ func parseInteger(state: ParseState*, token: Token) -> i32 {
     }
   }
 
-  let endp = token.end;
+  let endp = token.location->data + token.len;
   let num = strtol(start, &endp, base) as i32;
-  if (endp != token.end) {
+  if (endp != token.location->data + token.len) {
     failParse(state, "Invalid integer");
   }
   return num;
