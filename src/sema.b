@@ -13,7 +13,7 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
       || &decl->kind as DeclKind::Enum* != null
       || &decl->kind as DeclKind::Union* != null) {
     if (findType(state->types, *getTypeTag(decl->type)) != null) {
-      failSemaDecl(decl, ": Type redef");
+      failSemaDecl(state, decl, ": Type redef");
     }
 
     if (state->semaLspMode) {
@@ -86,13 +86,13 @@ func getImportExprName(expr: ExprAST*) -> Token {
       return res;
 
     default:
-      failSemaExpr(expr, "Unexpected expression in import");
+      failSemaExpr(null, expr, "Unexpected expression in import");
   }
 }
 
 func resolveImport(state: SemaState*, decl: DeclAST*) {
   if (state->parent != null) {
-    failSemaDecl(decl, "Import not allowed in local scope");
+    failSemaDecl(state, decl, "Import not allowed in local scope");
   }
 
   let name = getImportExprName((&decl->kind as DeclKind::Import*)->path);
@@ -138,7 +138,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 
       // Check if 'rootDir' == '/'
       if (strcmp(lastDir, rootDir) == 0) {
-        failSemaDecl(decl, "Couldn't find file");
+        failSemaDecl(state, decl, "Couldn't find file");
       }
 
       lastDir = strdup(rootDir);
@@ -163,13 +163,18 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 
   let fileDecls = parseFile(relPath);
   if (fileDecls == null) {
-    failSemaDecl(decl, "Failed to import file");
+    failSemaDecl(state, decl, "Failed to import file");
   }
 
   // semaTopLevel will return a combined list of decls from the file and the
   // extraDecls.
+  let hadFail = state->failed;
   let extras = semaTopLevel(state, fileDecls);
-  state->extraDecls = extras;
+  if (extras != null) {
+    state->extraDecls = extras;
+  } else if (!hadFail) {
+    failSemaDecl(state, decl, "Error in import");
+  }
 }
 
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
@@ -214,9 +219,14 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
     decl = state->extraDecls;
   }
 
+  if (state->failed) {
+    return null;
+  }
+
   // Sema successful, report LSP info in case
   if (state->semaLspMode) {
     fprintf(getStderr(), "%s:%d:%d: OK!\n", fileName, 0, 0);
   }
+
   return decl;
 }

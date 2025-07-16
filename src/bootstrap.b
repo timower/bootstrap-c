@@ -83,6 +83,9 @@ func main(argc: i32, argv: i8**) -> i32 {
 
   debug("Begin sema");
   decls = semaTopLevel(&semaState, decls);
+  if (decls == null) {
+    return 1;
+  }
   debug("End sema");
 
   if (args.mode == Mode::SemaLsp) {

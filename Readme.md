@@ -59,6 +59,8 @@ TODO
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
  - [ ] Generic types
 
+ - [ ] Isolated imports.
+
  - [ ] Methods and method call syntax
     * `a.foo(...)` -> `Foo::foo(a, ...)`
 
@@ -88,6 +90,7 @@ LSP TODO
  - [x] Report all sema'd files in -sema-lsp
  - [x] Send empty list of diagnostics for clean files.
  - [x] Add formatter support.
+ - [ ] Don't stop on first sema fail.
  - [ ] Workspace symbols? Autocomplete? ...
 
 Formatter TODO

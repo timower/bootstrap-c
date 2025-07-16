@@ -9,7 +9,7 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
     case DeclKind::Struct as structKind:
       for (let field = structKind.fields; field != null; field = field->next) {
         if (&field->kind as DeclKind::Var* == null) {
-          failSemaDecl(field, "Only var decls allowed in struct");
+          failSemaDecl(state, field, "Only var decls allowed in struct");
         }
       }
     case DeclKind::Union as unionKind:
@@ -43,7 +43,7 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
       // Nothing to do for imports
       break;
     case DeclKind::EnumField:
-      failSemaDecl(decl, "Shoudln't happen");
+      failSemaDecl(state, decl, "Shoudln't happen");
       return;
   }
 }

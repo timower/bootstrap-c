@@ -79,7 +79,7 @@ func lookupLocal(state: SemaState*, name: Token) -> DeclAST* {
 func addLocalDecl(state: SemaState*, decl: DeclAST*) {
   let prev = findLocal(state->locals, decl->name);
   if (prev != null) {
-    failSemaDecl(decl, "Variable redef");
+    failSemaDecl(state, decl, "Variable redef");
   }
 
   if (state->semaLspMode) {
