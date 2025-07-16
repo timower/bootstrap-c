@@ -11,8 +11,6 @@ func getTypeTag(type: Type*) -> Token* {
       return &u.tag;
     case TypeKind::Enum as e:
       return &e.tag;
-    case TypeKind::Tag as t:
-      failSemaType(type, "Tags not resolved!");
     default:
       return null;
   }

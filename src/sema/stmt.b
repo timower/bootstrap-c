@@ -32,11 +32,11 @@ func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
       return 1 << memberExpr.fieldIndex;
     case ExprKind::Binary as binExpr:
       if (binExpr.op.kind != TokenKind::COMMA) {
-        failSemaExpr(expr, "Unsupported case expression");
+        failSemaExpr(state, expr, "Unsupported case expression");
       }
       return getFieldBitset(state, binExpr.lhs) | getFieldBitset(state, binExpr.rhs);
     default:
-      failSemaExpr(expr, "Unsupported case expression");
+      failSemaExpr(state, expr, "Unsupported case expression");
   }
 }
 
@@ -63,7 +63,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
       let varName = memberExpr.identifier;
 
       if (scopeExpr->kind as ExprKind::Scope* == null) {
-        failSemaExpr(scopeExpr, "Expected :: expression");
+        failSemaExpr(state, scopeExpr, "Expected :: expression");
       }
 
       let scopeVar = scopeExpr->kind as ExprKind::Scope*;
@@ -73,13 +73,13 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
       let unionDecl = lookupType(state, unionName);
       let unionDeclKind = unionDecl->kind as DeclKind::Union*;
       if (unionDecl == null || unionDeclKind == null) {
-        failSemaExpr(expr, "Unknown union");
+        failSemaExpr(state, expr, "Unknown union");
       }
 
       let tagIdx = 0;
       let tagDecl = findSubType(state, unionDeclKind, tagName, &tagIdx);
       if (tagDecl == null) {
-        failSemaExpr(expr, "Unkown tag in union");
+        failSemaExpr(state, expr, "Unkown tag in union");
       }
 
       expr->type = unionDecl->type;
@@ -96,14 +96,14 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
     case ExprKind::Scope as scopeExpr:
       let decl = lookupType(state, scopeExpr.parent);
       if (decl == null) {
-        failSemaExpr(expr, "Couldn't find type");
+        failSemaExpr(state, expr, "Couldn't find type");
       }
 
       switch (decl->type->kind) {
         case TypeKind::Enum:
           let fieldDecl = findField(state, decl, scopeExpr.identifier, &scopeExpr.enumValue);
           if (fieldDecl == null) {
-            failSemaExpr(expr, " Cannot find field");
+            failSemaExpr(state, expr, " Cannot find field");
           }
 
           expr->type = decl->type;
@@ -115,13 +115,14 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
               scopeExpr.identifier,
               &scopeExpr.enumValue);
           if (tagDecl == null) {
-            failSemaExpr(expr, "Cannot find tag");
+            failSemaExpr(state, expr, "Cannot find tag");
           }
 
           expr->type = decl->type;
 
         default:
           failSemaExpr(
+              state,
               expr,
               "Expected union or enum parent for member case expr");
       }
@@ -131,7 +132,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
   }
 
   if (!typeEq(expr->type, switchType)) {
-    failSemaExpr(expr, "case expr must match switch type");
+    failSemaExpr(state, expr, "case expr must match switch type");
   }
 }
 
@@ -146,7 +147,7 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
 
   if (&switchType->kind as TypeKind::Int* == null && !exhaustive) {
     printType(switchStmt->expr->type);
-    failSemaExpr(switchStmt->expr, "Switch expr must be integer, enum or union");
+    failSemaExpr(state, switchStmt->expr, "Switch expr must be integer, enum or union");
   }
 
   let fieldBitSet = 0;
@@ -174,7 +175,7 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
           semaStmt(&subState, cur);
         }
       default:
-        failSemaStmt(caseStmt, "Unknown switch case statement");
+        failSemaStmt(state, caseStmt, "Unknown switch case statement");
     }
   }
 
@@ -182,11 +183,11 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
     let typeTag = getTypeTag(switchType);
     let decl = lookupType(state, *typeTag);
     if (decl == null) {
-      failSemaStmt(stmt, "Couldn't find enum decl");
+      failSemaStmt(state, stmt, "Couldn't find enum decl");
     }
     let size = getFieldCount(decl);
     if ((1 << size) - 1 != fieldBitSet) {
-      failSemaStmt(stmt, "Switch is not exhaustive");
+      failSemaStmt(state, stmt, "Switch is not exhaustive");
     }
   }
 }
@@ -218,13 +219,13 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
 
     case StmtKind::Return as retStmt:
       if (retStmt.expr == null && &state->result->kind as TypeKind::Void* == null) {
-        failSemaStmt(stmt, "Return type should be void");
+        failSemaStmt(state, stmt, "Return type should be void");
       }
       if (retStmt.expr != null) {
         semaExpr(state, retStmt.expr);
         let conv = doConvert(state, retStmt.expr, state->result);
         if (conv == null) {
-          failSemaStmt(stmt, "Return type mismatch");
+          failSemaStmt(state, stmt, "Return type mismatch");
         }
         retStmt.expr = conv;
       }
@@ -245,7 +246,7 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
           ifStmt.cond = makeNullCmp(ifStmt.cond);
         }
       }
-      checkBool(ifStmt.cond);
+      checkBool(state, ifStmt.cond);
 
       semaStmt(&subState, ifStmt.thenStmt);
       if (ifStmt.elseStmt != null) {
@@ -253,7 +254,7 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
       }
     case StmtKind::While as whileStmt:
       semaExpr(state, whileStmt.cond);
-      checkBool(whileStmt.cond);
+      checkBool(state, whileStmt.cond);
       semaStmt(state, whileStmt.body);
     case StmtKind::For as forStmt:
       let subState = newState(state);
@@ -262,7 +263,7 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
       // cond must be expr stmt.
       let condExpr = (&forStmt.cond->kind as StmtKind::Expr*)->expr;
       semaExpr(&subState, condExpr);
-      checkBool(condExpr);
+      checkBool(state, condExpr);
       semaExpr(&subState, forStmt.update);
 
       semaStmt(&subState, forStmt.body);
@@ -270,9 +271,9 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
     case StmtKind::Switch as switchStmt:
       semaSwitchStmt(state, stmt);
     case StmtKind::Case:
-      failSemaStmt(stmt, "Case outside of switch");
+      failSemaStmt(state, stmt, "Case outside of switch");
     case StmtKind::Default:
-      failSemaStmt(stmt, "Default outside of switch");
+      failSemaStmt(state, stmt, "Default outside of switch");
     case StmtKind::Break:
       break;
   }

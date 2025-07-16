@@ -41,6 +41,8 @@ struct SemaState {
 
   // Set to true to give LSP related output during sema.
   semaLspMode: bool;
+
+  failed: bool;
 }
 
 func newState(parent: SemaState*) -> SemaState {
@@ -55,32 +57,35 @@ func newState(parent: SemaState*) -> SemaState {
 
 
 // 2. sema
-func failSema(loc: SourceLoc*, msg: const i8*) {
+func failSema(state: SemaState*, loc: SourceLoc*, msg: const i8*) {
   printLoc(loc);
   fprintf(getStderr(), "sema error: %s\n", msg);
-  exit(1);
+  if (state == null) {
+    exit(1);
+  }
+  getRoot(state)->failed = true;
 }
 
-func failSemaType(type: Type*, msg: const i8*) {
-  failSema(type->location, msg);
+func failSemaType(state: SemaState*, type: Type*, msg: const i8*) {
+  failSema(state, type->location, msg);
 }
 
-func failSemaExpr(expr: ExprAST*, msg: const i8*) {
+func failSemaExpr(state: SemaState*, expr: ExprAST*, msg: const i8*) {
   printExpr(expr);
   printf("\n");
-  failSema(expr->location, msg);
+  failSema(state, expr->location, msg);
 }
 
-func failSemaDecl(decl: DeclAST*, msg: const i8*) {
+func failSemaDecl(state: SemaState*, decl: DeclAST*, msg: const i8*) {
   printDecl(decl);
   printf("\n");
-  failSema(decl->location, msg);
+  failSema(state, decl->location, msg);
 }
 
-func failSemaStmt(stmt: StmtAST*, msg: const i8*) {
+func failSemaStmt(state: SemaState*, stmt: StmtAST*, msg: const i8*) {
   printStmt(stmt);
   printf("\n");
-  failSema(stmt->location, msg);
+  failSema(state, stmt->location, msg);
 }
 
 func getRoot(state: SemaState*) -> SemaState* {
@@ -89,7 +94,6 @@ func getRoot(state: SemaState*) -> SemaState* {
   }
   return state;
 }
-
 
 func getNullDecl(name: i8*) -> DeclAST* {
   let nullTok = newInternalToken(4);

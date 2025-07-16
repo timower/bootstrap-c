@@ -72,9 +72,9 @@ func typeEq(one: Type*, two: Type*) -> bool {
       }
       return false;
     case TypeKind::Tag as tag:
-      failSemaType(one, "Type tag not resolved before eq");
+      failSemaType(null, one, "Type tag not resolved before eq");
     case TypeKind::Typeof as t:
-      failSemaType(one, "Typeof not resolved before eq");
+      failSemaType(null, one, "Typeof not resolved before eq");
   }
 
   return true;
@@ -184,7 +184,7 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
 
     case TypeKind::Array as arr:
       if (arr.size < 0) {
-        failSemaType(type, "Unsized array in sizeof");
+        failSemaType(state, type, "Unsized array in sizeof");
       }
       return arr.size * getSize(state, arr.element);
 
@@ -192,7 +192,7 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
     case TypeKind::Struct as s:
       let decl = lookupType(state, s.tag);
       if (decl == null) {
-        failSemaType(type, "Unkown type to get size of");
+        failSemaType(state, type, "Unkown type to get size of");
       }
 
       return getStructDeclSize(state, decl);
@@ -209,12 +209,12 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
       return maxSize + 4;      // i32 tag.
 
     case TypeKind::Typeof:
-      failSemaType(type, "Typeof not resolved before getSize");
+      failSemaType(state, type, "Typeof not resolved before getSize");
       return 0;
 
     default:
       printType(type);
-      failSemaType(type, "Unknown type for size");
+      failSemaType(state, type, "Unknown type for size");
       return 0;
   }
 }
@@ -227,7 +227,7 @@ func sizeArrayTypes(declType: Type*, initType: Type*) {
       let initArray = initType->kind as TypeKind::Array*;
       array.size = initArray->size;
       if (array.size < 0) {
-        failSemaType(declType, "Coudln't infer array size");
+        failSemaType(null, declType, "Coudln't infer array size");
       }
       sizeArrayTypes(array.element, initArray->element);
 
