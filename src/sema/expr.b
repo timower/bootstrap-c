@@ -52,7 +52,7 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
 
         let idx = 0;
         let unionDeclKind = &unionDecl->kind as DeclKind::Union*;
-        let structDecl = findTypeIdx(unionDeclKind->subTypes, fromStruct->tag, &idx);
+        let structDecl = findSubType(state, unionDeclKind, fromStruct->tag, &idx);
         if (structDecl == null) {
           failSemaExpr(expr, "No way to convert struct to unrelated union");
         }
@@ -162,8 +162,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
           }
 
           let idx = 0;
-          let structDecl =
-              findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, toStruct->tag, &idx);
+          let structDecl = findSubType(state, &unionDecl->kind as DeclKind::Union*, toStruct->tag, &idx);
           if (structDecl == null) {
             failSemaExpr(expr, "No way to convert union to unrelated struct");
           }
@@ -216,7 +215,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
 
           let idx = 0;
           let unionDeclKind = &unionDecl->kind as DeclKind::Union*;
-          let structDecl = findTypeIdx(unionDeclKind->subTypes, toStruct->tag, &idx);
+          let structDecl = findSubType(state, unionDeclKind, toStruct->tag, &idx);
           if (structDecl == null) {
             failSemaExpr(expr, "No way to convert union to unrelated struct");
           }
@@ -235,7 +234,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
         }
 
         let idx = 0;
-        let structDecl = findTypeIdx((&unionDecl->kind as DeclKind::Union*)->subTypes, fromStruct.tag, &idx);
+        let structDecl = findSubType(state, &unionDecl->kind as DeclKind::Union*, fromStruct.tag, &idx);
         if (structDecl == null) {
           failSemaExpr(expr, "No way to convert struct to unrelated union");
         }
@@ -436,7 +435,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         if (unionDecl == null) {
           failSemaExpr(expr, "Expected union type");
         }
-        typeDecl = findType(unionDecl->subTypes, structExpr.identifier);
+        typeDecl = findSubType(state, unionDecl, structExpr.identifier, null);
       } else {
         typeDecl = lookupType(state, structExpr.identifier);
       }
@@ -446,7 +445,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
       // TODO: verify field completeness.
       for (let field = structExpr.fieldIndices; field != null; field = field->next) {
-        let fieldDecl = findField(typeDecl, field->fieldName, &field->index);
+        let fieldDecl = findField(state, typeDecl, field->fieldName, &field->index);
         if (fieldDecl == null) {
           failSemaExpr(field->value, " cannot find field");
         }
@@ -469,7 +468,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
       switch (decl->kind) {
         case DeclKind::Enum:
-          let fieldDecl = findField(decl, scopeExpr.identifier, &scopeExpr.enumValue);
+          let fieldDecl = findField(state, decl, scopeExpr.identifier, &scopeExpr.enumValue);
           if (fieldDecl == null) {
             failSemaExpr(expr, " Cannot find field");
           }
@@ -507,7 +506,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(expr, "Unknown type for member expression");
       }
 
-      let fieldDecl = findField(structDecl, memberExpr.identifier, &memberExpr.fieldIndex);
+      let fieldDecl = findField(state, structDecl, memberExpr.identifier, &memberExpr.fieldIndex);
       if (fieldDecl == null) {
         failSemaExpr(expr, " Cannot find field");
       }
@@ -606,12 +605,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       let local = lookupLocal(state, varExpr.identifier);
       if (local == null || local->type == null) {
         failSemaExpr(expr, "Couldn't find variable in scope");
-      }
-
-      if (state->semaLspMode) {
-        let name = varExpr.identifier;
-        printLoc(expr->location);
-        fprintf(getStderr(), "ref: %p: %d\n", local, name.len);
       }
 
       // enum value, transform this expr to an i32.
@@ -870,7 +863,7 @@ func resolveTypeTags(state: SemaState*, type: Type*) {
           failSemaType(type, "Can't resolve type tags, unknown parent type");
         }
 
-        let tagDecl = findType((&parentDecl->kind as DeclKind::Union*)->subTypes, tagType.tag);
+        let tagDecl = findSubType(state, &parentDecl->kind as DeclKind::Union*, tagType.tag, null);
         if (tagDecl == null) {
           failSemaType(type, "Can't resolve type tags, unknown sub type");
         }

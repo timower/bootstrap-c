@@ -37,29 +37,6 @@ struct ParseState {
   lastComment: Comment*;
 }
 
-func getLocation(state: ParseState*) -> SourceLoc* {
-  if (state->slabFree == 0) {
-    state->currentSlab = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
-    state->slabFree = source_slab_size;
-  }
-
-  let result = state->currentSlab;
-  state->currentSlab++;
-  state->slabFree--;
-
-  let offset = state->current;
-
-  // TODO: remove once getLocation is only used in parse/token.b
-  if (state->curToken.kind != TokenKind::TOK_EOF) {
-    offset = state->curToken.location->data;
-  }
-  result->data = offset;
-  result->column = (offset - state->lineStart) as i32 + 1;
-  result->line = state->line;
-  result->fileName = state->fileName;
-  return result;
-}
-
 
 // Pops any comments on the given line from state.
 func getLineComments(state: ParseState*, line: i32) -> Comment* {
@@ -97,8 +74,8 @@ func appendComments(list: Comment*, other: Comment*) -> Comment* {
 }
 
 func failParseArg(state: ParseState*, msg: const i8*, arg: const i8*) {
-  let location = getLocation(state);
-  fprintf(getStderr(), "%s:%d:%d: ", state->fileName, location->line, location->column);
+  let location = state->curToken.location;
+  printLoc(location);
 
   fprintf(getStderr(), ": %s%s\n", msg, arg);
   exit(1);
@@ -120,7 +97,7 @@ func expect(state: ParseState*, tok: TokenKind) {
 
 func newLocDecl(state: ParseState*, kind: DeclKind) -> DeclAST* {
   let res = newDecl(kind);
-  res->location = getLocation(state);
+  res->location = state->curToken.location;
 
   if (state->options.concrete) {
     res->comments = state->comments;
@@ -139,13 +116,13 @@ func newLocExpr(loc: SourceLoc*, kind: ExprKind) -> ExprAST* {
 
 func newCurLocExpr(state: ParseState*, kind: ExprKind) -> ExprAST* {
   let res = newExpr(kind);
-  res->location = getLocation(state);
+  res->location = state->curToken.location;
   return res;
 }
 
 func newLocStmt(state: ParseState*, kind: StmtKind) -> StmtAST* {
   let res = newStmt(kind);
-  res->location = getLocation(state);
+  res->location = state->curToken.location;
 
   if (state->options.concrete) {
     res->comments = state->comments;

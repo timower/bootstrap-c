@@ -30,10 +30,10 @@ func parseCompoundStmt(state: ParseState*) -> StmtAST* {
       cur = nextStmt;
     }
   }
-  stmt->endLocation = getLocation(state);
-  addTrailingCommentsStmt(state, stmt);
 
-  getNextToken(state);  // eat }
+  // eat }
+  stmt->endLocation = getNextToken(state).location;
+  addTrailingCommentsStmt(state, stmt);
 
   (&stmt->kind as StmtKind::Compound*)->stmt = firstStmt;
   return stmt;
@@ -47,8 +47,7 @@ func parseExprStmt(state: ParseState*) -> StmtAST* {
   }
 
   expect(state, TokenKind::SEMICOLON);
-  stmt->endLocation = getLocation(state);
-  getNextToken(state);
+  stmt->endLocation = getNextToken(state).location;
 
   addTrailingCommentsStmt(state, stmt);
 
@@ -113,8 +112,7 @@ func parseReturnStmt(state: ParseState*) -> StmtAST* {
   }
 
   expect(state, TokenKind::SEMICOLON);
-  stmt->endLocation = getLocation(state);
-  getNextToken(state);
+  stmt->endLocation = getNextToken(state).location;
   addTrailingCommentsStmt(state, stmt);
   return stmt;
 }
@@ -239,8 +237,7 @@ func parseSwitchStmt(state: ParseState*) -> StmtAST* {
       cur = cse;
     }
   }
-  stmt->endLocation = getLocation(state);
-  getNextToken(state);  // eat }
+  stmt->endLocation = getNextToken(state).location;  // eat }
 
   switchStmt->body = firstCase;
 
@@ -298,8 +295,7 @@ func parseStmt(state: ParseState*) -> StmtAST* {
     getNextToken(state);
 
     expect(state, TokenKind::SEMICOLON);
-    stmt->endLocation = getLocation(state);
-    getNextToken(state);
+    stmt->endLocation = getNextToken(state).location;
 
     addTrailingCommentsStmt(state, stmt);
 

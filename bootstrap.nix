@@ -46,8 +46,10 @@ stdenv.mkDerivation {
   ];
 
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
-  LLCFLAGS = "--mtriple=${targettriple} --relocation-model=pic -O0 -filetype=obj";
-  LDFLAGS = "";
+  ASAN_OPTIONS = "detect_leaks=0";
+  # LLCFLAGS = "--mtriple=${targettriple} --relocation-model=pic -O0 -filetype=obj";
+  # LDFLAGS = "";
+
   BOOTSTRAP_FLAGS = windowsFlag + darwinFlag;
 
   preConfigure = ''

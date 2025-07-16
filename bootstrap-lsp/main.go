@@ -599,20 +599,6 @@ func handleFormatting(server *Server, req RPCRequest) {
 	sendResult(req.ID, edits)
 }
 
-func parseDecl(file string, pos Position, msg string) *Symbol {
-	parts := strings.Split(msg, ": ")
-	if len(parts) != 3 {
-		return nil
-	}
-
-	return &Symbol{
-		id:       parts[1],
-		name:     parts[2],
-		position: pos,
-		file:     file,
-	}
-}
-
 // readFileLines reads the content of a file and returns it as a slice of lines
 func readFileLines(filePath string) ([]string, error) {
 	contentBytes, err := os.ReadFile(filePath)
@@ -655,6 +641,7 @@ func semaFile(s *Server, path string) {
 		return
 	}
 
+	pid := cmd.Process.Pid
 	scanner := bufio.NewScanner(stderr)
 
 	entries := make(map[string][]Diagnostic)
@@ -682,10 +669,18 @@ func semaFile(s *Server, path string) {
 
 		pos := Position{Line: line - 1, Character: char - 1}
 		if strings.HasPrefix(msg, "decl:") {
-			symbol := parseDecl(file, pos, msg)
-			if symbol == nil {
+			parts := strings.Split(msg, ": ")
+			if len(parts) != 3 {
+
 				log.Printf("decl too many parts")
 				continue
+			}
+
+			symbol := &Symbol{
+				id:       parts[1] + strconv.Itoa(pid),
+				name:     parts[2],
+				position: pos,
+				file:     file,
 			}
 			symbolDefs[symbol.id] = symbol
 			symbolRefs[file] = append(symbolRefs[file], SymbolRef{
@@ -703,7 +698,7 @@ func semaFile(s *Server, path string) {
 				continue
 			}
 
-			id := parts[1]
+			id := parts[1] + strconv.Itoa(pid)
 			length, _ := strconv.Atoi(parts[2])
 			symbolRefs[file] = append(symbolRefs[file], SymbolRef{
 				id:       id,

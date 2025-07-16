@@ -151,3 +151,11 @@ func newInternalToken(bufSize: u64) -> Token {
     location = loc,
   };
 }
+
+func printLoc(loc: SourceLoc*) {
+  if (loc == null) {
+    fprintf(getStderr(), "%s:%d:%d: ", "<null>", 0, 0);
+  } else {
+    fprintf(getStderr(), "%s:%d:%d: ", loc->fileName, loc->line, loc->column);
+  }
+}

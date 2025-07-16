@@ -21,7 +21,7 @@ union Foo {
     y: i32;
     z: i64;
   }
-};
+}
 
 union Bar {
   A {
@@ -30,7 +30,7 @@ union Bar {
   B {
     z: i8;
   }
-};
+}
 
 func getBar() -> Bar {
   return Bar::B {

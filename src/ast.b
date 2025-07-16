@@ -308,6 +308,7 @@ func newType(kind: TypeKind) -> Type* {
 func newComment(token: Token) -> Comment* {
   let comment: Comment* = calloc(1, sizeof(struct Comment));
   comment->value = token;
+  comment->location = token.location;
   return comment;
 }
 
