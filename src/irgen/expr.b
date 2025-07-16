@@ -149,8 +149,7 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
       break;
   }
 
-  let loc = expr->location;
-  fprintf(getStderr(), "%s:%d:%d: ", loc->fileName, loc->line, loc->column);
+  printLoc(expr->location);
   failIRGen("Expr can't be used as lvalue");
   printExpr(expr);
   printf("\n");

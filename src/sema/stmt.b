@@ -77,7 +77,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
       }
 
       let tagIdx = 0;
-      let tagDecl = findTypeIdx(unionDeclKind->subTypes, tagName, &tagIdx);
+      let tagDecl = findSubType(state, unionDeclKind, tagName, &tagIdx);
       if (tagDecl == null) {
         failSemaExpr(expr, "Unkown tag in union");
       }
@@ -89,6 +89,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
       let varDecl = newDecl(DeclKind::Var {});
       varDecl->type = tagDecl->type;
       varDecl->name = varName;
+      varDecl->location = varName.location;
 
       addLocalDecl(state, varDecl);
 
@@ -100,7 +101,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
 
       switch (decl->type->kind) {
         case TypeKind::Enum:
-          let fieldDecl = findField(decl, scopeExpr.identifier, &scopeExpr.enumValue);
+          let fieldDecl = findField(state, decl, scopeExpr.identifier, &scopeExpr.enumValue);
           if (fieldDecl == null) {
             failSemaExpr(expr, " Cannot find field");
           }
@@ -108,8 +109,9 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
           expr->type = decl->type;
         case TypeKind::Union:
           let unionDeclKind = &decl->kind as DeclKind::Union*;
-          let tagDecl = findTypeIdx(
-              unionDeclKind->subTypes,
+          let tagDecl = findSubType(
+              state,
+              unionDeclKind,
               scopeExpr.identifier,
               &scopeExpr.enumValue);
           if (tagDecl == null) {

@@ -54,17 +54,41 @@ func is_alnum(c: i32) -> bool {
   return is_digit(c) || is_alpha(c);
 }
 
-func setTokenData(token: Token*, state: ParseState*, tokenStart: i8*) {
-  token->location = getLocation(state);
-  token->location->data = tokenStart;
-  token->len = (state->current - tokenStart) as i32;
+func newLocation(state: ParseState*, start: i8*) -> SourceLoc* {
+  if (state->slabFree == 0) {
+    state->currentSlab = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
+    state->slabFree = source_slab_size;
+  }
+
+  let result = state->currentSlab;
+  state->currentSlab++;
+  state->slabFree--;
+
+  result->data = start;
+  result->column = (start - state->lineStart) as i32 + 1;
+  result->line = state->line;
+  result->fileName = state->fileName;
+  return result;
+}
+
+func makeToken(state: ParseState*, tokenStart: i8*) -> Token {
+  return Token {
+    location = newLocation(state, tokenStart),
+    len = (state->current - tokenStart) as i32,
+  };
+}
+
+func makeEof(state: ParseState*, tokenStart: i8*) -> Token {
+  return Token {
+    kind = TokenKind::TOK_EOF,
+    location = newLocation(state, tokenStart),
+    len = 0,
+  };
 }
 
 func getToken(state: ParseState*) -> Token {
   let tokenStart = state->current;
   let lastChar = nextChar(state);
-
-  let token = Token {};
 
   // TODO: const expressions and make these global
   // TODO: array size
@@ -78,8 +102,7 @@ func getToken(state: ParseState*) -> Token {
   }
 
   if (lastChar == -1) {
-    token.kind = TokenKind::TOK_EOF;
-    return token;
+    return makeEof(state, tokenStart);
   }
 
   // identifier [a-zA-Z][a-zA-Z0-9]*
@@ -88,7 +111,7 @@ func getToken(state: ParseState*) -> Token {
       nextChar(state);
     }
 
-    setTokenData(&token, state, tokenStart);
+    let token = makeToken(state, tokenStart);
 
     // Check if it's a keyword.
     for (let i = TokenKind::CONTINUE as i32; i < tokenSize; i++) {
@@ -117,12 +140,11 @@ func getToken(state: ParseState*) -> Token {
         nextChar(state);
       }
       if (next == -1) {
-        token.kind = TokenKind::TOK_EOF;
-        return token;
+        return makeEof(state, tokenStart);
       }
     }
     nextChar(state);    // eat closing '
-    setTokenData(&token, state, tokenStart);
+    let token = makeToken(state, tokenStart);
     token.kind = TokenKind::CONSTANT;
     return token;
   }
@@ -134,11 +156,10 @@ func getToken(state: ParseState*) -> Token {
         nextChar(state);
       }
       if (next == -1) {
-        token.kind = TokenKind::TOK_EOF;
-        return token;
+        return makeEof(state, tokenStart);
       }
     }
-    setTokenData(&token, state, tokenStart + 1);    // eat the starting "
+    let token = makeToken(state, tokenStart + 1);    // eat the starting "
     nextChar(state);    // eat closing "
     token.kind = TokenKind::STRING_LITERAL;
     return token;
@@ -159,7 +180,7 @@ func getToken(state: ParseState*) -> Token {
         nextChar(state);
       }
     }
-    setTokenData(&token, state, tokenStart);
+    let token = makeToken(state, tokenStart);
     token.kind = TokenKind::CONSTANT;
     return token;
   }
@@ -179,8 +200,8 @@ func getToken(state: ParseState*) -> Token {
     }
 
     if (state->options.concrete) {
+      let token = makeToken(state, tokenStart);
       token.kind = TokenKind::COMMENT;
-      setTokenData(&token, state, tokenStart);
       return token;
     } else {
       return getToken(state);
@@ -192,9 +213,9 @@ func getToken(state: ParseState*) -> Token {
     let len = strlen(tokens[i]) as i64;
     let remaining = state->end - tokenStart;
     if (len <= remaining && memcmp(tokenStart, tokens[i], len as u64) == 0) {
-      token.kind = i as enum TokenKind;
       state->current = tokenStart + len;
-      setTokenData(&token, state, tokenStart);
+      let token = makeToken(state, tokenStart);
+      token.kind = i as enum TokenKind;
 
       return token;
     }
@@ -202,13 +223,11 @@ func getToken(state: ParseState*) -> Token {
 
   // Check if we're at EOF before reporting unknown token
   if (state->current >= state->end) {
-    token.kind = TokenKind::TOK_EOF;
-    return token;
+    return makeEof(state, tokenStart);
   }
 
   failParse(state, "Unknown token");
-  token.kind = TokenKind::TOK_EOF;
-  return token;
+  return Token {};
 }
 
 func getNextToken(state: ParseState*) -> Token {
@@ -217,8 +236,6 @@ func getNextToken(state: ParseState*) -> Token {
   let token = getToken(state);
   while (token.kind == TokenKind::COMMENT) {
     let comment = newComment(token);
-    comment->location = getLocation(state);
-
     if (state->lastComment != null) {
       state->lastComment->next = comment;
     }

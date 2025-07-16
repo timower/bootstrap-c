@@ -34,7 +34,7 @@ func parseNameTypePair(state: ParseState*) -> DeclAST* {
   getNextToken(state);
 
   decl->type = parseType(state);
-  decl->endLocation = getLocation(state);
+  decl->endLocation = state->curToken.location;
 
   return decl;
 }
@@ -71,8 +71,7 @@ func parseSubStruct(state: ParseState*, decl: DeclAST*) {
       fields = field;
     }
   }
-  decl->endLocation = getLocation(state);
-  getNextToken(state);  // eat }
+  decl->endLocation = getNextToken(state).location;  // eat }
 
   (&decl->kind as DeclKind::Struct*)->fields = firstField;
 }
@@ -122,7 +121,7 @@ func parseEnum(state: ParseState*) -> DeclAST* {
       fields = field;
     }
 
-    field->endLocation = getLocation(state);
+    field->endLocation = state->curToken.location;
 
     if (match(state, TokenKind::CLOSE_BRACE)) {
       addTrailingCommentsDecl(state, field);
@@ -134,8 +133,7 @@ func parseEnum(state: ParseState*) -> DeclAST* {
 
     addTrailingCommentsDecl(state, field);
   }
-  decl->endLocation = getLocation(state);
-  getNextToken(state);  // eat }
+  decl->endLocation = getNextToken(state).location;  // eat }
 
   (&decl->kind as DeclKind::Enum*)->fields = firstField;
   return decl;
@@ -169,8 +167,7 @@ func parseUnion(state: ParseState*) -> DeclAST* {
     declListPtr = &newList->next;
   }
 
-  decl->endLocation = getLocation(state);
-  getNextToken(state);  // eat }
+  decl->endLocation = getNextToken(state).location;  // eat }
 
   return decl;
 }
@@ -243,8 +240,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
     decl->endLocation = funcKind->body->endLocation;
   } else {
     expect(state, TokenKind::SEMICOLON);
-    decl->endLocation = getLocation(state);
-    getNextToken(state);    // eat ;
+    decl->endLocation = getNextToken(state).location;    // eat ;
   }
 
   addTrailingCommentsDecl(state, decl);
@@ -276,9 +272,8 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
   }
 
   (&decl->kind as DeclKind::Import*)->path = expr;
-  decl->endLocation = getLocation(state);
   expect(state, TokenKind::SEMICOLON);
-  getNextToken(state);
+  decl->endLocation = getNextToken(state).location;
 
   addTrailingCommentsDecl(state, decl);
 

@@ -55,14 +55,6 @@ func newState(parent: SemaState*) -> SemaState {
 
 
 // 2. sema
-func printLoc(loc: SourceLoc*) {
-  if (loc == null) {
-    fprintf(getStderr(), "%s:%d:%d: ", "<null>", 0, 0);
-  } else {
-    fprintf(getStderr(), "%s:%d:%d: ", loc->fileName, loc->line, loc->column);
-  }
-}
-
 func failSema(loc: SourceLoc*, msg: const i8*) {
   printLoc(loc);
   fprintf(getStderr(), "sema error: %s\n", msg);

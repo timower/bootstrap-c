@@ -1,7 +1,9 @@
 import ast;
 import type;
+import lsp;
 
 func findField(
+    state: SemaState*,
     structDecl: DeclAST*,
     name: Token,
     idxOut: i32*
@@ -20,9 +22,14 @@ func findField(
        field = field->next, idx++) {
     if (tokCmp(name, field->name)) {
       *idxOut = idx;
+
+      if (state->semaLspMode) {
+        lspRef(field, &name);
+      }
       return field;
     }
   }
+
   return null;
 }
 
@@ -59,6 +66,9 @@ func lookupLocal(state: SemaState*, name: Token) -> DeclAST* {
   for (; state != null; state = state->parent) {
     let local = findLocal(state->locals, name);
     if (local != null) {
+      if (state->semaLspMode) {
+        lspRef(local, &name);
+      }
       return local;
     }
   }
@@ -74,7 +84,7 @@ func addLocalDecl(state: SemaState*, decl: DeclAST*) {
 
   if (state->semaLspMode) {
     let name = decl->name;
-    printLoc(decl->location);
+    printLoc(name.location);
     fprintf(getStderr(), "decl: %p: %.*s\n", decl, name.len, name.location->data);
   }
 

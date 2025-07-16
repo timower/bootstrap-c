@@ -1,6 +1,7 @@
 import ast;
 
 import state;
+import sema.lsp;
 
 func typeEq(one: Type*, two: Type*) -> bool {
   switch (one->kind) {
@@ -79,20 +80,6 @@ func typeEq(one: Type*, two: Type*) -> bool {
   return true;
 }
 
-func getTypeTag(type: Type*) -> Token* {
-  switch (type->kind) {
-    case TypeKind::Struct as s:
-      return &s.tag;
-    case TypeKind::Union as u:
-      return &u.tag;
-    case TypeKind::Enum as e:
-      return &e.tag;
-    case TypeKind::Tag as t:
-      failSemaType(type, "Tags not resolved!");
-    default:
-      return null;
-  }
-}
 
 func findTypeIdx(types: DeclList*, tag: Token, idxOut: i32*) -> DeclAST* {
   let idx = 0;
@@ -112,10 +99,30 @@ func findType(types: DeclList*, tag: Token) -> DeclAST* {
   return findTypeIdx(types, tag, null);
 }
 
+func findSubType(
+    state: SemaState*,
+    unionKind: DeclKind::Union*,
+    tag: Token,
+    idxOut: i32*
+) -> DeclAST* {
+  if (unionKind == null) {
+    return null;
+  }
+  let res = findTypeIdx(unionKind->subTypes, tag, idxOut);
+  if (res != null && state->semaLspMode) {
+    lspRef(res, &tag);
+  }
+  return res;
+}
+
 func lookupType(state: SemaState*, tag: Token) -> DeclAST* {
   for (; state != null; state = state->parent) {
     let type = findType(state->types, tag);
     if (type != null) {
+      if (state->semaLspMode) {
+        lspRef(type, &tag);
+      }
+
       return type;
     }
   }

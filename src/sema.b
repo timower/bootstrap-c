@@ -6,6 +6,7 @@ import sema.state;
 import sema.type;
 import sema.expr;
 import sema.decl;
+import sema.lsp;
 
 func addTaggedType(state: SemaState*, decl: DeclAST*) {
   if (&decl->kind as DeclKind::Struct* != null
@@ -16,9 +17,7 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
     }
 
     if (state->semaLspMode) {
-      let tag = getTypeTag(decl->type);
-      printLoc(decl->location);
-      fprintf(getStderr(), "decl: %p: %.*s\n", decl, tag->len, tag->location->data);
+      dumpDecl(decl);
     }
 
     // Add the struct to the types.
