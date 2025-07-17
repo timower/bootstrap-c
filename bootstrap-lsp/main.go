@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,10 +40,13 @@ type Symbols struct {
 	mu sync.RWMutex
 
 	// Map of symbol ID -> Symbol
-	symbols map[string]*Symbol
+	symbolByID map[string]*Symbol
+
+	// Map of sema path -> symbol
+	symbolByRootPath map[string][]*Symbol
 
 	// Map from file -> list of symbols
-	symbolRefs map[string][]SymbolRef
+	symbolRefsByPath map[string][]SymbolRef
 }
 
 type SymbolRef struct {
@@ -109,8 +113,9 @@ func main() {
 		},
 		boostrapPath: config.bootstrapPath,
 		symbols: Symbols{
-			symbols:    make(map[string]*Symbol),
-			symbolRefs: make(map[string][]SymbolRef),
+			symbolByID:       make(map[string]*Symbol),
+			symbolByRootPath: make(map[string][]*Symbol),
+			symbolRefsByPath: make(map[string][]SymbolRef),
 		},
 	}
 
@@ -295,10 +300,10 @@ func handleInitialize(server *Server, req RPCRequest) {
 			DocumentFormattingProvider: true,
 			DefinitionProvider:         true,
 			ReferencesProvider:         true,
+			CompletionProvider: &CompletionOptions{
+				TriggerCharacters: []string{".", ">", ":"},
+			},
 			/*
-				CompletionProvider: &CompletionOptions{
-					TriggerCharacters: []string{".", "\""},
-				},
 				WorkspaceSymbolProvider: true,
 				DocumentSymbolProvider:  true,
 			*/
@@ -419,18 +424,52 @@ func handleCompletion(server *Server, req RPCRequest) {
 		return
 	}
 
-	sendError(req.ID, InvalidRequest, "Unsupported", nil)
+	path := uriToPath(params.TextDocument.URI)
+	relPath, err := filepath.Rel(server.rootPath, path)
+	if err != nil {
+		log.Printf("Error making rel path: %v", err)
+		sendError(req.ID, InternalError, "Path Error", nil)
+		return
+	}
 
-	// result := CompletionList{
-	// 	IsIncomplete: false,
-	// 	Items:        items,
-	// }
+	server.symbols.mu.RLock()
+	defer server.symbols.mu.RUnlock()
 
-	// sendResult(req.ID, result)
+	items := []CompletionItem{}
+	refs, ok := server.symbols.symbolByRootPath[relPath]
+	if !ok {
+		log.Printf("No items!")
+		result := CompletionList{
+			IsIncomplete: false,
+			Items:        items,
+		}
+
+		sendResult(req.ID, result)
+	}
+
+	seen := make(map[string]struct{})
+	for _, sym := range refs {
+		_, ok = seen[sym.name]
+		if ok {
+			continue
+		}
+
+		seen[sym.name] = struct{}{}
+		items = append(items, CompletionItem{
+			Label: sym.name,
+		})
+	}
+
+	result := CompletionList{
+		IsIncomplete: false,
+		Items:        items,
+	}
+
+	sendResult(req.ID, result)
 }
 
 func findSymbol(symbols *Symbols, relPath string, pos Position) (string, bool) {
-	refs, ok := symbols.symbolRefs[relPath]
+	refs, ok := symbols.symbolRefsByPath[relPath]
 	if !ok {
 		return "", false
 	}
@@ -474,7 +513,7 @@ func handleDefinition(server *Server, req RPCRequest) {
 		return
 	}
 
-	sym, ok := server.symbols.symbols[id]
+	sym, ok := server.symbols.symbolByID[id]
 	if !ok {
 		sendResult(req.ID, nil)
 		return
@@ -518,7 +557,7 @@ func handleReferences(server *Server, req RPCRequest) {
 
 	result := []Location{}
 
-	for path, refs := range server.symbols.symbolRefs {
+	for path, refs := range server.symbols.symbolRefsByPath {
 		for _, ref := range refs {
 			if ref.id == id {
 				result = append(result, Location{
@@ -719,10 +758,10 @@ func semaFile(s *Server, path string) {
 		return
 	}
 
-	if err := cmd.Wait(); err != nil {
-		log.Printf("bootstrap command failed: %v", err)
-
-		exitErr, ok := err.(*exec.ExitError)
+	cmdErr := cmd.Wait()
+	if cmdErr != nil {
+		log.Printf("bootstrap command failed: %v", cmdErr)
+		exitErr, ok := cmdErr.(*exec.ExitError)
 		if !ok || exitErr.ExitCode() != 1 {
 			return
 		}
@@ -734,15 +773,24 @@ func semaFile(s *Server, path string) {
 			Diagnostics: diagnostics,
 		}
 		sendNotification("textDocument/publishDiagnostics", diagnosticParams)
+	}
 
-		if len(diagnostics) != 0 {
-			continue
+	s.symbols.mu.Lock()
+	defer s.symbols.mu.Unlock()
+
+	// Add all new ids to the big id -> symbol map.
+	maps.Copy(s.symbols.symbolByID, symbolDefs)
+
+	// If sema was successful store the symbols for this file.
+	if cmdErr == nil {
+		s.symbols.symbolByRootPath[relPath] = slices.Collect(maps.Values(symbolDefs))
+	}
+
+	// For each successful (imported) file, store the refs.
+	for path, diagnostics := range entries {
+		if len(diagnostics) == 0 {
+			s.symbols.symbolRefsByPath[path] = symbolRefs[path]
 		}
-
-		s.symbols.mu.Lock()
-		maps.Copy(s.symbols.symbols, symbolDefs)
-		s.symbols.symbolRefs[path] = symbolRefs[path]
-		s.symbols.mu.Unlock()
 	}
 }
 
