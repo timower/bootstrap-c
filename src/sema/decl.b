@@ -23,10 +23,8 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
       unionKind.maxSize = maxSize;
     case DeclKind::Func as funcKind:
       if (funcKind.body != null) {
-        let funcState = SemaState {
-          parent = state,
-          result = (decl->type->kind as TypeKind::Func*)->result,
-        };
+        let funcState = newState(state);
+        funcState.result = (decl->type->kind as TypeKind::Func*)->result;
 
         // Generate a local for each arg.
         for (let arg = funcKind.args; arg != null; arg = arg->next) {

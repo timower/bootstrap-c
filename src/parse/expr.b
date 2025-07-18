@@ -109,10 +109,9 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
       return res;
 
     default:
-      let result = newCurLocExpr(state, ExprKind::Variable {
+      let result = newLocExpr(loc, ExprKind::Variable {
         identifier = ident,
       });
-      result->location = loc;
       return result;
   }
 }

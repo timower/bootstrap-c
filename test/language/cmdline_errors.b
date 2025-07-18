@@ -10,7 +10,7 @@
 // NO-TARGET: Expected target after -target
 // MULTIPLE: Multiple input files not supported
 // NO-INPUT: No input file specified
-// FAIL-SEMA: stdin:2:0: : Expected: (
+// FAIL-SEMA: stdin:2:1: : Expected: (
 func main() -> i32 {
   return 0;
 }
