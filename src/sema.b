@@ -172,6 +172,8 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 }
 
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
+  let fileName = decl->location.fileName;
+
   // First resolve all imports.
   for (let cur = decl; cur != null; cur = cur->next) {
     if (&cur->kind as DeclKind::Import* != null) {
@@ -211,5 +213,9 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
     decl = state->extraDecls;
   }
 
+  // Sema successful, report LSP info in case
+  if (state->semaLspMode) {
+    fprintf(getStderr(), "%s:%d:%d: OK!\n", fileName, 0, 0);
+  }
   return decl;
 }

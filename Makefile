@@ -1,8 +1,8 @@
 CC, ?= clang
-CFLAGS ?= -g -Wall -fsanitize=address
-LDFLAGS ?= -fsanitize=address
+CFLAGS ?= -g -Wall
+LDFLAGS ?=
 
-LLCFLAGS ?= -O0 --relocation-model=pic -filetype=obj
+LLCFLAGS ?= -O3 --frame-pointer=all --relocation-model=pic -filetype=obj
 
 # Auto-detect platform and set appropriate target
 UNAME_S := $(shell uname -s)
@@ -30,6 +30,7 @@ PARENT_STAGE ?= $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 # Sources of the compiler
 # TODO: when bootstrap can emit dep files, we can just list the main src here.
 ALL_SRC = $(shell find src/ -type f -name '*.b')
+LSP_SRC = $(shell find bootstrap-lsp/ -type f -name '*.go')
 
 ALL_TESTS = $(shell find test/ -name "*.b" | sed 's/^test\///' | tr '\n' ';')
 
@@ -38,7 +39,7 @@ MAIN_SRC = src/bootstrap.b
 OBJ = $(BUILD_DIR)/bootstrap.o
 
 .PHONY: all
-all: bootstrap ## Build the main bootstrap compiler
+all: bootstrap lsp ## Build the main bootstrap and lsp
 
 .PHONY: help
 help: ## Show this help message
@@ -101,6 +102,13 @@ format-check: bootstrap ## Check if all source files are properly formatted
 			echo "File {} is not properly formatted"; exit 1; \
 		fi'
 	@echo "All files are properly formatted"
+
+
+.PHONY: lsp
+lsp: bootstrap-lsp/bootstrap-lsp ## Build the LSP server
+bootstrap-lsp/bootstrap-lsp: $(LSP_SRC)
+	cd bootstrap-lsp && go build
+
 
 .PHONY: clean
 clean: ## Remove build artifacts and binaries
