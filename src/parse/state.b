@@ -33,9 +33,13 @@ struct ParseState {
 }
 
 func getLocation(state: ParseState*) -> SourceLoc {
+  let col = (state->curToken.data - state->lineStart) as i32;
+  if (state->curToken.kind == TokenKind::TOK_EOF) {
+    col = (state->current - state->lineStart) as i32;
+  }
   return SourceLoc {
     line = state->line,
-    column = (state->current - state->lineStart) as i32,
+    column = col + 1,
     fileName = state->fileName,
   };
 }

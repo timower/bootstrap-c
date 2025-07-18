@@ -608,6 +608,12 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(expr, "Couldn't find variable in scope");
       }
 
+      if (state->semaLspMode) {
+        let name = varExpr.identifier;
+        printLoc(expr->location);
+        fprintf(getStderr(), "ref: %p\n", local);
+      }
+
       // enum value, transform this expr to an i32.
       switch (local->kind) {
         case DeclKind::EnumField as enumFieldKind:

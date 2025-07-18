@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,312 +19,43 @@ import (
 	"sync"
 )
 
-const (
-	// Defined by JSON-RPC
-	ParseError     = -32700
-	InvalidRequest = -32600
-	MethodNotFound = -32601
-	InvalidParams  = -32602
-	InternalError  = -32603
-
-	/**
-	 * This is the start range of JSON-RPC reserved error codes.
-	 * It doesn't denote a real error code. No LSP error codes should
-	 * be defined between the start and end range. For backwards
-	 * compatibility the `ServerNotInitialized` and the `UnknownErrorCode`
-	 * are left in the range.
-	 *
-	 * @since 3.16.0
-	 */
-	jsonrpcReservedErrorRangeStart = -32099
-	/** @deprecated use jsonrpcReservedErrorRangeStart */
-	serverErrorStart = jsonrpcReservedErrorRangeStart
-
-	/**
-	 * Error code indicating that a server received a notification or
-	 * request before the server received the `initialize` request.
-	 */
-	ServerNotInitialized = -32002
-	UnknownErrorCode     = -32001
-
-	/**
-	 * This is the end range of JSON-RPC reserved error codes.
-	 * It doesn't denote a real error code.
-	 *
-	 * @since 3.16.0
-	 */
-	jsonrpcReservedErrorRangeEnd = -32000
-	/** @deprecated use jsonrpcReservedErrorRangeEnd */
-	serverErrorEnd = jsonrpcReservedErrorRangeEnd
-
-	/**
-	 * This is the start range of LSP reserved error codes.
-	 * It doesn't denote a real error code.
-	 *
-	 * @since 3.16.0
-	 */
-	lspReservedErrorRangeStart = -32899
-
-	/**
-	 * A request failed but it was syntactically correct, e.g the
-	 * method name was known and the parameters were valid. The error
-	 * message should contain human readable information about why
-	 * the request failed.
-	 *
-	 * @since 3.17.0
-	 */
-	RequestFailed = -32803
-
-	/**
-	 * The server cancelled the request. This error code should
-	 * only be used for requests that explicitly support being
-	 * server cancellable.
-	 *
-	 * @since 3.17.0
-	 */
-	ServerCancelled = -32802
-
-	/**
-	 * The server detected that the content of a document got
-	 * modified outside normal conditions. A server should
-	 * NOT send this error code if it detects a content change
-	 * in its unprocessed messages. The result even computed
-	 * on an older state might still be useful for the client.
-	 *
-	 * If a client decides that a result is not of any use anymore
-	 * the client should cancel the request.
-	 */
-	ContentModified = -32801
-
-	/**
-	 * The client has canceled a request and a server has detected
-	 * the cancel.
-	 */
-	RequestCancelled = -32800
-
-	/**
-	 * This is the end range of LSP reserved error codes.
-	 * It doesn't denote a real error code.
-	 *
-	 * @since 3.16.0
-	 */
-	lspReservedErrorRangeEnd = -32800
-)
-
-// RPCRequest represents a JSON-RPC request structure
-type RPCRequest struct {
-	Jsonrpc string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-// RPCResponse represents a JSON-RPC response structure
-type RPCResponse struct {
-	Jsonrpc string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id"`
-	Result  any             `json:"result,omitempty"`
-	Error   *RPCError       `json:"error,omitempty"`
-}
-
-type RPCNotification struct {
-	Jsonrpc string `json:"jsonrpc"`
-	Method  string `json:"method"`
-	Params  any    `json:"params,omitempty"`
-}
-
-// RPCError represents a JSON-RPC error object
-type RPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
-}
-
-// InitializeParams represents parameters for the 'initialize' request
-type InitializeParams struct {
-	RootURI string `json:"rootUri"`
-}
-
-// InitializeResult represents the result of the 'initialize' request
-type InitializeResult struct {
-	Capabilities ServerCapabilities `json:"capabilities"`
-	Info         ServerInfo         `json:"serverInfo"`
-}
-
-// ServerCapabilities defines the capabilities of the language server
-type ServerCapabilities struct {
-	TextDocumentSync           *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
-	CompletionProvider         *CompletionOptions       `json:"completionProvider,omitempty"`
-	DefinitionProvider         bool                     `json:"definitionProvider,omitempty"`
-	WorkspaceSymbolProvider    bool                     `json:"workspaceSymbolProvider,omitempty"`
-	DocumentSymbolProvider     bool                     `json:"documentSymbolProvider,omitempty"`
-	DocumentFormattingProvider bool                     `json:"documentFormattingProvider,omitempty"`
-}
-
-// ServerInfo defines the server name and version
-type ServerInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-}
-
-// TextDocumentSyncOptions defines options for text document synchronization
-type TextDocumentSyncOptions struct {
-	Change    int  `json:"change"`
-	OpenClose bool `json:"openClose"`
-	Save      bool `json:"save"`
-}
-
-// CompletionOptions defines options for the completion provider
-type CompletionOptions struct {
-	TriggerCharacters []string `json:"triggerCharacters,omitempty"`
-}
-
-// WorkspaceSymbolParams represents the parameters for the 'workspace/symbol' request
-type WorkspaceSymbolParams struct {
-	Query string `json:"query"`
-}
-
-// DocumentSymbolParams represents the parameters for the 'textDocument/documentSymbol' request
-type DocumentSymbolParams struct {
-	TextDocument TextDocumentIdentifier `json:"textDocument"`
-}
-
-// SymbolInformation represents information about a symbol
-type SymbolInformation struct {
-	Name          string   `json:"name"`
-	Kind          int      `json:"kind"`
-	Location      Location `json:"location"`
-	ContainerName string   `json:"containerName,omitempty"`
-}
-
-// DidOpenTextDocumentParams represents the 'textDocument/didOpen' notification
-type DidOpenTextDocumentParams struct {
-	TextDocument TextDocument `json:"textDocument"`
-}
-
-// TextDocument represents a text document in the editor
-type TextDocument struct {
-	URI        string `json:"uri"`
-	LanguageID string `json:"languageId"`
-	Version    int    `json:"version"`
-	Text       string `json:"text"`
-}
-
-// TextDocumentPositionParams represents the parameters used in requests that require a text document and position.
-type TextDocumentPositionParams struct {
-	TextDocument TextDocumentIdentifier `json:"textDocument"`
-	Position     Position               `json:"position"`
-}
-
-// DidChangeTextDocumentParams represents the 'textDocument/didChange' notification
-type DidChangeTextDocumentParams struct {
-	TextDocument   TextDocumentIdentifier           `json:"textDocument"`
-	ContentChanges []TextDocumentContentChangeEvent `json:"contentChanges"`
-}
-
-// TextDocumentIdentifier identifies a text document
-type TextDocumentIdentifier struct {
-	URI string `json:"uri"`
-}
-
-// TextDocumentContentChangeEvent represents a change in the text document
-type TextDocumentContentChangeEvent struct {
-	Text string `json:"text"`
-}
-
-// DidCloseTextDocumentParams represents the 'textDocument/didClose' notification
-type DidCloseTextDocumentParams struct {
-	TextDocument TextDocumentIdentifier `json:"textDocument"`
-}
-
-// DidSaveTextDocumentParams represents the 'textDocument/didSave' notification
-type DidSaveTextDocumentParams struct {
-	TextDocument TextDocumentIdentifier `json:"textDocument"`
-	Text         string                 `json:"text,omitempty"`
-}
-
-// CompletionParams represents the 'textDocument/completion' request
-type CompletionParams struct {
-	TextDocument PositionParams `json:"textDocument"`
-	Position     Position       `json:"position"`
-}
-
-// Position represents a position in a text document
-type Position struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
-}
-
-// PositionParams holds the URI for position-based requests
-type PositionParams struct {
-	URI string `json:"uri"`
-}
-
-// CompletionItem represents a completion suggestion
-type CompletionItem struct {
-	Label         string         `json:"label"`
-	Kind          int            `json:"kind,omitempty"`
-	Detail        string         `json:"detail,omitempty"`
-	Documentation *MarkupContent `json:"documentation,omitempty"`
-}
-
-// MarkupContent represents documentation content
-type MarkupContent struct {
-	Kind  string `json:"kind"`
-	Value string `json:"value"`
-}
-
-// CompletionList represents a list of completion items
-type CompletionList struct {
-	IsIncomplete bool             `json:"isIncomplete"`
-	Items        []CompletionItem `json:"items"`
-}
-
-// Location represents a location in a text document
-type Location struct {
-	URI   string `json:"uri"`
-	Range Range  `json:"range"`
-}
-
-// Range represents a range in a text document
-type Range struct {
-	Start Position `json:"start"`
-	End   Position `json:"end"`
-}
-
-type Diagnostic struct {
-	Range   Range  `json:"range"`
-	Message string `json:"message"`
-}
-
-type PublishDiagnosticsParams struct {
-	URI         string       `json:"uri"`
-	Diagnostics []Diagnostic `json:"diagnostics"`
-}
-
-type DocumentFormattingParams struct {
-	TextDocument TextDocumentIdentifier `json:"textDocument"`
-	// Ignore options
-}
-
-type TextEdit struct {
-	Range   Range  `json:"range"`
-	NewText string `json:"newText"`
-}
-
 // Server represents the language server
 type Server struct {
 	rootPath     string
 	boostrapPath string
 	cache        FileCache
 	initialized  bool
-	// mu          sync.Mutex
+	symbols      Symbols
 }
 
 // FileCache stores the content of opened files for quick access
 type FileCache struct {
 	mu      sync.RWMutex
 	content map[string][]string
+}
+
+// Symbols stores declarations and uses per file.
+type Symbols struct {
+	mu sync.RWMutex
+
+	// Map of symbol ID -> Symbol
+	symbols map[string]*Symbol
+
+	// Map from file -> list of symbols
+	symbolRefs map[string][]SymbolRef
+}
+
+type SymbolRef struct {
+	position Position
+	id       string
+}
+
+type Symbol struct {
+	file     string
+	position Position
+
+	name string
+	id   string
 }
 
 // GetOrLoadFileContent retrieves file content from cache or loads it from disk
@@ -375,6 +107,10 @@ func main() {
 			content: make(map[string][]string),
 		},
 		boostrapPath: config.bootstrapPath,
+		symbols: Symbols{
+			symbols:    make(map[string]*Symbol),
+			symbolRefs: make(map[string][]SymbolRef),
+		},
 	}
 
 	log.Printf("Starting bootstrap LSP version: %s", version)
@@ -554,12 +290,12 @@ func handleInitialize(server *Server, req RPCRequest) {
 				Save:      true,
 			},
 			DocumentFormattingProvider: true,
+			DefinitionProvider:         true,
 			/*
 				CompletionProvider: &CompletionOptions{
 					TriggerCharacters: []string{".", "\""},
 				},
 				WorkspaceSymbolProvider: true,
-				DefinitionProvider:      true,
 				DocumentSymbolProvider:  true,
 			*/
 		},
@@ -698,7 +434,49 @@ func handleDefinition(server *Server, req RPCRequest) {
 		return
 	}
 
-	sendError(req.ID, InvalidParams, "Invalid params", nil)
+	path := uriToPath(params.TextDocument.URI)
+	relPath, err := filepath.Rel(server.rootPath, path)
+	if err != nil {
+		log.Printf("Error making rel path: %v", err)
+		return
+	}
+	server.symbols.mu.RLock()
+	defer server.symbols.mu.RUnlock()
+	refs, ok := server.symbols.symbolRefs[relPath]
+	if !ok {
+		log.Printf("No refs in %s\n", relPath)
+		sendResult(req.ID, nil)
+		return
+	}
+
+	for _, ref := range refs {
+		// TODO: make map?
+		if ref.position.Line == params.Position.Line {
+			sym, ok := server.symbols.symbols[ref.id]
+			if !ok {
+				log.Printf("Ref on line, but not in symbol defs...\n")
+				continue
+			}
+			if params.Position.Character < ref.position.Character ||
+				params.Position.Character >= ref.position.Character+len(sym.name) {
+				continue
+			}
+
+			sendResult(req.ID, Location{
+				URI: filepathToURI(sym.file),
+				Range: Range{
+					Start: sym.position,
+					End: Position{
+						Line:      sym.position.Line,
+						Character: sym.position.Character + len(sym.name),
+					},
+				},
+			})
+			return
+		}
+	}
+	log.Printf("Not found! %s\n", relPath)
+	sendResult(req.ID, nil)
 }
 
 // handleWorkspaceSymbol processes the 'workspace/symbol' request
@@ -762,6 +540,20 @@ func handleFormatting(server *Server, req RPCRequest) {
 	sendResult(req.ID, edits)
 }
 
+func parseDecl(file string, pos Position, msg string) *Symbol {
+	parts := strings.Split(msg, ": ")
+	if len(parts) != 3 {
+		return nil
+	}
+
+	return &Symbol{
+		id:       parts[1],
+		name:     parts[2],
+		position: pos,
+		file:     file,
+	}
+}
+
 // readFileLines reads the content of a file and returns it as a slice of lines
 func readFileLines(filePath string) ([]string, error) {
 	contentBytes, err := os.ReadFile(filePath)
@@ -805,7 +597,12 @@ func semaFile(s *Server, path string) {
 	}
 
 	scanner := bufio.NewScanner(stderr)
+
 	entries := make(map[string][]Diagnostic)
+
+	symbolDefs := make(map[string]*Symbol)
+	symbolRefs := make(map[string][]SymbolRef)
+
 	for scanner.Scan() {
 		lineStr := scanner.Text()
 		matches := semaRegex.FindStringSubmatch(lineStr)
@@ -825,6 +622,29 @@ func semaFile(s *Server, path string) {
 		}
 
 		pos := Position{Line: line - 1, Character: char - 1}
+		if strings.HasPrefix(msg, "decl:") {
+			symbol := parseDecl(file, pos, msg)
+			if symbol == nil {
+				log.Printf("decl too many parts")
+				continue
+			}
+			symbolDefs[symbol.id] = symbol
+			symbolRefs[file] = append(symbolRefs[file], SymbolRef{position: symbol.position, id: symbol.id})
+			continue
+		}
+
+		if strings.HasPrefix(msg, "ref:") {
+			parts := strings.Split(msg, ": ")
+			if len(parts) != 2 {
+				log.Printf("Ref too many parts")
+				continue
+			}
+
+			id := parts[1]
+			symbolRefs[file] = append(symbolRefs[file], SymbolRef{position: pos, id: id})
+			continue
+		}
+
 		entries[file] = append(entries[file], Diagnostic{
 			Range:   Range{Start: pos, End: pos},
 			Message: msg,
@@ -851,6 +671,15 @@ func semaFile(s *Server, path string) {
 			Diagnostics: diagnostics,
 		}
 		sendNotification("textDocument/publishDiagnostics", diagnosticParams)
+
+		if len(diagnostics) != 0 {
+			continue
+		}
+
+		s.symbols.mu.Lock()
+		maps.Copy(s.symbols.symbols, symbolDefs)
+		s.symbols.symbolRefs[path] = symbolRefs[path]
+		s.symbols.mu.Unlock()
 	}
 }
 
