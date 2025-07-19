@@ -1,0 +1,42 @@
+name: Archive Project on Tag
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository with full history
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Create project archive
+      run: |
+        # Get the tag name
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+
+        # Create tar archive of entire project including .git
+        # Use temp directory to avoid including the archive itself
+        tar -czf "/tmp/bootstrap-c-${TAG_NAME}.tar.gz" .
+        mv "/tmp/bootstrap-c-${TAG_NAME}.tar.gz" .
+
+        # Display archive info
+        ls -lh "bootstrap-c-${TAG_NAME}.tar.gz"
+        echo "Archive created: bootstrap-c-${TAG_NAME}.tar.gz"
+
+    - name: Upload archive as release asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: bootstrap-c-*.tar.gz
+        fail_on_unmatched_files: true
+        draft: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
