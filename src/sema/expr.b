@@ -158,6 +158,11 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
     case TypeKind::Union as fromUnion:
       if (let toPtr = to->kind as TypeKind::Pointer*) {
         if (let toStruct = toPtr->pointee->kind as TypeKind::Struct*) {
+          // Check if target struct belongs to the same union as source
+          if (!typeEq(from, toStruct->parent)) {
+            failSemaExpr(state, expr, "Cannot cast union to pointer of variant from different union");
+          }
+
           let unionDecl = lookupType(state, fromUnion.tag);
           if (unionDecl == null) {
             failSemaExpr(state, expr, "Can't find union decl to cast from");
