@@ -2,7 +2,7 @@ CC, ?= clang
 CFLAGS ?= -g -Wall -fsanitize=address
 LDFLAGS ?= -fsanitize=address
 
-LLCFLAGS = -O0 --relocation-model=pic -filetype=obj
+LLCFLAGS ?= -O0 --relocation-model=pic -filetype=obj
 
 export ASAN_OPTIONS=detect_leaks=0
 
