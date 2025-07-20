@@ -27,6 +27,7 @@ union TypeKind {
   Func {
     result: Type*;
     args: Type*;
+    typeArgs: Type*;
     isVarargs: bool;
   }
   Struct {
@@ -88,6 +89,13 @@ union ExprKind {
   Call {
     function: ExprAST*;
     args: ExprAST*;
+  }
+  GenericInstantiation {
+    function: Token;
+    typeArgs: Type*;
+
+    // Filled during sema, name of monomorphized instance.
+    instance: Token;
   }
   Index {
     array: ExprAST*;
@@ -419,6 +427,7 @@ func getExprPrecedence(expr: ExprAST*) -> i32 {
       return 110;
 
     case ExprKind::Call,
+         ExprKind::GenericInstantiation,
          ExprKind::Index,
          ExprKind::Member,
          ExprKind::Struct,
@@ -438,6 +447,17 @@ func getExprPrecedence(expr: ExprAST*) -> i32 {
          ExprKind::Let:
       return 200;
   }
+}
+
+func isGeneric(decl: DeclAST*) -> bool {
+  if (let funcKind = decl->kind as DeclKind::Func*) {
+    if (let funcType = decl->type->kind as TypeKind::Func*) {
+      if (funcType->typeArgs != null) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 func getFunctionType(callExpr: ExprKind::Call*) -> TypeKind::Func* {

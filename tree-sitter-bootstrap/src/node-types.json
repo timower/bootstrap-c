@@ -66,6 +66,10 @@
         "named": true
       },
       {
+        "type": "generic_expression",
+        "named": true
+      },
+      {
         "type": "identifier",
         "named": true
       },
@@ -539,6 +543,10 @@
           "named": true
         },
         {
+          "type": "generic_param_list",
+          "named": true
+        },
+        {
           "type": "identifier",
           "named": true
         },
@@ -563,6 +571,40 @@
         },
         {
           "type": "variadic_param",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "generic_expression",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "generic_param_list",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "generic_param_list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "type",
           "named": true
         }
       ]

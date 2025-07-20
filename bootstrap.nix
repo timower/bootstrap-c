@@ -19,7 +19,7 @@
 let
   targettriple = stdenv.hostPlatform.config;
 in
-stdenv.mkDerivation {
+llvmPackages_19.stdenv.mkDerivation {
   pname = "bootstrap";
   version = bootstrap_rev;
 

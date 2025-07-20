@@ -139,6 +139,13 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Paren as parenExpr:
       return genAddr(state, parenExpr.expr);
 
+    case ExprKind::GenericInstantiation as genericInst:
+      let var = findName(state, genericInst.instance);
+      if (var == null) {
+        failIRGen("Failed to find function");
+      }
+      return *var;
+
     case ExprKind::Call:
       if (!isAggregate(expr->type)) {
         break;
@@ -165,7 +172,8 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Int, ExprKind::Scope, ExprKind::Str, ExprKind::Array:
       return genConstant(state, expr);
 
-    case ExprKind::Variable, ExprKind::Index, ExprKind::Member:
+    case ExprKind::Variable, ExprKind::Index, ExprKind::Member,
+         ExprKind::GenericInstantiation:
       let addr = genAddr(state, expr);
       return genLoad(state, addr, expr->type);
 

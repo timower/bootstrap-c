@@ -22,6 +22,11 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
       }
       unionKind.maxSize = maxSize;
     case DeclKind::Func as funcKind:
+      // Skip sema for generic functions until instantiation
+      if (isGeneric(decl)) {
+        break;
+      }
+
       if (funcKind.body != null) {
         let funcState = newState(state);
         funcState.result = (decl->type->kind as TypeKind::Func*)->result;

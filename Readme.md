@@ -57,6 +57,8 @@ TODO
 
  - [ ] Generic functions.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
+ - [ ] `is[T, U](union: U*) -> bool` function.
+     * `is[T, U](union: U*) -> bool { return union as T* != NULL; }`
  - [ ] Generic types
 
  - [ ] Isolated imports.
@@ -65,8 +67,6 @@ TODO
     * `a.foo(...)` -> `Foo::foo(a, ...)`
 
 
- - [ ] `is<T>(uinion) -> bool` function.
-     * `is<T>(union: T::parent*) -> bool { return union as T* != NULL; }`
 
  - [ ] Add slice type.
     * syntax: `[i8]`

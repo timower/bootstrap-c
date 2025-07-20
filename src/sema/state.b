@@ -1,6 +1,8 @@
 import ast;
 import ast.print;
 
+import generics;
+
 struct ImportList {
   name: i8*;
   next: ImportList*;
@@ -11,6 +13,7 @@ struct PathCache {
   resolvedPath: i8*;
   next: PathCache*;
 }
+
 
 struct SemaState {
   target: i8*;
@@ -29,6 +32,10 @@ struct SemaState {
   // Extra decls added during sema, used for string literals.
   // Should only be added to the root sema state.
   extraDecls: DeclAST*;
+
+  // For generics
+  instanceCounter: i32;
+  genericInstances: GenericInst*;
 
   // Used to give each string a unique name.
   strCount: i32;
@@ -118,4 +125,31 @@ func initSemaState(target: i8*, lspMode: bool) -> SemaState {
     locals = newDeclList(nullDecl),
     semaLspMode = lspMode,
   };
+}
+
+func addGenericInst(
+    state: SemaState*,
+    function: DeclAST*,
+    mapping: TypeMap*
+) -> Token {
+  let root = getRoot(state);
+
+  // TODO: remove duplicates
+  let inst = calloc(1, sizeof(GenericInst)) as GenericInst*;
+  inst->function = function;
+  inst->typeMap = mapping;
+
+  let newName = newInternalToken(128);
+  newName.len = sprintf(
+      newName.location->data,
+      "%.*s_%d",
+      function->name.len,
+      function->name.location->data,
+      root->instanceCounter++);
+  inst->name = newName;
+
+  inst->next = root->genericInstances;
+  root->genericInstances = inst;
+
+  return inst->name;
 }
