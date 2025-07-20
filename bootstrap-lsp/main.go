@@ -761,10 +761,6 @@ func semaFile(s *Server, path string) {
 	cmdErr := cmd.Wait()
 	if cmdErr != nil {
 		log.Printf("bootstrap command failed: %v", cmdErr)
-		exitErr, ok := cmdErr.(*exec.ExitError)
-		if !ok || exitErr.ExitCode() != 1 {
-			return
-		}
 	}
 
 	for path, diagnostics := range entries {
