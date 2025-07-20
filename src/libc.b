@@ -1,3 +1,5 @@
+import libc.impl;
+
 extern func putchar(c: i32) -> i32;
 extern func puts(s: const i8*) -> i32;
 
@@ -18,11 +20,5 @@ extern func read(fd: i32, buf: void*, nbytes: u64) -> i64;
 extern func dirname(path: i8*) -> i8*;
 extern func strdup(s: i8*) -> i8*;
 
-extern func realpath(path: i8*, resolved_path: i8*) -> i8*;
-extern func dprintf(fd: i32, format: const i8*, ...) -> i32;
-
-extern func GetFullPathNameA() -> i8*;
-
-
-// TODO: consts
-let STDERR = 2;
+extern func fopen(path: i8*, mode: i8*) -> void*;
+extern func fprintf(file: void*, format: const i8*, ...) -> i32;

@@ -13,6 +13,10 @@
 }:
 let
   targettriple = stdenv.hostPlatform.config;
+
+  # Default is posix, special case for windows & darwin.
+  windowsFlag = lib.optionalString stdenv.hostPlatform.isWindows "-target windows";
+  darwinFlag = lib.optionalString stdenv.hostPlatform.isDarwin "-target darwin";
 in
 stdenv.mkDerivation {
   pname = "bootstrap";
@@ -28,7 +32,7 @@ stdenv.mkDerivation {
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
   LLCFLAGS = "--mtriple=${targettriple} --relocation-model=pic -O0 -filetype=obj";
   LDFLAGS = "";
-  BOOTSTRAP_FLAGS = lib.optionalString stdenv.hostPlatform.isWindows "-target windows";
+  BOOTSTRAP_FLAGS = windowsFlag + darwinFlag;
 
   installPhase = ''
     mkdir -p $out/bin
