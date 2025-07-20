@@ -43,8 +43,17 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "let"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "let"
+            },
+            {
+              "type": "STRING",
+              "value": "const"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
@@ -923,7 +932,7 @@
     },
     "_number": {
       "type": "PATTERN",
-      "value": "[-+]?[0-9]+"
+      "value": "[-+]?(0[xbo])?[0-9a-fA-F]+"
     },
     "primitive_type": {
       "type": "CHOICE",
@@ -2142,8 +2151,17 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "let"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "let"
+            },
+            {
+              "type": "STRING",
+              "value": "const"
+            }
+          ]
         },
         {
           "type": "SYMBOL",

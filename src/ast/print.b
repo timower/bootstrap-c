@@ -87,7 +87,11 @@ func printIndent(indent: i32) {
 
 
 func printLet(decl: DeclAST*, indent: i32) {
-  printf("let ");
+  if (decl->kind == DeclKind::CONST) {
+    printf("const ");
+  } else {
+    printf("let ");
+  }
   printToken(decl->name);
 
   if (decl->type != null) {
@@ -563,7 +567,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
     case DeclKind::ENUM_FIELD:
       printToken(decl->name);
 
-    case DeclKind::VAR:
+    case DeclKind::VAR, DeclKind::CONST:
       printLet(decl, indent);
       printf(";");
 

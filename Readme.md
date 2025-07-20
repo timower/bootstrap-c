@@ -39,8 +39,13 @@ TODO
  - [x] `bool` (i1) type.
  - [x] Model LLVM IR.
 
- - [ ] Constants `const x = 12;`
- - [ ] Add host machine constants (`__WIN32__`, `__linux__`, etc)
+ - [x] Constants `const x = 12;`
+ - [ ] Platform specific code:
+   * Add host machine constants (`__WIN32__`, `__LINUX__`, etc).
+   * Host specific imports using `libc.win32.b`, `libc.linux.b`.
+   * Target command line flag.
+ - [ ] Fix windows/mingw builds.
+
  - [ ] Fix `realpath` & `dprintf` usage.
 
  - [ ] x86_64 backend

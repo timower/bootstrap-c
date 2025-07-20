@@ -106,10 +106,10 @@ func getToken(state: ParseState*) -> Token {
     return token;
   }
 
-  if (lastChar == 39) {
-    while (peekChar(state) != 39) {
+  if (lastChar == '\'') {
+    while (peekChar(state) != '\'') {
       let next = nextChar(state);
-      if (next == 92) {
+      if (next == '\\') {
         nextChar(state);
       }
     }
@@ -120,10 +120,10 @@ func getToken(state: ParseState*) -> Token {
     return token;
   }
 
-  if (lastChar == 34) {
-    while (peekChar(state) != 34) {
+  if (lastChar == '"') {
+    while (peekChar(state) != '"') {
       let next = nextChar(state);
-      if (next == 92) {
+      if (next == '\\') {
         nextChar(state);
       }
     }
@@ -135,9 +135,20 @@ func getToken(state: ParseState*) -> Token {
     return token;
   }
 
-  if (is_digit(lastChar) || (lastChar == 45 && is_digit(peekChar(state)))) {
-    while (is_digit(peekChar(state)) || peekChar(state) == 46) {
+  if (is_digit(lastChar) || (lastChar == '-' && is_digit(peekChar(state)))) {
+    if (lastChar == '0' && peekChar(state) == 'x') {
       nextChar(state);
+      while (is_digit(peekChar(state))
+          || (peekChar(state) >= 'a' && peekChar(state) <= 'f')
+          || (peekChar(state) >= 'A' && peekChar(state) <= 'F')) {
+        nextChar(state);
+      }
+    } else {
+      while (is_digit(peekChar(state))
+          || peekChar(state) == 'o'
+          || peekChar(state) == 'b') {
+        nextChar(state);
+      }
     }
     token.data = tokenStart;
     token.end = state->current;
@@ -154,7 +165,7 @@ func getToken(state: ParseState*) -> Token {
   }
 
   // Comments //
-  if (lastChar == 47 && peekChar(state) == 47) {
+  if (lastChar == '/' && peekChar(state) == '/') {
     while (!iseol(peekChar(state))) {
       nextChar(state);
     }
@@ -212,19 +223,39 @@ func getNextToken(state: ParseState*) -> Token {
   return result;
 }
 
-func parseInteger(token: Token) -> i32 {
+func parseInteger(state: ParseState*, token: Token) -> i32 {
   let start = token.data;
-  if (*start == 39) {
+  if (*start == '\'') {
     let next = *(start + 1);
-    if (next == 92) {
+    if (next == '\\') {
       return getEscaped(*(start + 2)) as i32;
     } else {
       return next as i32;
     }
   }
 
+  let base = 10;
+  if (*start == '0') {
+    switch (*(start + 1) as i32) {
+      case 'x':
+        base = 16;
+        start += 2;
+      case 'o':
+        base = 8;
+        start += 2;
+      case 'b':
+        base = 2;
+        start += 2;
+      default:
+        break;
+    }
+  }
+
   let endp = token.end;
-  let num = strtol(start, &endp, 10) as i32;
+  let num = strtol(start, &endp, base) as i32;
+  if (endp != token.end) {
+    failParse(state, "Invalid integer");
+  }
   return num;
 }
 
