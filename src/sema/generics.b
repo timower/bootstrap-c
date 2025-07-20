@@ -299,7 +299,7 @@ func monomorphizeStmt(stmt: StmtAST*, typeMap: TypeMap*) -> StmtAST* {
         body = monomorphizeStmt(d.body, typeMap),
       };
 
-    case StmtKind::Break:
+    case StmtKind::Break, StmtKind::Continue:
       break;
   }
 

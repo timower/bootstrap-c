@@ -276,5 +276,7 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
       failSemaStmt(state, stmt, "Default outside of switch");
     case StmtKind::Break:
       break;
+    case StmtKind::Continue:
+      break;
   }
 }

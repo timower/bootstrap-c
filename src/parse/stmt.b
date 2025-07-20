@@ -304,5 +304,17 @@ func parseStmt(state: ParseState*) -> StmtAST* {
     return stmt;
   }
 
+  if (match(state, TokenKind::CONTINUE)) {
+    let stmt = newLocStmt(state, StmtKind::Continue {});
+    getNextToken(state);
+
+    expect(state, TokenKind::SEMICOLON);
+    stmt->endLocation = getNextToken(state).location;
+
+    addTrailingCommentsStmt(state, stmt);
+
+    return stmt;
+  }
+
   return parseExprStmt(state);
 }

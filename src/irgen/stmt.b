@@ -129,7 +129,8 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
 
       newScope(state);
       state->curBB = bodyBB;
-      state->scope->breakBB = contBB;      // TODO: continue;
+      state->scope->breakBB = contBB;
+      state->scope->continueBB = condBB;
 
       genStmt(state, whileStmt.body);
 
@@ -168,7 +169,8 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       // Set up new scope for the loop body
       newScope(state);
       state->curBB = bodyBB;
-      state->scope->breakBB = contBB;      // TODO: continue;
+      state->scope->breakBB = contBB;
+      state->scope->continueBB = incrBB;
 
       // Generate the loop body
       genStmt(state, forStmt.body);
@@ -197,6 +199,14 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       }
       addInstr(state, null, InstrKind::Branch {
         bb = state->scope->breakBB,
+      });
+
+    case StmtKind::Continue:
+      if (state->scope->continueBB == null) {
+        failIRGen("Continue outside loop");
+      }
+      addInstr(state, null, InstrKind::Branch {
+        bb = state->scope->continueBB,
       });
 
     case StmtKind::Switch:

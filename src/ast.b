@@ -256,6 +256,7 @@ union StmtKind {
     body: StmtAST*;
   }
   Break {}
+  Continue {}
   Default {
     body: StmtAST*;
   }

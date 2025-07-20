@@ -479,6 +479,10 @@ func printStmtIndent(stmt: StmtAST*, indent: i32) {
       printIndent(indent);
       fprintf(printFile, "break;");
 
+    case StmtKind::Continue:
+      printIndent(indent);
+      fprintf(printFile, "continue;");
+
     case StmtKind::While as whileStmt:
       printIndent(indent);
       fprintf(printFile, "while (");

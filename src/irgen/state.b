@@ -15,6 +15,7 @@ struct IRGenState {
 struct Scope {
   locals: Local*;
   breakBB: BasicBlock*;
+  continueBB: BasicBlock*;
 
   parent: Scope*;
 }
@@ -39,6 +40,7 @@ func newScope(state: IRGenState*) {
   let scope = calloc(1, sizeof(struct Scope)) as Scope*;
   if (state->scope != null) {
     scope->breakBB = state->scope->breakBB;
+    scope->continueBB = state->scope->continueBB;
   }
   scope->parent = state->scope;
   state->scope = scope;

@@ -143,9 +143,11 @@ func packTokenHash(str: const i8*, len: i32) -> i64 {
   let strPtr = str as void*;
   let result: i64 = *(strPtr as i64*);
 
-  let ulen = len as u32;
-  let len8 = (ulen as u64) << 3;
-  result &= (((1 as u64) << len8) - 1) as i64;
+  if (len != 8) {
+    let ulen = len as u32;
+    let len8 = (ulen as u64) << 3;
+    result &= (((1 as u64) << len8) - 1) as i64;
+  }
 
   return result;
 }
@@ -155,6 +157,10 @@ func initTokenHashes() {
     let len = strlen(tokens[i]) as i32;
     tokenHashes[i].hash = packTokenHash(tokens[i], len);
     tokenHashes[i].len = len;
+    if (tokenHashes[i].hash == 0) {
+      printf("Token too long: %s, %d", tokens[i], len);
+      exit(1);
+    }
   }
 }
 
