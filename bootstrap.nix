@@ -38,12 +38,15 @@ llvmPackages_19.stdenv.mkDerivation {
       gopls
     ];
 
-  nativeCheckInputs = [
-    lit
-    pkgsCross.aarch64-multiplatform.buildPackages.gcc
-    qemu-user
-    llvmPackages_19.clang
-  ];
+  nativeCheckInputs =
+    lib.optionals (!stdenv.hostPlatform.isAarch64) [
+      qemu-user
+      pkgsCross.aarch64-multiplatform.buildPackages.gcc
+    ]
+    ++ [
+      lit
+      llvmPackages_19.clang
+    ];
 
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
   ASAN_OPTIONS = "detect_leaks=0";

@@ -53,7 +53,7 @@
         ]
       },
       "locked": {
-        "lastModified": 1740083295,
+        "lastModified": 1740421821,
         "narHash": "sha256-EDq2lel7N8cNzLRmhDpwJZ1H0K8onQ5W6VlWlHG2jmw=",
         "owner": "timower",
         "repo": "bootstrap-c",
@@ -284,8 +284,8 @@
         ]
       },
       "locked": {
-        "lastModified": 1740520542,
-        "narHash": "sha256-dR2pXRx+fH5IPnAAQocZ5W2dFKGErEdrkf6WfQQE5wY=",
+        "lastModified": 1753001571,
+        "narHash": "sha256-J07PACRqusgZ2iGyUDwcksbbUYFbW2rUL0Yk2FonxBM=",
         "owner": "timower",
         "repo": "bootstrap-c",
         "rev": "10a690174ce8c2db318bc40f9b6a0082322336c8",
@@ -325,8 +325,8 @@
         ]
       },
       "locked": {
-        "lastModified": 1740427630,
-        "narHash": "sha256-DBcMzEtMPuuT0UdhhTL2P6RFuU12IrZ0CqwQyqU6Srk=",
+        "lastModified": 1753001334,
+        "narHash": "sha256-sr7UuT9BLcbDsty1XSDtGKIbpdl4/NSTkAedkgGUKuY=",
         "owner": "timower",
         "repo": "bootstrap-c",
         "rev": "0109f363a623fe6307ddbd36f41a4e3339999da0",
