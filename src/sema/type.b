@@ -80,7 +80,6 @@ func typeEq(one: Type*, two: Type*) -> bool {
   return true;
 }
 
-
 func findTypeIdx(types: DeclList*, tag: Token, idxOut: i32*) -> DeclAST* {
   let idx = 0;
   for (; types != null; types = types->next, idx++) {

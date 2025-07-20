@@ -12,29 +12,31 @@ func genModule(decls: DeclAST*) -> Module {
   createIntrinsics(&state);
 
   for (let cur = decls; cur != null; cur = cur->next) {
-    switch (cur->kind) {
-      case DeclKind::Func as funcKind:
-        // Add all functions so we can use before decl.
-        let global = addFunc(&state, cur);
-        addLocal(&state, cur->name, global);
-      case DeclKind::Struct:
-        // Add typedefs for struct and unions types.
-        addStruct(&state, cur);
-      case DeclKind::Union:
-        addUnion(&state, cur);
-      case DeclKind::Var:
-        // add Globals
-        let global = addGlobal(&state, cur);
-        addLocal(&state, cur->name, global);
-      default:
-        // Nothing to do for other decl types in first pass
-        break;
+    if (!isGeneric(cur)) {
+      switch (cur->kind) {
+        case DeclKind::Func as funcKind:
+          // Add all functions so we can use before decl.
+          let global = addFunc(&state, cur);
+          addLocal(&state, cur->name, global);
+        case DeclKind::Struct:
+          // Add typedefs for struct and unions types.
+          addStruct(&state, cur);
+        case DeclKind::Union:
+          addUnion(&state, cur);
+        case DeclKind::Var:
+          // add Globals
+          let global = addGlobal(&state, cur);
+          addLocal(&state, cur->name, global);
+        default:
+          // Nothing to do for other decl types in first pass
+          break;
+      }
     }
   }
 
   for (let cur = decls; cur != null; cur = cur->next) {
     if (let funcKind = &cur->kind as DeclKind::Func*) {
-      if (funcKind->body != null) {
+      if (!isGeneric(cur) && funcKind->body != null) {
         let fun = findName(&state, cur->name);
         if (fun == null) {
           failIRGen("Expected to find function");

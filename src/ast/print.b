@@ -236,6 +236,16 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
         }
       }
       fprintf(printFile, ")");
+    case ExprKind::GenericInstantiation as genericInst:
+      printToken(genericInst.function);
+      fprintf(printFile, ":[");
+      for (let tp = genericInst.typeArgs; tp != null; tp = tp->next) {
+        printType(tp);
+        if (tp->next != null) {
+          fprintf(printFile, ", ");
+        }
+      }
+      fprintf(printFile, "]");
     case ExprKind::Member as member:
       printExprPrec(member.object, curPrec, indent);
       let isAs = member.op.kind == TokenKind::AS;
@@ -621,9 +631,22 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       }
       fprintf(printFile, "func ");
       printToken(decl->name);
-      fprintf(printFile, "(");
 
+      // Print type parameters if present
       let fnType = decl->type->kind as TypeKind::Func*;
+      if (fnType->typeArgs != null) {
+        fprintf(printFile, "[");
+        for (let tp = fnType->typeArgs; tp != null; tp = tp->next) {
+          let tag = &tp->kind as TypeKind::Tag*;
+          printToken(tag->tag);
+          if (tp->next != null) {
+            fprintf(printFile, ", ");
+          }
+        }
+        fprintf(printFile, "]");
+      }
+
+      fprintf(printFile, "(");
       let isVarargs = fnType->isVarargs;
       let split = false;
 

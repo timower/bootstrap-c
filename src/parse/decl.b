@@ -183,8 +183,48 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
 
+  // Parse optional type parameters [T, U, V]
+  let typeParams: Type* = null;
+  if (match(state, TokenKind::OPEN_BRACKET)) {
+    getNextToken(state);    // eat [
+
+    let firstParam: Type* = null;
+    let curParam: Type* = null;
+    while (!match(state, TokenKind::CLOSE_BRACKET)) {
+      expect(state, TokenKind::IDENTIFIER);
+
+      let param = newType(TypeKind::Tag {
+        tag = getNextToken(state),
+        parent = Token {
+          kind = TokenKind::TOK_EOF,
+        },
+      });
+
+      if (firstParam == null) {
+        firstParam = param;
+        curParam = param;
+      } else {
+        curParam->next = param;
+        curParam = param;
+      }
+
+      if (match(state, TokenKind::CLOSE_BRACKET)) {
+        break;
+      }
+
+      expect(state, TokenKind::COMMA);
+      getNextToken(state);      // eat ,
+    }
+
+    expect(state, TokenKind::CLOSE_BRACKET);
+    getNextToken(state);    // eat ]
+
+    typeParams = firstParam;
+  }
+
   decl->type = newType(TypeKind::Func {});
   let funcType = decl->type->kind as TypeKind::Func*;
+  funcType->typeArgs = typeParams;
 
   expect(state, TokenKind::OPEN_PAREN);
   getNextToken(state);  // eat (

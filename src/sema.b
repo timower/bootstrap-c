@@ -28,6 +28,10 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
 }
 
 func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
+  // Skip generic functions until instantiation.
+  if (isGeneric(decl)) {
+    return;
+  }
   resolveTypeTags(state, decl->type);
 
   switch (decl->kind) {
@@ -177,6 +181,17 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   }
 }
 
+func instantiateGeneric(state: SemaState*, generic: GenericInst*) {
+  let newFunc = monomorphize(generic->function, generic->typeMap, generic->name);
+
+  // printDecl(newFunc);
+  resolveDeclTypeTags(state, newFunc);
+  semaDecl(state, newFunc);
+
+  newFunc->next = state->extraDecls;
+  state->extraDecls = newFunc;
+}
+
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   let fileName = decl->location->fileName;
 
@@ -192,7 +207,8 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
     addTaggedType(state, cur);
   }
 
-  // Add all functions, so typeof(func) works.
+  // Add all functions first, so typeof(func) works.
+  // We do this in this stage so declarations can follow uses.
   for (let cur = decl; cur != null; cur = cur->next) {
     if (&cur->kind as DeclKind::Func* != null) {
       addLocalDecl(state, cur);
@@ -207,6 +223,16 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   // Do actual type checking and AST transformations.
   for (let cur = decl; cur != null; cur = cur->next) {
     semaDecl(state, cur);
+  }
+
+  // sema instantiated generic functions.
+  while (state->genericInstances != null) {
+    let cur = state->genericInstances;
+    state->genericInstances = null;
+
+    for (; cur != null; cur = cur->next) {
+      instantiateGeneric(state, cur);
+    }
   }
 
   // Add extra decls

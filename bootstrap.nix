@@ -23,7 +23,7 @@ let
   windowsFlag = lib.optionalString stdenv.hostPlatform.isWindows "-target windows";
   darwinFlag = lib.optionalString stdenv.hostPlatform.isDarwin "-target darwin";
 in
-stdenv.mkDerivation {
+llvmPackages_19.stdenv.mkDerivation {
   pname = "bootstrap";
   version = bootstrap_rev;
 

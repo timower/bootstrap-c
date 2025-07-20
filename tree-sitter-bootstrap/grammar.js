@@ -32,7 +32,8 @@ const PREC = {
   FIELD: 16,
   SUBSCRIPT: 17,
   SCOPE: 18,
-  TYPE: 19
+  TYPE: 19,
+  GENERIC: 20
 };
 
 module.exports = grammar({
@@ -120,9 +121,23 @@ module.exports = grammar({
     _func_def: $ => seq(
       'func',
       $.identifier,
+      optional($.generic_param_list),
       $.param_list,
       optional(seq('->', field('result', $.type))),
       $.block,
+    ),
+
+    param_list: $ => seq(
+      '(',
+      sep($.parameter, ','),
+      optional($.variadic_param),
+      ')',
+    ),
+
+    generic_param_list: $ => seq(
+      '[',
+      sep($.type, ','),
+      ']',
     ),
 
     block: $ => seq(
@@ -205,13 +220,6 @@ module.exports = grammar({
 
     expression_statement: $ => seq(optional($.expression), ';'),
 
-    param_list: $ => seq(
-      '(',
-      sep($.parameter, ','),
-      optional($.variadic_param),
-      ')',
-    ),
-
     variadic_param: $ => seq(',', '...'),
 
     parameter: $ => seq(
@@ -282,6 +290,7 @@ module.exports = grammar({
       $.assignment_expression,
       $.comma_expression,
       $.sizeof_expression,
+      $.generic_expression,
     ),
 
     _assignment: $ => choice(
@@ -304,6 +313,8 @@ module.exports = grammar({
       optional(','),
       '}'
     ),
+
+    generic_expression: $ => prec(PREC.GENERIC, seq($.identifier, ':', $.generic_param_list)),
 
     field_expression: $ =>  seq($.identifier, '=', $.expression),
 

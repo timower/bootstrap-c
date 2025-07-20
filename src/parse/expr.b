@@ -85,6 +85,39 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
       (&res->kind as ExprKind::Struct*)->identifier = ident;
       return res;
 
+    case TokenKind::COLON_BRACKET:
+      // Parse generic instantiation foo:[T, U]
+      let loc = getNextToken(state).location;      // eat :[
+
+      let firstTypeArg: Type* = null;
+      let curTypeArg: Type* = null;
+      while (!match(state, TokenKind::CLOSE_BRACKET)) {
+        let typeArg = parseType(state);
+
+        if (firstTypeArg == null) {
+          firstTypeArg = typeArg;
+          curTypeArg = typeArg;
+        } else {
+          curTypeArg->next = typeArg;
+          curTypeArg = typeArg;
+        }
+
+        if (match(state, TokenKind::CLOSE_BRACKET)) {
+          break;
+        }
+
+        expect(state, TokenKind::COMMA);
+        getNextToken(state);        // eat ,
+      }
+
+      expect(state, TokenKind::CLOSE_BRACKET);
+      getNextToken(state);      // eat ]
+
+      return newLocExpr(loc, ExprKind::GenericInstantiation {
+        function = ident,
+        typeArgs = firstTypeArg,
+      });
+
     case TokenKind::SCOPE:
       getNextToken(state);      // eat ::
 

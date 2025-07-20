@@ -37,10 +37,12 @@ enum TokenKind {
   IF,
   AS,
 
-  // operators
+  // 3-operators
   LEFT_ASSIGN,
   RIGHT_ASSIGN,
   ELLIPSIS,
+
+  // 2-operators
   SCOPE,
   PTR_OP,
   INC_OP,
@@ -61,6 +63,9 @@ enum TokenKind {
   AND_ASSIGN,
   XOR_ASSIGN,
   OR_ASSIGN,
+  COLON_BRACKET,
+
+  // 1-operators
   SEMICOLON,
   OPEN_BRACE,
   CLOSE_BRACE,
@@ -93,9 +98,9 @@ let tokens: const i8*[] = {
   "return", "import", "const", "while", "break", "union", "void", "bool",
   "true", "false", "enum", "case", "else", "func", "for", "let", "if", "as",
   "<<=", ">>=", "...", "::", "->", "++", "--", "<<", ">>", "<=", ">=", "==",
-  "!=", "&&", "||", "*=", "/=", "%=", "+=", "-=", "&=", "^=", "|=", ";", "{",
-  "}", ",", ":", "=", "(", ")", "[", "]", ".", "&", "!", "~", "-", "+", "*",
-  "/", "%", "<", ">", "^", "|", "?",
+  "!=", "&&", "||", "*=", "/=", "%=", "+=", "-=", "&=", "^=", "|=", ":[", ";",
+  "{", "}", ",", ":", "=", "(", ")", "[", "]", ".", "&", "!", "~", "-", "+",
+  "*", "/", "%", "<", ">", "^", "|", "?",
 };
 
 struct SourceLoc {
