@@ -65,14 +65,24 @@ function M.setup(opts)
 
 	if M.options.treesitter then
 		---@class ParserInfo
-		local parser_config = require("nvim-treesitter.parsers").get_parser_configs()
+		vim.api.nvim_create_autocmd("User", {
+			pattern = "TSUpdate",
+			callback = function()
+				require("nvim-treesitter.parsers").bootstrap = {
+					install_info = {
+						path = M.bootstrapDir .. "/tree-sitter-bootstrap/",
+					},
+				}
+			end,
+		})
+		-- local parser_config = require("nvim-treesitter.parsers").get_parser_configs()
 
-		parser_config.bootstrap = {
-			install_info = {
-				url = M.bootstrapDir .. "/tree-sitter-bootstrap/",
-				files = { "src/parser.c" }, -- note that some parsers also require src/scanner.c or src/scanner.cc
-			},
-		}
+		-- parser_config.bootstrap = {
+		-- 	install_info = {
+		-- 		url = M.bootstrapDir .. "/tree-sitter-bootstrap/",
+		-- 		files = { "src/parser.c" }, -- note that some parsers also require src/scanner.c or src/scanner.cc
+		-- 	},
+		-- }
 	end
 
 	if M.options.lspconfig then
