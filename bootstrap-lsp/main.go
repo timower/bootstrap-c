@@ -445,6 +445,7 @@ func handleCompletion(server *Server, req RPCRequest) {
 		}
 
 		sendResult(req.ID, result)
+		return
 	}
 
 	seen := make(map[string]struct{})
