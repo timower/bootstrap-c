@@ -189,7 +189,7 @@ func tokCmp(one: Token, two: Token) -> bool {
   }
 
   let len = one.len as u32;
-  return memcmp(one.location->data, two.location->data, len as u64) == 0;
+  return memcmp(one.location->data, two.location->data, len as uptr) == 0;
 }
 
 func tokCmpStr(one: Token, str: const i8*) -> bool {
@@ -198,7 +198,7 @@ func tokCmpStr(one: Token, str: const i8*) -> bool {
     return false;
   }
 
-  return memcmp(one.location->data, str, len as u64) == 0;
+  return memcmp(one.location->data, str, len as uptr) == 0;
 }
 
 func getTokenHash(token: Token) -> i64 {
@@ -209,7 +209,7 @@ func tokCmpHash(token: Token, hash: i64) -> bool {
   return getTokenHash(token) == hash;
 }
 
-func newInternalToken(bufSize: u64) -> Token {
+func newInternalToken(bufSize: uptr) -> Token {
   let alloc = malloc(sizeof(SourceLoc) + bufSize);
   let loc = alloc as SourceLoc*;
   loc->data = (alloc as i8*) + sizeof(SourceLoc);

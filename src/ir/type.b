@@ -27,12 +27,12 @@ func convertType(type: Type*) -> const i8* {
       return "ptr";
 
     case TypeKind::Struct as s:
-      let len = s.tag.len as i64;
+      let len = s.tag.len as iptr;
       let buf: i8* = null;
       if (s.parent != null) {
         let parent = s.parent->kind as TypeKind::Union*;
-        let parentLen = parent->tag.len as i64;
-        buf = malloc((len + parentLen + 10) as u64);
+        let parentLen = parent->tag.len as iptr;
+        buf = malloc((len + parentLen + 10) as uptr);
         sprintf(
             buf,
             "%%struct.%.*s.%.*s",
@@ -41,14 +41,14 @@ func convertType(type: Type*) -> const i8* {
             len,
             s.tag.location->data);
       } else {
-        buf = malloc((len + 10) as u64);
+        buf = malloc((len + 10) as uptr);
         sprintf(buf, "%%struct.%.*s", len, s.tag.location->data);
       }
       return buf;
 
     case TypeKind::Union as u:
-      let len = u.tag.len as i64;
-      let buf: i8* = malloc((len + 10) as u64);
+      let len = u.tag.len as iptr;
+      let buf: i8* = malloc((len + 10) as uptr);
       sprintf(buf, "%%union.%.*s", len, u.tag.location->data);
       return buf;
 

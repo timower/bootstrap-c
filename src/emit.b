@@ -100,8 +100,8 @@ func allocateRegistersBackwards(fn: Function*, state: EmitState*) {
 
   // Allocate mapping array
   state->instrToRegSize = maxInstrName + 1;
-  let size = (state->instrToRegSize * 4) as i64;
-  state->instrToReg = malloc(size as u64) as i32*;
+  let size = (state->instrToRegSize * 4) as iptr;
+  state->instrToReg = malloc(size as uptr) as i32*;
 
   // Initialize all mappings to -1 (unassigned)
   for (let i = 0; i < state->instrToRegSize; i = i + 1) {

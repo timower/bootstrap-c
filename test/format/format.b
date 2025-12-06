@@ -15,7 +15,7 @@ struct Foo {
 
   // comment 3
   // comment 3
-  y: i64;  // comment 4
+  y: iptr;  // comment 4
   // comment 5
 }
 
@@ -23,7 +23,7 @@ union Bar {
   Void {}
 
   X {
-    y: i32;
+    y: uptr;
   }
 }
 

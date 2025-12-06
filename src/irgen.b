@@ -62,8 +62,8 @@ func genModule(decls: DeclAST*, target: Target) -> Module {
 func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
   // TODO: dedup
   let ident = decl->name;
-  let len = ident.len as i64;
-  let buf: i8* = malloc((len + 2) as u64);
+  let len = ident.len as iptr;
+  let buf: i8* = malloc((len + 2) as uptr);
   sprintf(buf, "@%.*s", len, ident.location->data);
 
   let global = newGlobal();
@@ -91,8 +91,8 @@ func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
 
 func addFunc(state: IRGenState*, decl: DeclAST*) -> Value {
   let ident = decl->name;
-  let len = ident.len as i64;
-  let buf: i8* = malloc((len + 2) as u64);
+  let len = ident.len as iptr;
+  let buf: i8* = malloc((len + 2) as uptr);
   sprintf(buf, "@%.*s", len, ident.location->data);
 
   let fn = newFunction();

@@ -97,14 +97,14 @@ func getName(value: Value) -> i8* {
 
     case Value::StrConstant as s:
       let tok = s.value;
-      let len = tok.len as i64;
+      let len = tok.len as iptr;
       let data = tok.location->data;
-      let val: i8* = malloc((len + 16) as u64);
+      let val: i8* = malloc((len + 16) as uptr);
 
       let cur = val;
       cur += sprintf(val, "c\"");      // %.*s\\00\"", len, tok.data);
 
-      for (let i: i64 = 0; i < len; i++) {
+      for (let i: iptr = 0; i < len; i++) {
         let val = *(data + i);
         if (val == 92) {
           let c = getEscaped(*(data + ++i));
@@ -117,7 +117,7 @@ func getName(value: Value) -> i8* {
       return val;
 
     case Value::ArrayConstant as a:
-      let buf: i8* = malloc((64 * a.size as i64) as u64);
+      let buf: i8* = malloc((64 * a.size as iptr) as uptr);
       let res = buf;
 
       buf += sprintf(buf, "[ ");

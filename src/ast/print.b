@@ -57,7 +57,9 @@ func printTypeSub(type: Type*) -> TypeKind::Func* {
 
   switch (type->kind) {
     case TypeKind::Int as int:
-      if (int.isSigned) {
+      if (int.isPtr) {
+        fprintf(printFile, "%cptr", int.isSigned ? 'i' : 'u');
+      } else if (int.isSigned) {
         fprintf(printFile, "i%d", int.size);
       } else {
         fprintf(printFile, "u%d", int.size);

@@ -49,7 +49,7 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Array as arrayExpr:
       let arrayType = expr->type->kind as TypeKind::Array*;
       let size = arrayType->size as u32;
-      let values = calloc(size as u64, sizeof(union Value)) as Value*;
+      let values = calloc(size as uptr, sizeof(union Value)) as Value*;
 
       let i = 0;
       for (let field = arrayExpr.elements; field != null; field = field->next, i++) {
@@ -679,7 +679,7 @@ func genStructExpr(state: IRGenState*, expr: ExprAST*) -> Value {
 
 func genCall(state: IRGenState*, expr: ExprAST*) -> Value {
   let callExpr = expr->kind as ExprKind::Call*;
-  let numArgs = 0 as u64;
+  let numArgs = 0 as uptr;
   for (let arg = callExpr->args; arg != null; arg = arg->next) {
     numArgs++;
   }

@@ -15,6 +15,7 @@ union TypeKind {
   Int {
     size: i32;
     isSigned: bool;
+    isPtr: bool;
   }
   Enum {
     tag: Token;
@@ -345,6 +346,7 @@ func getIPtr(target: Target*) -> Type* {
   return newType(TypeKind::Int {
     size = getIntSize(target),
     isSigned = true,
+    isPtr = true,
   });
 }
 
@@ -352,6 +354,7 @@ func getUPtr(target: Target*) -> Type* {
   return newType(TypeKind::Int {
     size = getIntSize(target),
     isSigned = false,
+    isPtr = true,
   });
 }
 
