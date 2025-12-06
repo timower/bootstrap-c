@@ -55,7 +55,7 @@ TODO
 
  - [x] No semicolons for decls.
 
- - [ ] Add target pointer size, Add iptr and uptr types.
+ - [x] Add target pointer size, Add iptr and uptr types.
 
  - [ ] Generic functions.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`

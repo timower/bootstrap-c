@@ -19,11 +19,7 @@
   binutils,
 }:
 let
-  targettriple = stdenv.hostPlatform.config;
-
-  # Default is posix, special case for windows & darwin.
-  windowsFlag = lib.optionalString stdenv.hostPlatform.isWindows "-target windows";
-  darwinFlag = lib.optionalString stdenv.hostPlatform.isDarwin "-target darwin";
+  targetTriple = stdenv.hostPlatform.config;
 
   # Hack stolen from lix.
   # See https://github.com/NixOS/nixpkgs/issues/177129
@@ -69,10 +65,7 @@ llvmPackages_19.stdenv.mkDerivation {
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
   ASAN_OPTIONS = "detect_leaks=0";
 
-  LLCFLAGS = "--mtriple=${targettriple}";
-  # LDFLAGS = "";
-
-  BOOTSTRAP_FLAGS = windowsFlag + darwinFlag;
+  BOOTSTRAP_FLAGS = "-target ${targetTriple}";
 
   preConfigure = ''
     export GOCACHE="$TMPDIR/go-cache"

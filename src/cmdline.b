@@ -69,7 +69,7 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
     inputFile = null,
     outputFile = null,
     outputKind = OutputKind::LLVM,
-    target = parseTriple("x86_64-unknown-linux-gnu"),
+    target = parseTriple(&_TARGET_),
     mode = Mode::Compile,
     inPlace = false,
     readFromStdin = false,

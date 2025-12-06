@@ -61,9 +61,9 @@ mutated: $(BUILD_DIR)/mutated.o ## Build mutated version for testing
 
 bootstrap-coverage: bootstrap ## Build bootstrap with coverage instrumentation
 	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) | \
-	opt --mtriple $(TRIPLE) -S -p simplifycfg -o $(BUILD_DIR)/coverage.ll
+	  opt -S -p simplifycfg -o $(BUILD_DIR)/coverage.ll
 	opt -S $(BUILD_DIR)/coverage.ll -p pgo-instr-gen,instrprof | \
-	clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
+	  clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
 
 .PHONY: test
 test: format-check lit-coverage lit-stage2 lit-mutate ## Run all tests (format check + lit tests)
@@ -88,8 +88,8 @@ lit-coverage: bootstrap-coverage ## Run tests with coverage analysis
 	rm -f $(BUILD_DIR)/coverage/*
 	env BOOTSTRAP=$< lit -v test/
 	llvm-profdata merge -o $(BUILD_DIR)/coverage/merged.profdata $(BUILD_DIR)/coverage
-	opt --mtriple $(TRIPLE) -p pgo-instr-use -o /dev/null \
-		$(BUILD_DIR)/coverage.ll -pgo-test-profile-file=$(BUILD_DIR)/coverage/merged.profdata \
+	opt -p pgo-instr-use -o /dev/null $(BUILD_DIR)/coverage.ll \
+		-pgo-test-profile-file=$(BUILD_DIR)/coverage/merged.profdata \
 		-pgo-view-raw-counts=text 2> $(BUILD_DIR)/coverage/coverage.txt
 	python3 ./test/parse_coverage.py $(BUILD_DIR)/coverage/coverage.txt
 
