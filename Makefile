@@ -2,7 +2,9 @@ CC ?= clang
 CFLAGS ?= -g -Wall
 LDFLAGS ?= -fsanitize=address
 
-LLCFLAGS ?= -O0 --frame-pointer=all --relocation-model=pic -filetype=obj
+OPTLEVEL ?= -O0
+LLCBASEFLAGS ?= --frame-pointer=all --relocation-model=pic -filetype=obj
+LLCFLAGS ?=
 
 # Auto-detect platform and set appropriate target
 UNAME_S := $(shell uname -s)
@@ -39,7 +41,7 @@ MAIN_SRC = src/bootstrap.b
 OBJ = $(BUILD_DIR)/bootstrap.o
 
 .PHONY: all
-all: bootstrap lsp ## Build the main bootstrap and lsp
+all: bootstrap ## Build the main bootstrap compiler
 
 .PHONY: help
 help: ## Show this help message
@@ -130,7 +132,7 @@ $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
 	./bootstrap $(BOOTSTRAP_FLAGS) $< -o $@
 
 %.o: %.ll
-	llc $(LLCFLAGS) $< -o $@
+	llc $(OPTLEVEL) $(LLCBASEFLAGS) $(LLCFLAGS) $< -o $@
 
 $(BUILD_DIR)/bootstrap.ll: $(PARENT_STAGE) $(ALL_SRC)
 	$(PARENT_STAGE) $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@

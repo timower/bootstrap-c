@@ -55,6 +55,8 @@ TODO
 
  - [x] No semicolons for decls.
 
+ - [ ] Add target pointer size, Add iptr and uptr types.
+
  - [ ] Generic functions.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
  - [ ] `is[T, U](union: U*) -> bool` function.
@@ -80,7 +82,6 @@ TODO
  - [ ] Add references?
  - [ ] Actual constant expressions and decls.
  - [ ] Correctly padded structs.
- - [ ] Add target pointer size, Add iptr and uptr types.
  - [ ] continue statement.
  - [ ] x86_64 backend
 

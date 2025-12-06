@@ -15,6 +15,8 @@
   qemu-user,
   go,
   gopls,
+
+  binutils,
 }:
 let
   targettriple = stdenv.hostPlatform.config;
@@ -22,21 +24,37 @@ let
   # Default is posix, special case for windows & darwin.
   windowsFlag = lib.optionalString stdenv.hostPlatform.isWindows "-target windows";
   darwinFlag = lib.optionalString stdenv.hostPlatform.isDarwin "-target darwin";
+
+  # Hack stolen from lix.
+  # See https://github.com/NixOS/nixpkgs/issues/177129
+  empty-libgcc_eh = stdenv.mkDerivation {
+    pname = "empty-libgcc_eh";
+    version = "0";
+    dontUnpack = true;
+    installPhase = ''
+      mkdir -p "$out"/lib
+      "${binutils}"/bin/ar r "$out"/lib/libgcc_eh.a
+    '';
+  };
 in
 llvmPackages_19.stdenv.mkDerivation {
   pname = "bootstrap";
   version = bootstrap_rev;
 
   src = ./.;
-  nativeBuildInputs =
-    [
-      llvmPackages_19.llvm
-      parent-bootstrap
-    ]
-    ++ lib.optionals enable_lsp [
-      go
-      gopls
-    ];
+
+  propagatedBuildInputs = lib.optional stdenv.targetPlatform.isStatic empty-libgcc_eh;
+
+  nativeBuildInputs = [
+    llvmPackages_19.llvm
+    parent-bootstrap
+  ]
+  ++ lib.optionals enable_lsp [
+    go
+    gopls
+  ];
+
+  buildFlags = [ "all" ] ++ lib.optionals enable_lsp [ "lsp" ];
 
   nativeCheckInputs =
     lib.optionals (!stdenv.hostPlatform.isAarch64) [
@@ -50,7 +68,8 @@ llvmPackages_19.stdenv.mkDerivation {
 
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
   ASAN_OPTIONS = "detect_leaks=0";
-  # LLCFLAGS = "--mtriple=${targettriple} --relocation-model=pic -O0 -filetype=obj";
+
+  LLCFLAGS = "--mtriple=${targettriple}";
   # LDFLAGS = "";
 
   BOOTSTRAP_FLAGS = windowsFlag + darwinFlag;
@@ -62,6 +81,8 @@ llvmPackages_19.stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out/bin
     cp ./bootstrap $out/bin || cp ./bootstrap.exe $out/bin
+  ''
+  + lib.optionalString enable_lsp ''
     cp ./bootstrap-lsp/bootstrap-lsp $out/bin
   '';
 }

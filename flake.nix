@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
     bootstrap-parent = {
       url = "github:timower/bootstrap-c?ref=dev";
@@ -23,6 +23,7 @@
 
         pkgs-mingw = pkgs.pkgsCross.mingwW64.pkgs;
         pkgs-static = pkgs.pkgsStatic.pkgs;
+        pkgs-arm = pkgs.pkgsCross.armv7l-hf-multiplatform;
 
         parent-bootstrap = bootstrap-parent.packages.${system}.default;
         bootstrap_rev = self.shortRev or self.dirtyShortRev;
@@ -35,14 +36,23 @@
         });
       in
       {
-        packages.default = bootstrap;
+        packages = {
+          default = bootstrap;
 
-        packages.static = pkgs-static.callPackage ./bootstrap.nix {
-          inherit bootstrap_rev parent-bootstrap;
-        };
+          static = pkgs-static.callPackage ./bootstrap.nix {
+            inherit bootstrap_rev parent-bootstrap;
+            enable_lsp = false;
+          };
 
-        packages.cross-mingw64 = pkgs-mingw.callPackage ./bootstrap.nix {
-          inherit bootstrap_rev parent-bootstrap;
+          cross-arm = pkgs-arm.callPackage ./bootstrap.nix {
+            inherit bootstrap_rev parent-bootstrap;
+            enable_lsp = false;
+          };
+
+          cross-mingw64 = pkgs-mingw.callPackage ./bootstrap.nix {
+            inherit bootstrap_rev parent-bootstrap;
+            enable_lsp = false;
+          };
         };
 
         checks.bootstrap = bootstrap-checked;
