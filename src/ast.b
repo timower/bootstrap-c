@@ -1,6 +1,8 @@
 import libc;
 import ast.token;
 
+import target;
+
 struct Comment {
   location: SourceLoc*;
   value: Token;
@@ -339,18 +341,16 @@ func getBool() -> Type* {
   return newType(TypeKind::Bool {});
 }
 
-func getIPtr() -> Type* {
-  // TODO: target dependent
+func getIPtr(target: Target*) -> Type* {
   return newType(TypeKind::Int {
-    size = 64,
+    size = getIntSize(target),
     isSigned = true,
   });
 }
 
-func getUPtr() -> Type* {
-  // TODO: target dependent
+func getUPtr(target: Target*) -> Type* {
   return newType(TypeKind::Int {
-    size = 64,
+    size = getIntSize(target),
     isSigned = false,
   });
 }

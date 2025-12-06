@@ -2,6 +2,12 @@
 // RUN: not %bootstrap -target 2>&1 | FileCheck --check-prefix=NO-TARGET %s
 // RUN: not %bootstrap file1.b file2.b 2>&1 | FileCheck --check-prefix=MULTIPLE %s
 // RUN: not %bootstrap | FileCheck %s --check-prefix=NO-INPUT
+//
+// RUN: not %bootstrap -target arm32-unknonw-linux-gnu 2>&1 | grep 'Failed to parse arch'
+// RUN: not %bootstrap -target armv7l 2>&1 | grep 'Expected -'
+// RUN: not %bootstrap -target armv7l-fooo-gnu 2>&1 | grep 'Failed to parse platform'
+// RUN: not %bootstrap -target armv7l-w64-gnul 2>&1 | grep 'Failed to parse abi'
+//
 // RUN: echo 'func main' | not %bootstrap -sema - 2>&1 | FileCheck --check-prefix=FAIL-SEMA %s
 //
 // Test command line argument parsing errors

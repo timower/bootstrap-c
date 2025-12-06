@@ -10,6 +10,8 @@ let outFile: void* = null;
 
 // Prints the IR in llvm IR format.
 func printModule(module: Module*) {
+  fprintf(outFile, "target triple = \"%s\"\n\n", module->target.triple);
+
   for (let type = module->types; type != null; type = type->next) {
     printStruct(type);
   }

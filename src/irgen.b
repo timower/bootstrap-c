@@ -6,8 +6,10 @@ import irgen.state;
 import irgen.expr;
 import irgen.stmt;
 
-func genModule(decls: DeclAST*) -> Module {
+func genModule(decls: DeclAST*, target: Target) -> Module {
   let state = IRGenState {};
+  state.module.target = target;
+
   newScope(&state);
   createIntrinsics(&state);
 

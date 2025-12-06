@@ -1,6 +1,9 @@
 import libc;
 import debug;
 
+import target;
+import target.parse;
+
 enum OutputKind {
   LLVM,
   Asm,
@@ -23,8 +26,8 @@ struct CommandLineArgs {
   // defaults to LLVM.
   outputKind: OutputKind;
 
-  // Posix or windows for now.
-  target: i8*;
+  // Parsed target triple.
+  target: Target;
 
   // defaults to Compile.
   mode: Mode;
@@ -61,11 +64,12 @@ func usage() {
 }
 
 func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
+  // TODO: _TARGET_
   let args = CommandLineArgs {
     inputFile = null,
     outputFile = null,
     outputKind = OutputKind::LLVM,
-    target = "posix",
+    target = parseTriple("x86_64-unknown-linux-gnu"),
     mode = Mode::Compile,
     inPlace = false,
     readFromStdin = false,
@@ -89,7 +93,7 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
         puts("Expected target after -target");
         usage();
       }
-      args.target = *(argv + i + 1);
+      args.target = parseTriple(*(argv + i + 1));
       i++;
     } else if (strcmp(arg, "-debug") == 0) {
       debugMode = true;

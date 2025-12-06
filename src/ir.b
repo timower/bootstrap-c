@@ -1,6 +1,7 @@
 import ast;
 
 struct Module {
+  target: Target;
   types: IRStruct*;
   globals: Global*;
   functions: Function*;

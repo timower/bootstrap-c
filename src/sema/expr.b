@@ -371,7 +371,7 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
           failSemaExpr(state, expr, "Only char pointer subtract supported");
         }
 
-        expr->type = getIPtr();
+        expr->type = getIPtr(&state->target);
         return;
       }
       if (lhsTypePtr != null && rhsTypeInt != null) {
@@ -735,7 +735,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       expr->kind = ExprKind::Int {
         value = sizeofExpr.value,
       };
-      expr->type = getUPtr();
+      expr->type = getUPtr(&state->target);
 
     case ExprKind::Cast as castExpr:
       semaExpr(state, castExpr.expr);

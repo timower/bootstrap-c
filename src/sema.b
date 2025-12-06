@@ -105,7 +105,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   let cacheKey: i8* = malloc(512);
   let rootFile = strdup(decl->location->fileName);
   let rootDir = dirname(rootFile);
-  sprintf(cacheKey, "%s:%.*s:%s", rootDir, name.len, name.location->data, state->target);
+  sprintf(cacheKey, "%s:%.*s", rootDir, name.len, name.location->data);
 
   // Check cache first for the resolved absolute path
   let cachedAbsPath = findCachedPath(state, cacheKey);
@@ -132,7 +132,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
           rootDir,
           name.len,
           name.location->data,
-          state->target);
+          getImportName(&state->target));
       if (access(relPath, F_OK) == 0) {
         absPath = realpath(relPath, null);
         break;
@@ -143,6 +143,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
       // Check if 'rootDir' == '/'
       if (strcmp(lastDir, rootDir) == 0) {
         failSemaDecl(state, decl, "Couldn't find file");
+        return;
       }
 
       lastDir = strdup(rootDir);

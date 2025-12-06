@@ -3,6 +3,8 @@ import ast.print;
 
 import generics;
 
+import target;
+
 struct ImportList {
   name: i8*;
   next: ImportList*;
@@ -16,7 +18,7 @@ struct PathCache {
 
 
 struct SemaState {
-  target: i8*;
+  target: Target;
 
   parent: SemaState*;
 
@@ -102,15 +104,16 @@ func getRoot(state: SemaState*) -> SemaState* {
   return state;
 }
 
-func getNullDecl(name: i8*) -> DeclAST* {
+func getNullDecl() -> DeclAST* {
   let nullTok = newInternalToken(4);
   nullTok.len = 4;
   memcpy(nullTok.location->data, "null", 4);
 
   // Add null as a nullptr
-  let nullDecl = newDecl(DeclKind::EnumField {});
+  let nullDecl = newDecl(DeclKind::EnumField {
+    enumValue = 0,
+  });
   nullDecl->name = nullTok;
-  (&nullDecl->kind as DeclKind::EnumField*)->enumValue = 0;
   nullDecl->type = newType(TypeKind::Pointer {
     pointee = newType(TypeKind::Void {}),
   });
@@ -118,12 +121,45 @@ func getNullDecl(name: i8*) -> DeclAST* {
   return nullDecl;
 }
 
-func initSemaState(target: i8*, lspMode: bool) -> SemaState {
-  let nullDecl = getNullDecl("null");
+func getTargetDecl(target: Target*) -> DeclAST* {
+  let targetTok = newInternalToken(8);
+  targetTok.len = 8;
+  memcpy(targetTok.location->data, "_TARGET_", 8);
+
+  let tripleLen = strlen(target->triple);
+  let initVal = newInternalToken(tripleLen);
+  initVal.len = tripleLen as i32;
+  memcpy(initVal.location->data, target->triple, tripleLen);
+
+  let init = newExpr(ExprKind::Str {
+    identifier = initVal,
+  });
+  init->type = newType(TypeKind::Array {
+    element = getCharType(),
+    size = tripleLen as i32 + 1,
+  });
+
+  let decl = newDecl(DeclKind::Var {
+    init = init,
+  });
+  decl->type = init->type;
+  decl->name = targetTok;
+
+  return decl;
+}
+
+func initSemaState(target: Target, lspMode: bool) -> SemaState {
+  let nullDecl = getNullDecl();
+  let targetDecl = getTargetDecl(&target);
+
+  let locals = newDeclList(nullDecl);
+  locals->next = newDeclList(targetDecl);
+
   return SemaState {
     target = target,
-    locals = newDeclList(nullDecl),
+    locals = locals,
     semaLspMode = lspMode,
+    extraDecls = targetDecl,
   };
 }
 

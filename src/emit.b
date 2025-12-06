@@ -1,5 +1,7 @@
-import ir;
 import libc;
+import target;
+
+import ir;
 import ir.print;
 
 struct EmitState {
@@ -164,8 +166,8 @@ func markAsLive(val: Value, state: EmitState*) {
   }
 }
 
-func emitAsm(module: Module*, target: i8*) {
-  let useUnderscore = strcmp(target, "darwin") == 0;
+func emitAsm(module: Module*, target: Target) {
+  let useUnderscore = target.platform == Platform::Darwin;
   fprintf(outFile, ".text\n");
   if (useUnderscore) {
     fprintf(outFile, ".global _main\n");

@@ -63,6 +63,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   let parseOpts = ParseOptions {
+    target = args.target,
     concrete = (args.mode == Mode::Format),
   };
 
@@ -99,7 +100,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   debug("Begin irgen");
-  let module = genModule(decls);
+  let module = genModule(decls, args.target);
   debug("End irgen");
 
   outFile = getOutFile(args.outputFile);

@@ -598,6 +598,12 @@ func parseType(state: ParseState*) -> Type* {
       size = size,
       isSigned = isSigned,
     };
+  } else if (match(state, TokenKind::IPTR)) {
+    getNextToken(state);
+    type->kind = getIPtr(&state->options.target)->kind;
+  } else if (match(state, TokenKind::UPTR)) {
+    getNextToken(state);
+    type->kind = getUPtr(&state->options.target)->kind;
   } else if (match(state, TokenKind::VOID)) {
     getNextToken(state);
   } else if (match(state, TokenKind::BOOL)) {

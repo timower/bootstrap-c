@@ -24,6 +24,8 @@ enum TokenKind {
   WHILE,
   BREAK,
   UNION,
+  IPTR,
+  UPTR,
   VOID,
   BOOL,
   TRUE,
@@ -95,7 +97,7 @@ enum TokenKind {
 let tokens: const i8*[] = {
   "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
   "continue", "default", "extern", "sizeof", "typeof", "struct", "switch",
-  "return", "import", "const", "while", "break", "union", "void", "bool",
+  "return", "import", "const", "while", "break", "union", "iptr", "uptr", "void", "bool",
   "true", "false", "enum", "case", "else", "func", "for", "let", "if", "as",
   "<<=", ">>=", "...", "::", "->", "++", "--", "<<", ">>", "<=", ">=", "==",
   "!=", "&&", "||", "*=", "/=", "%=", "+=", "-=", "&=", "^=", "|=", ":[", ";",
