@@ -1,6 +1,6 @@
 CC ?= clang
 CFLAGS ?= -g -Wall
-LDFLAGS ?= -fsanitize=address
+LDFLAGS ?=
 
 OPTLEVEL ?= -O0
 LLCBASEFLAGS ?= --frame-pointer=all --relocation-model=pic -filetype=obj

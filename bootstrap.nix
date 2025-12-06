@@ -2,6 +2,7 @@
   # Arguments
   bootstrap_rev ? "dev",
   enable_lsp ? true,
+  asan ? false,
 
   # From inputs
   parent-bootstrap,
@@ -63,7 +64,9 @@ llvmPackages_19.stdenv.mkDerivation {
     ];
 
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
+
   ASAN_OPTIONS = "detect_leaks=0";
+  LD_FLAGS = lib.optionalString asan "-fsanitize=address";
 
   BOOTSTRAP_FLAGS = "-target ${targetTriple}";
 
