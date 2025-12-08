@@ -40,26 +40,26 @@ struct CommandLineArgs {
 }
 
 func usage() {
-  puts("Bootstrap Compiler");
-  puts("");
-  puts("Usage: bootstrap [OPTIONS] input.b");
-  puts("");
-  puts("OPTIONS:");
-  puts("  -o <file>           Write output to <file> (default: stdout)");
-  puts("  -emit-llvm          Emit LLVM IR (default)");
-  puts("  -emit-asm           Emit assembly code");
-  puts("  -target <target>    Target platform (posix, windows, darwin)");
-  puts("  -format             Format source code");
-  puts("  -sema               Run semantic analysis only");
-  puts("  -i                  Format in-place (use with -format)");
-  puts("  -stdin-filename <f> Set filename when reading from stdin");
-  puts("  -debug              Enable debug mode");
-  puts("  -                   Read from stdin");
-  puts("");
-  puts("Examples:");
-  puts("  bootstrap hello.b              # Compile to LLVM IR");
-  puts("  bootstrap -format -i hello.b   # Format file in-place");
-  puts("  bootstrap -sema hello.b        # Check syntax only");
+  printf("Bootstrap Compiler\n");
+  printf("\n");
+  printf("Usage: bootstrap [OPTIONS] input.b\n");
+  printf("\n");
+  printf("OPTIONS:\n");
+  printf("  -o <file>           Write output to <file> (default: stdout)\n");
+  printf("  -emit-llvm          Emit LLVM IR (default)\n");
+  printf("  -emit-asm           Emit assembly code\n");
+  printf("  -target <target>    Target platform (default: %s)\n", &_TARGET_);
+  printf("  -format             Format source code\n");
+  printf("  -sema               Run semantic analysis only\n");
+  printf("  -i                  Format in-place (use with -format)\n");
+  printf("  -stdin-filename <f> Set filename when reading from stdin\n");
+  printf("  -debug              Enable debug mode\n");
+  printf("  -                   Read from stdin\n");
+  printf("\n");
+  printf("Examples:\n");
+  printf("  bootstrap hello.b              # Compile to LLVM IR\n");
+  printf("  bootstrap -format -i hello.b   # Format file in-place\n");
+  printf("  bootstrap -sema hello.b        # Check syntax only\n");
   exit(1);
 }
 
