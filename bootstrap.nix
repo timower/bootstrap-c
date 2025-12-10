@@ -15,7 +15,6 @@
   pkgsCross,
   qemu-user,
   go,
-  gopls,
 
   binutils,
 }:
@@ -48,7 +47,6 @@ llvmPackages_19.stdenv.mkDerivation {
   ]
   ++ lib.optionals enable_lsp [
     go
-    gopls
   ];
 
   buildFlags = [ "all" ] ++ lib.optionals enable_lsp [ "lsp" ];

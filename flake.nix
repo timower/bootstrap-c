@@ -56,7 +56,14 @@
         };
 
         checks.bootstrap = bootstrap-checked;
-        devShells.default = bootstrap-checked;
+
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [ bootstrap-checked ];
+          packages = with pkgs; [ gopls ];
+          shellHook = ''
+            export PARENT_STAGE="${nixpkgs.lib.getExe parent-bootstrap}"
+          '';
+        };
 
         # packages.parent = pkgs.stdenv.mkDerivation {
         #   pname = "bootstrap";
