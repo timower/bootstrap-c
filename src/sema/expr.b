@@ -855,6 +855,11 @@ func resolveTypeTags(state: SemaState*, type: Type*) {
       resolveTypeTags(state, f.result);
       resolveTypeTags(state, f.args);
 
+    case TypeKind::Int as i:
+      if (i.isPtr) {
+        i.size = getIntSize(&state->target);
+      }
+
     case TypeKind::Typeof as typeofType:
       semaExpr(state, typeofType.expr);
 

@@ -600,10 +600,18 @@ func parseType(state: ParseState*) -> Type* {
     };
   } else if (match(state, TokenKind::IPTR)) {
     getNextToken(state);
-    type->kind = getIPtr(&state->options.target)->kind;
+    type->kind = TypeKind::Int {
+      size = -1,
+      isSigned = true,
+      isPtr = true,
+    };
   } else if (match(state, TokenKind::UPTR)) {
     getNextToken(state);
-    type->kind = getUPtr(&state->options.target)->kind;
+    type->kind = TypeKind::Int {
+      size = -1,
+      isSigned = false,
+      isPtr = true,
+    };
   } else if (match(state, TokenKind::VOID)) {
     getNextToken(state);
   } else if (match(state, TokenKind::BOOL)) {

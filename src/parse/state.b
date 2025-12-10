@@ -2,8 +2,6 @@ import ast;
 import ast.print;
 
 struct ParseOptions {
-  target: Target;
-
   // If set to true, build a concere syntax tree,
   // preserving parens.
   concrete: bool;

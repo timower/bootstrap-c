@@ -63,7 +63,6 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   let parseOpts = ParseOptions {
-    target = args.target,
     concrete = (args.mode == Mode::Format),
   };
 
