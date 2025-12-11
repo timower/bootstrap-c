@@ -4,9 +4,13 @@ import target;
 import ir;
 import ir.print;
 
+const num_regs = 16;
+
+const temp_reg = 12;
+
 struct EmitState {
   // Register allocation state
-  usedRegs: bool[32];  // Track which registers are in use (w0-w31)
+  usedRegs: bool[16];  // Track which registers are in use (r0-r15)
 
   // Virtual register to physical register mapping
   instrToReg: i32*;  // Map instruction names to physical registers
@@ -15,14 +19,16 @@ struct EmitState {
 
 func initEmitState(state: EmitState*) {
   // Initialize register tracking
-  for (let i = 0; i < 32; i = i + 1) {
+  for (let i = 0; i < num_regs; i = i + 1) {
     state->usedRegs[i] = false;
   }
 
   // Reserve special-purpose registers
-  state->usedRegs[0] = true;  // w0 reserved for return values
-  state->usedRegs[29] = true;  // w29 reserved for frame pointer
-  state->usedRegs[30] = true;  // w30 reserved for link register
+  state->usedRegs[0] = true;  // r0 reserved for return values
+  state->usedRegs[12] = true;  // r14 reserved for ip
+  state->usedRegs[13] = true;  // r14 reserved for sp
+  state->usedRegs[14] = true;  // r14 reserved for lr
+  state->usedRegs[15] = true;  // r15 reserved for pc
 
   // Initialize mapping arrays
   state->instrToReg = null;
@@ -77,7 +83,7 @@ func getPhysicalReg(instrName: i32, state: EmitState*) -> i32 {
 func allocateNextRegister(state: EmitState*) -> i32 {
   // Scan usedRegs array to find first available register
   // Starts from one as x0 is always reserved.
-  for (let reg = 1; reg < 32; reg = reg + 1) {
+  for (let reg = 1; reg < num_regs; reg = reg + 1) {
     if (!state->usedRegs[reg]) {
       state->usedRegs[reg] = true;
       return reg;
@@ -168,6 +174,8 @@ func markAsLive(val: Value, state: EmitState*) {
 
 func emitAsm(module: Module*, target: Target) {
   let useUnderscore = target.platform == Platform::Darwin;
+  fprintf(outFile, ".arch armv7-a\n");
+  fprintf(outFile, ".arch_extension idiv\n");
   fprintf(outFile, ".text\n");
   if (useUnderscore) {
     fprintf(outFile, ".global _main\n");
@@ -201,7 +209,6 @@ func emitFunction(fn: Function*, useUnderscore: bool) {
   for (let bb = fn->begin; bb != null; bb = bb->next) {
     emitBasicBlock(bb, &state);
   }
-  // TODO: Clean up instrToReg allocation when free() is available
 }
 
 func emitBasicBlock(bb: BasicBlock*, state: EmitState*) {
@@ -215,12 +222,12 @@ func emitInstruction(instr: Instruction*, state: EmitState*) {
     case InstrKind::Binary as b:
       emitBinaryOp(instr, b, state);
     case InstrKind::Return as r:
-      fprintf(outFile, "  mov w0, ");
+      fprintf(outFile, "  mov r0, ");
       emitValue(r.val, state);
       fprintf(outFile, "\n");
-      fprintf(outFile, "  ret\n");
+      fprintf(outFile, "  bx lr\n");
     case InstrKind::ReturnVoid:
-      fprintf(outFile, "  ret\n");
+      fprintf(outFile, "  bx lr\n");
 
     default:
       // TODO: handle other instructions
@@ -257,36 +264,34 @@ func emitBinaryOp(instr: Instruction*, b: InstrKind::Binary, state: EmitState*) 
 
   if (bothImmediate) {
     // Load first operand into destination register, keep second as immediate if supported
-    fprintf(outFile, "  mov w%d, ", destReg);
+    fprintf(outFile, "  mov r%d, ", destReg);
     emitValue(b.lhs, state);
     fprintf(outFile, "\n");
 
     if (supportsImmediate) {
       // Can use immediate for second operand
-      fprintf(outFile, "  %s w%d, w%d, ", opStr, destReg, destReg);
+      fprintf(outFile, "  %s r%d, r%d, ", opStr, destReg, destReg);
       emitValue(b.rhs, state);
       fprintf(outFile, "\n");
     } else {
       // Need to load second operand into a temp register
       // For now, use a hardcoded temp register - this should be improved
-      let tempReg = 28;      // Use w28 as temp (should be available)
-      fprintf(outFile, "  mov w%d, ", tempReg);
+      fprintf(outFile, "  mov r%d, ", temp_reg);
       emitValue(b.rhs, state);
       fprintf(outFile, "\n");
-      fprintf(outFile, "  %s w%d, w%d, w%d\n", opStr, destReg, destReg, tempReg);
+      fprintf(outFile, "  %s r%d, r%d, r%d\n", opStr, destReg, destReg, temp_reg);
     }
   } else if (rhsImmediateUnsupported) {
     // First operand is register, second is immediate but not supported
-    let tempReg = 28;    // Use w28 as temp
-    fprintf(outFile, "  mov w%d, ", tempReg);
+    fprintf(outFile, "  mov r%d, ", temp_reg);
     emitValue(b.rhs, state);
     fprintf(outFile, "\n");
-    fprintf(outFile, "  %s w%d, ", opStr, destReg);
+    fprintf(outFile, "  %s r%d, ", opStr, destReg);
     emitValue(b.lhs, state);
-    fprintf(outFile, ", w%d\n", tempReg);
+    fprintf(outFile, ", r%d\n", temp_reg);
   } else {
     // Normal case: opStr w<dest>, <lhs>, <rhs>
-    fprintf(outFile, "  %s w%d, ", opStr, destReg);
+    fprintf(outFile, "  %s r%d, ", opStr, destReg);
     emitValue(b.lhs, state);
     fprintf(outFile, ", ");
     emitValue(b.rhs, state);
@@ -309,7 +314,7 @@ func emitValue(val: Value, state: EmitState*) {
       fprintf(outFile, "#%d", i.value);
     case Value::InstrPtr as p:
       let reg = getPhysicalReg((p.ptr)->name, state);
-      fprintf(outFile, "w%d", reg);
+      fprintf(outFile, "r%d", reg);
     case Value::Zero:
       fprintf(outFile, "#0");
     default:

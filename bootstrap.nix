@@ -54,7 +54,7 @@ llvmPackages_19.stdenv.mkDerivation {
   nativeCheckInputs =
     lib.optionals (!stdenv.hostPlatform.isDarwin) [
       qemu-user
-      pkgsCross.aarch64-multiplatform.buildPackages.gcc
+      pkgsCross.armv7l-hf-multiplatform.buildPackages.gcc
     ]
     ++ [
       lit
