@@ -59,7 +59,11 @@
 
         devShells.default = pkgs.mkShell {
           inputsFrom = [ bootstrap-checked ];
-          packages = with pkgs; [ gopls ];
+          packages = with pkgs; [
+            gopls
+            tree-sitter
+            nodejs
+          ];
           shellHook = ''
             export PARENT_STAGE="${nixpkgs.lib.getExe parent-bootstrap}"
           '';
