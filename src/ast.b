@@ -47,6 +47,9 @@ union TypeKind {
   Typeof {
     expr: ExprAST*;
   }
+  Slice {
+    element: Type*;
+  }
 }
 
 struct Type {
@@ -103,6 +106,11 @@ union ExprKind {
   Index {
     array: ExprAST*;
     index: ExprAST*;
+  }
+  SliceIndex {
+    slice: ExprAST*;
+    start: ExprAST*;
+    end: ExprAST*;
   }
   Member {
     object: ExprAST*;
@@ -433,6 +441,7 @@ func getExprPrecedence(expr: ExprAST*) -> i32 {
     case ExprKind::Call,
          ExprKind::GenericInstantiation,
          ExprKind::Index,
+         ExprKind::SliceIndex,
          ExprKind::Member,
          ExprKind::Struct,
          ExprKind::Array:

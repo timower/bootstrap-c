@@ -489,26 +489,36 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
     case ExprKind::Member as memberExpr:
       semaExpr(state, memberExpr.object);
 
-      let structDecl = null;
+      let objectType: Type* = null;
       if (memberExpr.op.kind == TokenKind::PTR_OP) {
         let ptrType = memberExpr.object->type->kind as TypeKind::Pointer*;
-        let structType = ptrType == null
-             ? null as TypeKind::Struct*
-             : ptrType->pointee->kind as TypeKind::Struct*;
-        if (structType == null) {
-          failSemaExpr(state, expr, ": Expected pointer to struct type for -> expr");
+        if (ptrType == null) {
+          failSemaExpr(state, expr, "Expected pointer for ->");
         }
-        structDecl = lookupStruct(state, structType);
+        objectType = ptrType->pointee;
       } else if (memberExpr.op.kind == TokenKind::DOT) {
-        let structType = memberExpr.object->type->kind as TypeKind::Struct*;
-        if (structType == null) {
-          failSemaExpr(state, expr, "Expected struct type for . expr");
-        }
-        structDecl = lookupStruct(state, structType);
+        objectType = memberExpr.object->type;
       } else {
         failSemaExpr(state, expr, "Unknown member op");
       }
 
+      if (let sliceType = objectType->kind as TypeKind::Slice*) {
+        if (!tokCmpStr(memberExpr.identifier, "len")) {
+          failSemaExpr(state, expr, " Only 'len' member supported");
+        }
+
+        // (ptr, len) so index 1
+        memberExpr.fieldIndex = 1;
+        expr->type = getInt32();
+        return;
+      }
+
+      let structType = objectType->kind as TypeKind::Struct*;
+      if (structType == null) {
+        failSemaExpr(state, expr, ": Expected struct type for member access");
+      }
+
+      let structDecl = lookupStruct(state, structType);
       if (structDecl == null) {
         failSemaExpr(state, expr, "Unknown type for member expression");
       }
@@ -672,30 +682,50 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
     case ExprKind::Index as indexExpr:
       semaExpr(state, indexExpr.array);
 
-      let ptrToArray = getPointerToArray(indexExpr.array->type);
-      if (ptrToArray != null) {
-        // auto insert deref to turn expr into an array.
-        let derefExpr = newExpr(ExprKind::Unary {
-          op = Token {
-            kind = TokenKind::STAR,
-          },
-          prefix = indexExpr.array,
-        });
-        derefExpr->type = newType(*ptrToArray);
-
-        indexExpr.array = derefExpr;
-      }
-
-      let array = indexExpr.array->type->kind as TypeKind::Array*;
-      if (array == null) {
-        failSemaExpr(state, expr, " Index only works on arrays, or pointers to them.");
+      let elementType: Type* = null;
+      switch (indexExpr.array->type->kind) {
+        case TypeKind::Array as a:
+          elementType = a.element;
+        case TypeKind::Slice as s:
+          elementType = s.element;
+        default:
+          failSemaExpr(state, expr, " Index only works on arrays, or pointers to them.");
       }
 
       semaExpr(state, indexExpr.index);
       if (indexExpr.index->type->kind as TypeKind::Int* == null) {
         failSemaExpr(state, expr, "Can't index with non integer");
       }
-      expr->type = array->element;
+      expr->type = elementType;
+
+    case ExprKind::SliceIndex as slice:
+      semaExpr(state, slice.slice);
+      let elementType: Type* = null;
+      switch (slice.slice->type->kind) {
+        case TypeKind::Array as a:
+          elementType = a.element;
+        case TypeKind::Slice as s:
+          elementType = s.element;
+        case TypeKind::Pointer as p:
+          elementType = p.pointee;
+        default:
+          failSemaExpr(state, expr, " Expected slice or array");
+      }
+      if (slice.start != null) {
+        semaExpr(state, slice.start);
+        if (slice.start->type->kind as TypeKind::Int* == null) {
+          failSemaExpr(state, expr, "Start expression must be integer");
+        }
+      }
+      if (slice.end != null) {
+        semaExpr(state, slice.end);
+        if (slice.end->type->kind as TypeKind::Int* == null) {
+          failSemaExpr(state, expr, "End expression must be integer");
+        }
+      }
+      expr->type = newType(TypeKind::Slice {
+        element = elementType,
+      });
 
     case ExprKind::Unary as unaryExpr:
       if (unaryExpr.op.kind == TokenKind::AND) {

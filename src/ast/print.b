@@ -102,6 +102,11 @@ func printTypeSub(type: Type*) -> TypeKind::Func* {
       fprintf(printFile, "typeof(");
       printExpr(typeofType.expr);
       fprintf(printFile, ")");
+
+    case TypeKind::Slice as s:
+      fprintf(printFile, "[");
+      printType(s.element);
+      fprintf(printFile, "]");
   }
 
   return res;
@@ -215,6 +220,19 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       fprintf(printFile, "[");
       printExprPrec(index.index, nextPrec, indent);
       fprintf(printFile, "]");
+
+    case ExprKind::SliceIndex as index:
+      printExprPrec(index.slice, curPrec, indent);
+      fprintf(printFile, "[");
+      if (index.start != null) {
+        printExprPrec(index.start, nextPrec, indent);
+      }
+      fprintf(printFile, ":");
+      if (index.end != null) {
+        printExprPrec(index.end, nextPrec, indent);
+      }
+      fprintf(printFile, "]");
+
     case ExprKind::Call as call:
       printExprPrec(call.function, curPrec, indent);
       fprintf(printFile, "(");
@@ -286,7 +304,8 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       fprintf(printFile, " : ");
       printExprPrec(cond.falseExpr, nextPrec, indent);
     case ExprKind::Array as array:
-      fprintf(printFile, "{");
+      let square = *expr->location->data == '[';
+      fprintf(printFile, square ? "[" : "{");
       let hasSplit = false;
       let lastLine = expr->location->line;
       for (let elem = array.elements; elem != null; elem = elem->next) {
@@ -310,7 +329,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       } else {
         fprintf(printFile, " ");
       }
-      fprintf(printFile, "}");
+      fprintf(printFile, square ? "]" : "}");
     case ExprKind::Struct as structExpr:
       if (structExpr.parent.kind != TokenKind::TOK_EOF) {
         printToken(structExpr.parent);

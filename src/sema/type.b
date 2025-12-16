@@ -28,6 +28,12 @@ func typeEq(one: Type*, two: Type*) -> bool {
       }
       return false;
 
+    case TypeKind::Slice as s1:
+      if (let s2 = two->kind as TypeKind::Slice*) {
+        return typeEq(s1.element, s2->element);
+      }
+      return false;
+
     case TypeKind::Struct as s1:
       if (let s2 = two->kind as TypeKind::Struct*) {
         if (s1.parent != null) {

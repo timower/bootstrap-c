@@ -111,7 +111,23 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
       }
 
     case ExprKind::Index as indexExpr:
-      let array = genAddr(state, indexExpr.array);
+      let array: Value = Value::Zero {};
+      switch (indexExpr.array->type->kind) {
+        case TypeKind::Slice:
+          let sliceVal = genExpr(state, indexExpr.array);
+          array = addInstr(state, getPtrType(), InstrKind::Load {
+            ptr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+              type = indexExpr.array->type,
+              ptr = sliceVal,
+              field = 0,
+            }),
+          });
+        case TypeKind::Array:
+          array = genAddr(state, indexExpr.array);
+        default:
+          failIRGen("Unsupported index array type");
+      }
+
       let index = genExpr(state, indexExpr.index);
       return addInstr(state, getPtrType(), InstrKind::ArrayGEP {
         type = expr->type,
@@ -177,6 +193,9 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
       let addr = genAddr(state, expr);
       return genLoad(state, addr, expr->type);
 
+    case ExprKind::SliceIndex as slice:
+      return genSliceIndex(state, expr);
+
     case ExprKind::Unary:
       return genUnary(state, expr);
 
@@ -241,6 +260,108 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
   }
 
   failIRGen("Invalid expr");
+}
+
+func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
+  let slice = expr->kind as ExprKind::SliceIndex*;
+
+  let sliceVal = genExpr(state, slice->slice);
+  let sliceType = expr->type;
+  let sliceKind = sliceType->kind as TypeKind::Slice*;
+
+  let alloc = addAlloca(state, sliceType);
+  let dataPtr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+    type = sliceType,
+    ptr = alloc,
+    field = 0,
+  });
+  let sizePtr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+    type = sliceType,
+    ptr = alloc,
+    field = 1,
+  });
+
+  let ptrVal: Value = Value::Zero {};
+  let sizeVal: Value = Value::Zero {};
+
+  switch (slice->slice->type->kind) {
+    case TypeKind::Array as a:
+      sizeVal = Value::IntConstant {
+        value = a.size,
+        type = getInt32(),
+      };
+      ptrVal = sliceVal;
+
+    case TypeKind::Pointer:
+      ptrVal = sliceVal;
+      sizeVal = Value::IntConstant {
+        value = 0,
+        type = getInt32(),
+      };
+
+    case TypeKind::Slice:
+      ptrVal = addInstr(state, getPtrType(), InstrKind::Load {
+        ptr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+          type = sliceType,
+          ptr = sliceVal,
+          field = 0,
+        }),
+      });
+      sizeVal = addInstr(state, getInt32(), InstrKind::Load {
+        ptr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+          type = sliceType,
+          ptr = sliceVal,
+          field = 1,
+        }),
+      });
+
+    default:
+      printType(slice->slice->type);
+      failIRGen("Unsupported slice index operation");
+  }
+
+  let startVal: Value = Value::IntConstant {
+    type = getInt32(),
+    value = 0,
+  };
+  if (slice->start != null) {
+    startVal = genExpr(state, slice->start);
+    ptrVal = addInstr(state, getPtrType(), InstrKind::ArrayGEP {
+      type = sliceKind->element,
+      ptr = ptrVal,
+      idx = startVal,
+    });
+  }
+
+  if (slice->end != null) {
+    let endVal = genExpr(state, slice->end);
+    if (slice->start != null) {
+      sizeVal = addInstr(state, slice->end->type, InstrKind::Binary {
+        op = BinaryOp::Sub,
+        lhs = endVal,
+        rhs = startVal,
+      });
+    } else {
+      sizeVal = endVal;
+    }
+  } else if (slice->start != null) {
+    sizeVal = addInstr(state, slice->start->type, InstrKind::Binary {
+      op = BinaryOp::Sub,
+      lhs = sizeVal,
+      rhs = startVal,
+    });
+  }
+
+  addInstr(state, null, InstrKind::Store {
+    ptr = dataPtr,
+    val = ptrVal,
+  });
+  addInstr(state, null, InstrKind::Store {
+    ptr = sizePtr,
+    val = sizeVal,
+  });
+
+  return alloc;
 }
 
 func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {

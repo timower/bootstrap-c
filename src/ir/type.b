@@ -1,8 +1,10 @@
 import ast;
 
 func isAggregate(type: Type*) -> bool {
+  // slice is a {ptr, i32} pair, so aggregate.
   return type->kind as TypeKind::Struct* != null
-      || type->kind as TypeKind::Union* != null;
+      || type->kind as TypeKind::Union* != null
+      || type->kind as TypeKind::Slice* != null;
 }
 
 
@@ -25,6 +27,9 @@ func convertType(type: Type*) -> const i8* {
 
     case TypeKind::Pointer:
       return "ptr";
+
+    case TypeKind::Slice as s:
+      return "{ ptr, i32 }";
 
     case TypeKind::Struct as s:
       let len = s.tag.len as iptr;

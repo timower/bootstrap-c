@@ -63,6 +63,11 @@ func substituteTypeWithMapping(type: Type*, mapping: TypeMap*) -> Type* {
         size = arr.size,
       };
 
+    case TypeKind::Slice as s:
+      result = TypeKind::Slice {
+        element = substituteTypeWithMapping(s.element, mapping),
+      };
+
     case TypeKind::Func as funcType:
       result = TypeKind::Func {
         result = substituteTypeWithMapping(funcType.result, mapping),
@@ -164,6 +169,14 @@ func monomorphizeExpr(expr: ExprAST*, typeMap: TypeMap*) -> ExprAST* {
         array = monomorphizeExpr(i.array, typeMap),
         index = monomorphizeExpr(i.index, typeMap),
       };
+
+    case ExprKind::SliceIndex as i:
+      resultKind = ExprKind::SliceIndex {
+        slice = monomorphizeExpr(i.slice, typeMap),
+        start = monomorphizeExpr(i.start, typeMap),
+        end = monomorphizeExpr(i.end, typeMap),
+      };
+
     case ExprKind::Member as m:
       resultKind = ExprKind::Member {
         object = monomorphizeExpr(m.object, typeMap),

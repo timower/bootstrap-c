@@ -198,10 +198,50 @@ func parsePrimary(state: ParseState*) -> ExprAST* {
 
 
 // index := lhs '[' expression ']'
+//        | lhs '[' expression? ':' expression? ']'
 func parseIndex(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
   let loc = getNextToken(state).location;  // eat [
 
+  if (match(state, TokenKind::COLON)) {
+    getNextToken(state);    // eat :
+
+    let end: ExprAST* = null;
+    if (!match(state, TokenKind::CLOSE_BRACKET)) {
+      end = parseExpression(state);
+    }
+    let expr = newLocExpr(loc, ExprKind::SliceIndex {
+      slice = lhs,
+      start = null,
+      end = end,
+    });
+
+    expect(state, TokenKind::CLOSE_BRACKET);
+    getNextToken(state);
+
+    return expr;
+  }
+
   let index = parseExpression(state);
+
+  if (match(state, TokenKind::COLON)) {
+    getNextToken(state);
+
+    let end: ExprAST* = null;
+    if (!match(state, TokenKind::CLOSE_BRACKET)) {
+      end = parseExpression(state);
+    }
+    let expr = newLocExpr(loc, ExprKind::SliceIndex {
+      slice = lhs,
+      start = index,
+      end = end,
+    });
+
+    expect(state, TokenKind::CLOSE_BRACKET);
+    getNextToken(state);
+
+    return expr;
+  }
+
   let expr = newLocExpr(loc, ExprKind::Index {
     array = lhs,
     index = index,
@@ -463,9 +503,12 @@ func parseExpression(state: ParseState*) -> ExprAST* {
 
 
 // struct DeclAST *parseNoInitDecl(state: ParseState*);
-// initializer := assignment | '{' assignment (',' assignment)* ','? '}'
+// initializer := assignment
+//             | '{' assignment (',' assignment)* ','? '}'
+//             | '[' assignment (',' assignment)* ','? ']'
 func parseInitializer(state: ParseState*) -> ExprAST* {
-  if (!match(state, TokenKind::OPEN_BRACE)) {
+  if (!match(state, TokenKind::OPEN_BRACE)
+      && !match(state, TokenKind::OPEN_BRACKET)) {
     return parseAssignment(state);
   }
 
@@ -488,7 +531,8 @@ func parseInitializer(state: ParseState*) -> ExprAST* {
     }
 
     // close without trailing comma
-    if (match(state, TokenKind::CLOSE_BRACE)) {
+    if (match(state, TokenKind::CLOSE_BRACE)
+        || match(state, TokenKind::CLOSE_BRACKET)) {
       break;
     }
 
@@ -496,7 +540,8 @@ func parseInitializer(state: ParseState*) -> ExprAST* {
     getNextToken(state);    // eat ,
 
     // close with trailing comma
-    if (match(state, TokenKind::CLOSE_BRACE)) {
+    if (match(state, TokenKind::CLOSE_BRACE)
+        || match(state, TokenKind::CLOSE_BRACKET)) {
       break;
     }
   }
@@ -665,6 +710,14 @@ func parseType(state: ParseState*) -> Type* {
       tagPtr->parent = tagPtr->tag;
       tagPtr->tag = getNextToken(state);
     }
+  } else if (match(state, TokenKind::OPEN_BRACKET)) {
+    getNextToken(state);
+    type->kind = TypeKind::Slice {
+      element = parseType(state),
+    };
+
+    expect(state, TokenKind::CLOSE_BRACKET);
+    getNextToken(state);    // eat ']'
   } else {
     failParse(state, "Unknown type");
     return null;
