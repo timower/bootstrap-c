@@ -52,7 +52,7 @@ llvmPackages_19.stdenv.mkDerivation {
   buildFlags = [ "all" ] ++ lib.optionals enable_lsp [ "lsp" ];
 
   nativeCheckInputs =
-    lib.optionals (!stdenv.hostPlatform.isAarch64) [
+    lib.optionals (!stdenv.hostPlatform.isDarwin) [
       qemu-user
       pkgsCross.aarch64-multiplatform.buildPackages.gcc
     ]
