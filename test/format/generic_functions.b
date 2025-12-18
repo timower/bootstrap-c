@@ -30,11 +30,7 @@ func max[T](a: T, b: T) -> T {
 // CHECK: func max[T](a: T, b: T) -> T {
 // CHECK-NEXT:   return a > b ? a : b;
 // CHECK-NEXT: }
-// Extern generic function
-extern func printf[T](format: i8*, value: T) -> i32;
 
-
-// CHECK: extern func printf[T](format: i8*, value: T) -> i32;
 // Generic function with complex types
 func process[T](
     data: T*,

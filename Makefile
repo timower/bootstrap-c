@@ -66,7 +66,7 @@ bootstrap-coverage: bootstrap ## Build bootstrap with coverage instrumentation
 	  clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
 
 .PHONY: test
-test: format-check lit-coverage lit-stage2 lit-mutate ## Run all tests (format check + lit tests)
+test: format-check lit-coverage lit-stage2 lit-mutate tree-sitter-check ## Run all tests (format check + lit tests)
 
 .PHONY: lit
 lit: bootstrap ## Run LLVM lit tests with current bootstrap compiler
@@ -110,6 +110,25 @@ format-check: bootstrap ## Check if all source files are properly formatted
 lsp: bootstrap-lsp/bootstrap-lsp ## Build the LSP server
 bootstrap-lsp/bootstrap-lsp: $(LSP_SRC)
 	cd bootstrap-lsp && go build
+
+.PHONY: tree-sitter tree-sitter-check
+tree-sitter: tree-sitter-bootstrap/bootstrap.so ## Regenerate the tree-sitter grammar
+tree-sitter-bootstrap/bootstrap.so: tree-sitter-bootstrap/grammar.js
+	cd tree-sitter-bootstrap && tree-sitter generate && make
+
+tree-sitter-check: tree-sitter ## Verify that all tests and sources parse
+	rm -rf test/**/Output
+	@find test/ -name '*.b' -not -path 'test/parsing/fail/*' | xargs -I{} sh -c \
+		'export HOME=$PWD/build; cd tree-sitter-bootstrap; \
+		 if ! tree-sitter parse ../{} > /dev/null 2>&1; then \
+			echo "File {} failed to parse"; exit 1; \
+		fi'
+	@echo "$(ALL_SRC)" | tr ' ' '\n' | xargs -I{} sh -c \
+		'export HOME=$PWD/build; cd tree-sitter-bootstrap; \
+		 if ! tree-sitter parse ../{} > /dev/null 2>&1; then \
+			echo "File {} failed to parse"; exit 1; \
+		fi'
+	@echo "All files parse with tree-sitter"
 
 
 .PHONY: clean

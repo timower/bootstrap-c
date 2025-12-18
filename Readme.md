@@ -71,7 +71,8 @@ TODO
 
 
  - [ ] Add slice type.
-    * syntax: `[i8]`
+    * syntax: slice: `[i8]`, array `i8[N]` or `i8[] = [1, 2]`
+
     * stored as `{ ptr: T*, len: isize }`
     * arrays become `[1, 2, 3]`
     * array to slice: `array[start:end]` start & end are optional

@@ -12,6 +12,8 @@ func add[T](a: T) -> T {
 }
 
 func main() -> i32 {
+  let test = add:[bool];
+
   // This should fail - trying to dereference a non-pointer
   let b = add:[bool](true);
 

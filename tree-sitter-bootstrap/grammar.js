@@ -11,8 +11,9 @@
 // TODO: update if needed?
 const PREC = {
   COMMA: -10,
-  ASSIGNMENT: -2,
-  CONDITIONAL: -1,
+  ASSIGNMENT: -3,
+  CONDITIONAL: -2,
+  LET: -4,
   DEFAULT: 0,
   LOGICAL_OR: 1,
   LOGICAL_AND: 2,
@@ -73,7 +74,7 @@ module.exports = grammar({
       ';'
     ),
 
-    import_decl: $ => seq('import', $.identifier, ';'),
+    import_decl: $ => seq('import', sep1($.identifier, '.'), ';'),
 
     _sub_struct: $ => seq(
       field('name', $._type_identifier),
@@ -129,13 +130,16 @@ module.exports = grammar({
 
     param_list: $ => seq(
       '(',
-      sep($.parameter, ','),
-      optional($.variadic_param),
+      choice(
+        seq(sep($.parameter, ','), optional($.variadic_param)),
+        '...'
+      ),
       ')',
     ),
 
-    generic_param_list: $ => seq(
-      '[',
+    generic_param_list: $ => seq('[', $._generic_params),
+
+    _generic_params: $ => seq(
       sep($.type, ','),
       ']',
     ),
@@ -237,6 +241,7 @@ module.exports = grammar({
         seq(choice('struct', 'union', 'enum'), $._type_identifier),
         $.function_type,
         $.typeof_type,
+        $.slice_type
       ),
       repeat(choice('*', $._array_decl))
     )),
@@ -247,8 +252,10 @@ module.exports = grammar({
       'func',
       repeat(choice('*', $._array_decl)),
       '(',
-      sep($.type, ','),
-      optional($.variadic_param),
+      choice(
+        seq(sep($.type, ','), optional($.variadic_param)),
+        '...'
+      ),
       ')',
       optional(seq('->', $.type))
     )),
@@ -260,7 +267,9 @@ module.exports = grammar({
       ')'
     ),
 
-    _number: $ => /[-+]?(0[xbo])?[0-9a-fA-F]+/,
+    slice_type: $ => seq('[', $.type, ']'),
+
+    _number: $ =>  choice(/[-+]?[0-9]+/, /0x[0-9a-fA-F]+/, /0o[0-7]+/, /0b[0-1]+/),
 
     primitive_type: $ => choice(
       ...[8, 16, 32, 64].map(n => `i${n}`),
@@ -291,6 +300,7 @@ module.exports = grammar({
       $.comma_expression,
       $.sizeof_expression,
       $.generic_expression,
+      $.new_array_expression,
     ),
 
     _assignment: $ => choice(
@@ -305,6 +315,13 @@ module.exports = grammar({
       '}',
     ),
 
+    new_array_expression: $ => seq(
+      '[',
+      sep($.expression, ','),
+      optional(','),
+      ']',
+    ),
+
     struct_expression: $ => seq(
       $._type_identifier,
       optional(seq('::', $._type_identifier)),
@@ -314,7 +331,7 @@ module.exports = grammar({
       '}'
     ),
 
-    generic_expression: $ => prec(PREC.GENERIC, seq($.identifier, ':', $.generic_param_list)),
+    generic_expression: $ => prec(PREC.GENERIC, seq($.identifier, ':[', $._generic_params)),
 
     field_expression: $ =>  seq($.identifier, '=', $.expression),
 
@@ -322,7 +339,15 @@ module.exports = grammar({
 
     paren_expression: $ => seq('(', $.expression, ')'),
 
-    index_expression: $ => prec(PREC.SUBSCRIPT, seq($.expression, '[', $.expression, ']')),
+    index_expression: $ => prec(PREC.SUBSCRIPT, seq(
+      $.expression,
+      '[',
+      choice(
+        $.expression,
+        seq(optional($.expression), ':', optional($.expression))
+      ),
+      ']')
+    ),
 
     call_expression: $ => prec(PREC.CALL, seq(
       field('function', $.expression),
@@ -385,13 +410,13 @@ module.exports = grammar({
       ')',
     ),
 
-    let_expression: $ => seq(
+    let_expression: $ => prec.right(PREC.LET, seq(
       choice('let', 'const'),
       $.identifier,
       optional(seq(':', $.type)),
       '=',
       $._assignment
-    ),
+    )),
 
     conditional_expression: $ => prec.right(PREC.CONDITIONAL, seq(
       $.expression,

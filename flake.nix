@@ -61,8 +61,6 @@
           inputsFrom = [ bootstrap-checked ];
           packages = with pkgs; [
             gopls
-            tree-sitter
-            nodejs
           ];
           shellHook = ''
             export PARENT_STAGE="${nixpkgs.lib.getExe parent-bootstrap}"

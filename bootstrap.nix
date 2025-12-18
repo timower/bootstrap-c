@@ -15,6 +15,8 @@
   pkgsCross,
   qemu-user,
   go,
+  tree-sitter,
+  nodejs,
 
   binutils,
 }:
@@ -59,6 +61,8 @@ llvmPackages_19.stdenv.mkDerivation {
     ++ [
       lit
       llvmPackages_19.clang
+      tree-sitter
+      nodejs
     ];
 
   PARENT_STAGE = "${parent-bootstrap}/bin/bootstrap";
