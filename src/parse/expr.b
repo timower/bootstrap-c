@@ -190,6 +190,9 @@ func parsePrimary(state: ParseState*) -> ExprAST* {
       return parseString(state);
     case TokenKind::OPEN_PAREN:
       return parseParen(state);
+    case TokenKind::OPEN_BRACKET:
+      return parseInitializer(state);
+
     default:
       printToken(state->curToken);
       failParse(state, "Unknow primary expression");
