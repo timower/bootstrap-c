@@ -107,7 +107,7 @@ func getRoot(state: SemaState*) -> SemaState* {
 func getNullDecl() -> DeclAST* {
   let nullTok = newInternalToken(4);
   nullTok.len = 4;
-  memcpy(nullTok.location->data, "null", 4);
+  memcpy(nullTok.data, "null", 4);
 
   // Add null as a nullptr
   let nullDecl = newDecl(DeclKind::EnumField {
@@ -124,12 +124,12 @@ func getNullDecl() -> DeclAST* {
 func getTargetDecl(target: Target*) -> DeclAST* {
   let targetTok = newInternalToken(8);
   targetTok.len = 8;
-  memcpy(targetTok.location->data, "_TARGET_", 8);
+  memcpy(targetTok.data, "_TARGET_", 8);
 
   let tripleLen = strlen(target->triple);
   let initVal = newInternalToken(tripleLen);
   initVal.len = tripleLen as i32;
-  memcpy(initVal.location->data, target->triple, tripleLen);
+  memcpy(initVal.data, target->triple, tripleLen);
 
   let init = newExpr(ExprKind::Str {
     identifier = initVal,
@@ -177,10 +177,10 @@ func addGenericInst(
 
   let newName = newInternalToken(128);
   newName.len = sprintf(
-      newName.location->data,
+      newName.data,
       "%.*s_%d",
       function->name.len,
-      function->name.location->data,
+      function->name.data,
       root->instanceCounter++);
   inst->name = newName;
 

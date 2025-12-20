@@ -60,7 +60,6 @@ func newLocation(state: ParseState*, start: i8*) -> SourceLoc* {
   state->currentSlab++;
   state->slabFree--;
 
-  result->data = start;
   result->column = (start - state->lineStart) as i32 + 1;
   result->line = state->line;
   result->fileName = state->fileName;
@@ -70,6 +69,7 @@ func newLocation(state: ParseState*, start: i8*) -> SourceLoc* {
 func makeToken(state: ParseState*, tokenStart: i8*) -> Token {
   return Token {
     location = newLocation(state, tokenStart),
+    data = tokenStart,
     len = (state->current - tokenStart) as i32,
   };
 }
@@ -259,7 +259,7 @@ func getNextToken(state: ParseState*) -> Token {
 }
 
 func parseInteger(state: ParseState*, token: Token) -> i32 {
-  let start = token.location->data;
+  let start = token.data;
   if (*start == '\'') {
     let next = *(start + 1);
     if (next == '\\') {
@@ -286,9 +286,9 @@ func parseInteger(state: ParseState*, token: Token) -> i32 {
     }
   }
 
-  let endp = token.location->data + token.len;
+  let endp = token.data + token.len;
   let num = strtol(start, &endp, base) as i32;
-  if (endp != token.location->data + token.len) {
+  if (endp != token.data + token.len) {
     failParse(state, "Invalid integer");
   }
   return num;

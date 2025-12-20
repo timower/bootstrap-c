@@ -64,7 +64,7 @@ func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
   let ident = decl->name;
   let len = ident.len as iptr;
   let buf: i8* = malloc((len + 2) as uptr);
-  sprintf(buf, "@%.*s", len, ident.location->data);
+  sprintf(buf, "@%.*s", len, ident.data);
 
   let global = newGlobal();
   global->name = buf;
@@ -93,7 +93,7 @@ func addFunc(state: IRGenState*, decl: DeclAST*) -> Value {
   let ident = decl->name;
   let len = ident.len as iptr;
   let buf: i8* = malloc((len + 2) as uptr);
-  sprintf(buf, "@%.*s", len, ident.location->data);
+  sprintf(buf, "@%.*s", len, ident.data);
 
   let fn = newFunction();
   fn->name = buf;

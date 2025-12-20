@@ -10,7 +10,7 @@ func printStr(start: i8*, len: i32) {
 }
 
 func printRawToken(token: Token) {
-  printStr(token.location->data, token.len);
+  printStr(token.data, token.len);
 }
 
 func printToken(token: Token) {
@@ -304,8 +304,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       fprintf(printFile, " : ");
       printExprPrec(cond.falseExpr, nextPrec, indent);
     case ExprKind::Array as array:
-      let square = *expr->location->data == '[';
-      fprintf(printFile, square ? "[" : "{");
+      fprintf(printFile, "[");
       let hasSplit = false;
       let lastLine = expr->location->line;
       for (let elem = array.elements; elem != null; elem = elem->next) {
@@ -329,7 +328,7 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
       } else {
         fprintf(printFile, " ");
       }
-      fprintf(printFile, square ? "]" : "}");
+      fprintf(printFile, "]");
     case ExprKind::Struct as structExpr:
       if (structExpr.parent.kind != TokenKind::TOK_EOF) {
         printToken(structExpr.parent);

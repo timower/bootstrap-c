@@ -42,19 +42,19 @@ func convertType(type: Type*) -> const i8* {
             buf,
             "%%struct.%.*s.%.*s",
             parentLen,
-            parent->tag.location->data,
+            parent->tag.data,
             len,
-            s.tag.location->data);
+            s.tag.data);
       } else {
         buf = malloc((len + 10) as uptr);
-        sprintf(buf, "%%struct.%.*s", len, s.tag.location->data);
+        sprintf(buf, "%%struct.%.*s", len, s.tag.data);
       }
       return buf;
 
     case TypeKind::Union as u:
       let len = u.tag.len as iptr;
       let buf: i8* = malloc((len + 10) as uptr);
-      sprintf(buf, "%%union.%.*s", len, u.tag.location->data);
+      sprintf(buf, "%%union.%.*s", len, u.tag.data);
       return buf;
 
     case TypeKind::Array as arr:

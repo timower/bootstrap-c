@@ -94,7 +94,7 @@ enum TokenKind {
   QUESTION,
 }
 
-let tokens: const i8*[] = {
+let tokens: const i8*[] = [
   "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
   "continue", "default", "extern", "sizeof", "typeof", "struct", "switch",
   "return", "import", "const", "while", "break", "union", "iptr", "uptr", "void", "bool",
@@ -103,10 +103,9 @@ let tokens: const i8*[] = {
   "!=", "&&", "||", "*=", "/=", "%=", "+=", "-=", "&=", "^=", "|=", ":[", ";",
   "{", "}", ",", ":", "=", "(", ")", "[", "]", ".", "&", "!", "~", "-", "+",
   "*", "/", "%", "<", ">", "^", "|", "?",
-};
+];
 
 struct SourceLoc {
-  data: i8*;
   fileName: i8*;
   line: i32;
   column: i32;
@@ -115,6 +114,7 @@ struct SourceLoc {
 
 struct Token {
   kind: TokenKind;
+  data: i8*;
   len: i32;
   location: SourceLoc*;
 }
@@ -128,9 +128,9 @@ const tokenCount = sizeof(typeof(tokens)) / sizeof(typeof(tokens[0]));
 
 let tokenHashes: TokenHashEntry[128];
 
-let intTypes: const i8*[] = {
+let intTypes: const i8*[] = [
   "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
-};
+];
 
 const intTypeCount = (sizeof(typeof(intTypes)) / sizeof(typeof(intTypes[0])));
 
@@ -189,7 +189,7 @@ func tokCmp(one: Token, two: Token) -> bool {
   }
 
   let len = one.len as u32;
-  return memcmp(one.location->data, two.location->data, len as uptr) == 0;
+  return memcmp(one.data, two.data, len as uptr) == 0;
 }
 
 func tokCmpStr(one: Token, str: const i8*) -> bool {
@@ -198,11 +198,11 @@ func tokCmpStr(one: Token, str: const i8*) -> bool {
     return false;
   }
 
-  return memcmp(one.location->data, str, len as uptr) == 0;
+  return memcmp(one.data, str, len as uptr) == 0;
 }
 
 func getTokenHash(token: Token) -> i64 {
-  return packTokenHash(token.location->data, token.len);
+  return packTokenHash(token.data, token.len);
 }
 
 func tokCmpHash(token: Token, hash: i64) -> bool {
@@ -212,13 +212,14 @@ func tokCmpHash(token: Token, hash: i64) -> bool {
 func newInternalToken(bufSize: uptr) -> Token {
   let alloc = malloc(sizeof(SourceLoc) + bufSize);
   let loc = alloc as SourceLoc*;
-  loc->data = (alloc as i8*) + sizeof(SourceLoc);
+  let data = (alloc as i8*) + sizeof(SourceLoc);
   loc->fileName = "<builtin>";
   loc->line = 1;
   loc->column = 1;
   return Token {
     kind = TokenKind::IDENTIFIER,
-    len = 0,
+    data = data,
+    len = bufSize as i32,
     location = loc,
   };
 }

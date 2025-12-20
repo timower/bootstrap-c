@@ -98,7 +98,7 @@ func getName(value: Value) -> i8* {
     case Value::StrConstant as s:
       let tok = s.value;
       let len = tok.len as iptr;
-      let data = tok.location->data;
+      let data = tok.data;
       let val: i8* = malloc((len + 16) as uptr);
 
       let cur = val;

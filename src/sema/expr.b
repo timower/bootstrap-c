@@ -268,7 +268,7 @@ func checkBool(state: SemaState*, expr: ExprAST*) {
 func getStringLength(tok: Token) -> i32 {
   let len = 0;
 
-  let data = tok.location->data;
+  let data = tok.data;
   let end = data + tok.len;
   for (let c = data; c < end; c++) {
     if (*c == '\\') {
@@ -302,7 +302,7 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   decl->type = expr->type;
 
   let name = newInternalToken(32);
-  name.len = sprintf(name.location->data, "str.%d", root->strCount++);
+  name.len = sprintf(name.data, "str.%d", root->strCount++);
 
   decl->name = name;
   decl->next = root->extraDecls;

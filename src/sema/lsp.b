@@ -18,7 +18,7 @@ func getTypeTag(type: Type*) -> Token* {
 
 func lspDecl(ptr: void*, tag: Token*) {
   printLoc(tag->location);
-  fprintf(getStderr(), "decl: %p: %.*s\n", ptr, tag->len, tag->location->data);
+  fprintf(getStderr(), "decl: %p: %.*s\n", ptr, tag->len, tag->data);
 }
 
 func lspRef(ptr: void*, tag: Token*) {

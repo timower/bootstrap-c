@@ -20,7 +20,7 @@ func main() -> i32 {
   let x: func*() -> i32 = &foo;
   let ptr: func**() -> i32 = &x;
 
-  let array: func*[3]() -> i32 = { &foo, &foo, &foo };
+  let array: func*[3]() -> i32 = [ &foo, &foo, &foo ];
 
   let y = Foo {
     bar = array[1],
