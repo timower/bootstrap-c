@@ -47,3 +47,12 @@ func getIntSize(target: Target*) -> i32 {
       return 64;
   }
 }
+
+func getPtrSize(target: Target*) -> i32 {
+  switch (target->arch) {
+    case Arch::Armv7:
+      return 4;
+    case Arch::Aarch64, Arch::X86_64:
+      return 8;
+  }
+}

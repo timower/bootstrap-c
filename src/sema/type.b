@@ -182,10 +182,10 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
     case TypeKind::Int as int:
       return int.size / 8;
 
-    case TypeKind::Pointer:
-      return 8;
-    case TypeKind::Func:
-      return 8;
+    case TypeKind::Pointer, TypeKind::Func:
+      return getPtrSize(&state->target);
+    case TypeKind::Slice:
+      return 2 * getPtrSize(&state->target);
 
     case TypeKind::Array as arr:
       if (arr.size < 0) {
