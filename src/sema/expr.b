@@ -892,6 +892,8 @@ func resolveTypeTags(state: SemaState*, type: Type*) {
       resolveTypeTags(state, p.pointee);
     case TypeKind::Array as a:
       resolveTypeTags(state, a.element);
+    case TypeKind::Slice as a:
+      resolveTypeTags(state, a.element);
     case TypeKind::Func as f:
       resolveTypeTags(state, f.result);
       resolveTypeTags(state, f.args);
