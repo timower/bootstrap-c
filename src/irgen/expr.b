@@ -49,16 +49,16 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Array as arrayExpr:
       let arrayType = expr->type->kind as TypeKind::Array*;
       let size = arrayType->size as u32;
-      let values = calloc(size as uptr, sizeof(union Value)) as Value*;
+      let valuesPtr = calloc(size as uptr, sizeof(union Value)) as Value*;
+      let values = valuesPtr[:size];
 
       let i = 0;
       for (let field = arrayExpr.elements; field != null; field = field->next, i++) {
-        *(values + i) = genConstant(state, field);
+        values[i] = genConstant(state, field);
       }
       return Value::ArrayConstant {
         type = expr->type,
         values = values,
-        size = arrayType->size,
       };
 
     // Address of global
@@ -807,7 +807,7 @@ func genCall(state: IRGenState*, expr: ExprAST*) -> Value {
     numArgs++;
   }
 
-  let args = calloc(numArgs, sizeof(union Value)) as Value*;
+  let args = (calloc(numArgs, sizeof(union Value)) as Value*)[:numArgs];
   let i = 0;
   for (let arg = callExpr->args; arg != null; arg = arg->next, i++) {
     let argVal = genExpr(state, arg);
@@ -817,7 +817,7 @@ func genCall(state: IRGenState*, expr: ExprAST*) -> Value {
           ptr = argVal,
         });
     }
-    *(args + i) = argVal;
+    args[i] = argVal;
   }
 
   let fn = genExpr(state, callExpr->function);
@@ -827,7 +827,6 @@ func genCall(state: IRGenState*, expr: ExprAST*) -> Value {
     fn = fn,
     fnType = newType(*fnType),
     args = args,
-    numArgs = numArgs as i32,
   });
 
   if (isAggregate(expr->type)) {

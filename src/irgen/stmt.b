@@ -3,10 +3,7 @@ import expr;
 
 import ir.type;
 
-import debug;
-
 func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
-  debug(fn->name);
   state->counter = 0;
 
   newScope(state);

@@ -24,11 +24,11 @@ func genMemcpy(state: IRGenState*, addr: Value, val: Value, type: Type*) {
     ptr = state->intrinsics.memcpy,
   };
 
-  let args = calloc(4, sizeof(union Value)) as Value*;
-  *(args + 0) = addr;
-  *(args + 1) = val;
-  *(args + 2) = size;
-  *(args + 3) = Value::IntConstant {
+  let args = (calloc(4, sizeof(union Value)) as Value*)[:4];
+  args[0] = addr;
+  args[1] = val;
+  args[2] = size;
+  args[3] = Value::IntConstant {
     value = 0,
     type = getBool(),
   };
@@ -37,7 +37,6 @@ func genMemcpy(state: IRGenState*, addr: Value, val: Value, type: Type*) {
     fn = fn,
     fnType = state->intrinsics.memcpy->type,
     args = args,
-    numArgs = 4,
   });
 }
 

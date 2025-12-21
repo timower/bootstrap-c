@@ -61,13 +61,13 @@ func genModule(decls: DeclAST*, target: Target) -> Module {
 
 func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
   // TODO: dedup
-  let ident = decl->name;
-  let len = ident.len as iptr;
+  let ident = decl->name.data;
+  let len = ident.len as i32;
   let buf: i8* = malloc((len + 2) as uptr);
-  sprintf(buf, "@%.*s", len, ident.data);
+  len = sprintf(buf, "@%.*s", len, &ident[0]);
 
   let global = newGlobal();
-  global->name = buf;
+  global->name = buf[:len];
   global->type = decl->type;
 
   let varKind = &decl->kind as DeclKind::Var*;
@@ -90,13 +90,13 @@ func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
 }
 
 func addFunc(state: IRGenState*, decl: DeclAST*) -> Value {
-  let ident = decl->name;
-  let len = ident.len as iptr;
+  let ident = decl->name.data;
+  let len = ident.len as i32;
   let buf: i8* = malloc((len + 2) as uptr);
-  sprintf(buf, "@%.*s", len, ident.data);
+  len = sprintf(buf, "@%.*s", len, &ident[0]);
 
   let fn = newFunction();
-  fn->name = buf;
+  fn->name = buf[:len];
   fn->type = decl->type;
 
   fn->next = state->module.functions;
@@ -151,7 +151,8 @@ func createIntrinsics(state: IRGenState*) {
   args->next->next->next = getBool();
 
   let fn = newFunction();
-  fn->name = "@llvm.memcpy.p0.p0.i32";
+  let name: i8* = "@llvm.memcpy.p0.p0.i32";
+  fn->name = name[:strlen(name)];
   fn->type = newType(TypeKind::Func {
     result = newType(TypeKind::Void {}),
     args = args,

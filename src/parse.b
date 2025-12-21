@@ -1,15 +1,12 @@
 import parse.internal;
 
-func parseBufOpts(name: i8*, buf: Buf, options: ParseOptions) -> DeclAST* {
+func parseBufOpts(name: i8*, buf: [i8], options: ParseOptions) -> DeclAST* {
   // clang-format off
   let parseState = ParseState {
-    fileName = name,
-    current = buf.mem,
-    start = buf.mem,
-    end = buf.mem + buf.size,
-    line = 1,
-    lineStart = buf.mem,
     options = options,
+    buf = buf,
+    fileName = name,
+    line = 1,
   };
 
   // clang-format on
@@ -18,7 +15,7 @@ func parseBufOpts(name: i8*, buf: Buf, options: ParseOptions) -> DeclAST* {
 
 func parseFile(name: const i8*) -> DeclAST* {
   let buf = readFile(name);
-  if (buf.mem == null) {
+  if (&buf[0] == null) {
     return null;
   }
   return parseBufOpts(name, buf, ParseOptions {});

@@ -17,7 +17,7 @@ struct IRStruct {
 }
 
 struct Global {
-  name: i8*;
+  name: [i8];
   type: Type*;
 
   isExtern: bool;
@@ -27,7 +27,7 @@ struct Global {
 }
 
 struct Function {
-  name: i8*;
+  name: [i8];
   type: Type*;
 
   allocs: Alloca*;
@@ -110,8 +110,7 @@ union InstrKind {
   Call {
     fn: Value;
     fnType: Type*;
-    args: Value*;
-    numArgs: i32;
+    args: [Value];
   }
   Branch {
     bb: BasicBlock*;
@@ -197,8 +196,7 @@ union Value {
 
   ArrayConstant {
     type: Type*;
-    values: Value*;
-    size: i32;    // TODO: redundant with (type->kind as Array)->size?
+    values: [Value];
   }
 
   Argument {

@@ -28,9 +28,9 @@ func identity[T](value: T) -> T {
 
 
 // Generic function using type parameters in complex ways
-func process[T](data: T*, size: i32, callback: func*(T) -> bool) -> bool {
-  for (let i = 0; i < size; i++) {
-    if (!callback(*(data + i))) {
+func process[T](data: [T], callback: func*(T) -> bool) -> bool {
+  for (let i = 0; i < data.len; i++) {
+    if (!callback(data[i])) {
       return false;
     }
   }
@@ -80,11 +80,11 @@ func main() -> i32 {
 
   let true_data = { 1, 2, 3 };
   let false_data = { 1, -2, 3 };
-  if (!process:[i32](&true_data, 3, &isPositive:[i32])) {
+  if (!process:[i32](true_data[:], &isPositive:[i32])) {
     return 1;
   }
 
-  if (process:[i32](&false_data, 3, &isPositive:[i32])) {
+  if (process:[i32](false_data[:], &isPositive:[i32])) {
     return 1;
   }
 

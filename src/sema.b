@@ -80,13 +80,14 @@ func getImportExprName(expr: ExprAST*) -> Token {
     case ExprKind::Member as memberExpr:
       let lhsToken = getImportExprName(memberExpr.object);
       let res = newInternalToken(512);
-      res.len = sprintf(
-          res.data,
+      let len = sprintf(
+          &res.data[0],
           "%.*s/%.*s",
-          lhsToken.len,
-          lhsToken.data,
-          memberExpr.identifier.len,
-          memberExpr.identifier.data);
+          lhsToken.data.len,
+          &lhsToken.data[0],
+          memberExpr.identifier.data.len,
+          &memberExpr.identifier.data[0]);
+      res.data = res.data[:len];
       return res;
 
     default:
@@ -105,7 +106,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   let cacheKey: i8* = malloc(512);
   let rootFile = strdup(decl->location->fileName);
   let rootDir = dirname(rootFile);
-  sprintf(cacheKey, "%s:%.*s", rootDir, name.len, name.data);
+  sprintf(cacheKey, "%s:%.*s", rootDir, name.data.len, &name.data[0]);
 
   // Check cache first for the resolved absolute path
   let cachedAbsPath = findCachedPath(state, cacheKey);
@@ -120,7 +121,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
     relPath = malloc(4096);
     let lastDir = strdup(rootDir);
     while (true) {
-      sprintf(relPath, "%s/%.*s.b", rootDir, name.len, name.data);
+      sprintf(relPath, "%s/%.*s.b", rootDir, name.data.len, &name.data[0]);
       if (access(relPath, F_OK) == 0) {
         absPath = realpath(relPath, null);
         break;
@@ -130,8 +131,8 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
           relPath,
           "%s/%.*s.%s.b",
           rootDir,
-          name.len,
-          name.data,
+          name.data.len,
+          &name.data[0],
           getImportName(&state->target));
       if (access(relPath, F_OK) == 0) {
         absPath = realpath(relPath, null);

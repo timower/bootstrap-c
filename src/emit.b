@@ -13,8 +13,7 @@ struct EmitState {
   usedRegs: bool[16];  // Track which registers are in use (r0-r15)
 
   // Virtual register to physical register mapping
-  instrToReg: i32*;  // Map instruction names to physical registers
-  instrToRegSize: i32;  // Size of the mapping array
+  instrToReg: [i32];  // Map instruction names to physical registers
 }
 
 func initEmitState(state: EmitState*) {
@@ -29,24 +28,20 @@ func initEmitState(state: EmitState*) {
   state->usedRegs[13] = true;  // r14 reserved for sp
   state->usedRegs[14] = true;  // r14 reserved for lr
   state->usedRegs[15] = true;  // r15 reserved for pc
-
-  // Initialize mapping arrays
-  state->instrToReg = null;
-  state->instrToRegSize = 0;
 }
 
 func setInstrReg(instrName: i32, reg: i32, state: EmitState*) {
-  if (instrName >= state->instrToRegSize) {
+  if (instrName >= state->instrToReg.len) {
     failEmit("Instruction name out of bounds in register mapping");
   }
-  *(state->instrToReg + instrName) = reg;
+  state->instrToReg[instrName] = reg;
 }
 
 func getInstrReg(instrName: i32, state: EmitState*) -> i32 {
-  if (instrName >= state->instrToRegSize) {
+  if (instrName >= state->instrToReg.len) {
     failEmit("Instruction name out of bounds in register mapping");
   }
-  return *(state->instrToReg + instrName);
+  return state->instrToReg[instrName];
 }
 
 func failEmit(msg: i8*) {
@@ -57,7 +52,7 @@ func failEmit(msg: i8*) {
 func freeRegister(instrName: i32, state: EmitState*) {
   // When we reach a definition walking backwards, we can free its register
   // for reuse by earlier instructions (later in execution)
-  if (instrName < state->instrToRegSize) {
+  if (instrName < state->instrToReg.len) {
     let reg = getInstrReg(instrName, state);
     if (reg != -1 && reg > 0) {
       // Don't free w0 (reserved for returns)
@@ -68,7 +63,7 @@ func freeRegister(instrName: i32, state: EmitState*) {
 
 func getPhysicalReg(instrName: i32, state: EmitState*) -> i32 {
   // Get the allocated physical register for an instruction
-  if (instrName >= state->instrToRegSize) {
+  if (instrName >= state->instrToReg.len) {
     failEmit("Instruction name out of bounds in register mapping");
   }
 
@@ -105,12 +100,11 @@ func allocateRegistersBackwards(fn: Function*, state: EmitState*) {
   }
 
   // Allocate mapping array
-  state->instrToRegSize = maxInstrName + 1;
-  let size = (state->instrToRegSize * 4) as iptr;
-  state->instrToReg = malloc(size as uptr) as i32*;
+  let size = maxInstrName + 1;
+  state->instrToReg = (calloc(size as uptr, sizeof(i32)) as i32*)[:size];
 
   // Initialize all mappings to -1 (unassigned)
-  for (let i = 0; i < state->instrToRegSize; i = i + 1) {
+  for (let i = 0; i < state->instrToReg.len; i = i + 1) {
     setInstrReg(i, -1, state);
   }
 
@@ -151,7 +145,7 @@ func markAsLive(val: Value, state: EmitState*) {
     case Value::InstrPtr as p:
       // Walking backwards: this use means we need to allocate a register
       // if one hasn't been allocated yet
-      if ((p.ptr)->name < state->instrToRegSize) {
+      if ((p.ptr)->name < state->instrToReg.len) {
         let reg = getInstrReg((p.ptr)->name, state);
         if (reg == -1) {
           // First time seeing this value (walking backwards), allocate register
@@ -190,13 +184,13 @@ func emitAsm(module: Module*, target: Target) {
 
 func emitFunction(fn: Function*, useUnderscore: bool) {
   let name = fn->name;
-  if (*name == '@') {
-    name = name + 1;
+  if (name[0] == '@') {
+    name = name[1:];
   }
   if (useUnderscore) {
-    fprintf(outFile, "_%s:\n", name);
+    fprintf(outFile, "_%s:\n", &name[0]);
   } else {
-    fprintf(outFile, "%s:\n", name);
+    fprintf(outFile, "%s:\n", &name[0]);
   }
 
   // Create register allocation state for this function

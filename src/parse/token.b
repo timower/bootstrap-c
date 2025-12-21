@@ -8,11 +8,11 @@ func iseol(c: i32) -> bool {
 
 // Returns the current character and advances the current pointer.
 func nextChar(state: ParseState*) -> i32 {
-  if (state->current >= state->end) {
+  if (state->current >= state->buf.len) {
     return -1;
   }
 
-  let result = *state->current as i32;
+  let result = state->buf[(state->current)] as i32;
   state->current++;
 
   if (iseol(result)) {
@@ -26,10 +26,10 @@ func nextChar(state: ParseState*) -> i32 {
 
 // Returns the current character without advancing
 func peekChar(state: ParseState*) -> i32 {
-  if (state->current >= state->end) {
+  if (state->current >= state->buf.len) {
     return -1;
   }
-  return *state->current as i32;
+  return state->buf[(state->current)] as i32;
 }
 
 
@@ -50,35 +50,32 @@ func is_alnum(c: i32) -> bool {
   return is_digit(c) || is_alpha(c);
 }
 
-func newLocation(state: ParseState*, start: i8*) -> SourceLoc* {
-  if (state->slabFree == 0) {
-    state->currentSlab = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
-    state->slabFree = source_slab_size;
+func newLocation(state: ParseState*, start: i32) -> SourceLoc* {
+  if (state->sourceSlabs.len == 0) {
+    let slabs = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
+    state->sourceSlabs = slabs[:source_slab_size];
   }
 
-  let result = state->currentSlab;
-  state->currentSlab++;
-  state->slabFree--;
+  let result = &state->sourceSlabs[0];
+  state->sourceSlabs = state->sourceSlabs[1:];
 
-  result->column = (start - state->lineStart) as i32 + 1;
+  result->column = start - state->lineStart + 1;
   result->line = state->line;
   result->fileName = state->fileName;
   return result;
 }
 
-func makeToken(state: ParseState*, tokenStart: i8*) -> Token {
+func makeToken(state: ParseState*, tokenStart: i32) -> Token {
   return Token {
     location = newLocation(state, tokenStart),
-    data = tokenStart,
-    len = (state->current - tokenStart) as i32,
+    data = state->buf[tokenStart:(state->current)],
   };
 }
 
-func makeEof(state: ParseState*, tokenStart: i8*) -> Token {
+func makeEof(state: ParseState*, tokenStart: i32) -> Token {
   return Token {
     kind = TokenKind::TOK_EOF,
     location = newLocation(state, tokenStart),
-    len = 0,
   };
 }
 
@@ -206,17 +203,17 @@ func getToken(state: ParseState*) -> Token {
   }
 
   // Assume operator - try different lengths for hash lookup
-  let remaining = state->end - tokenStart;
+  let rest = state->buf[tokenStart:];
   for (let i = TokenKind::LEFT_ASSIGN as i32; i < tokenCount; i++) {
-    let token = tokens[i];
-    let len = tokenHashes[i].len;
-    if (len <= remaining as i32) {
-      let match = *token == *tokenStart;
+    let token = tokenHashes[i];
+    let len = token.data.len;
+    if (len <= rest.len) {
+      let match = token.data[0] == rest[0];
       if (len > 1) {
-        match &= (*(token + 1) == *(tokenStart + 1));
+        match &= (token.data[1] == rest[1]);
       }
       if (len > 2) {
-        match &= (*(token + 2) == *(tokenStart + 2));
+        match &= (token.data[2] == rest[2]);
       }
 
       if (match) {
@@ -229,7 +226,7 @@ func getToken(state: ParseState*) -> Token {
   }
 
   // Check if we're at EOF before reporting unknown token
-  if (state->current >= state->end) {
+  if (state->current >= state->buf.len) {
     return makeEof(state, tokenStart);
   }
 
@@ -259,36 +256,35 @@ func getNextToken(state: ParseState*) -> Token {
 }
 
 func parseInteger(state: ParseState*, token: Token) -> i32 {
-  let start = token.data;
-  if (*start == '\'') {
-    let next = *(start + 1);
-    if (next == '\\') {
-      return getEscaped(*(start + 2)) as i32;
+  if (token.data[0] == '\'') {
+    if (token.data[1] == '\\') {
+      return getEscaped(token.data[2]) as i32;
     } else {
-      return next as i32;
+      return token.data[1] as i32;
     }
   }
 
+  let data = token.data;
   let base = 10;
-  if (*start == '0') {
-    switch (*(start + 1) as i32) {
+  if (data[0] == '0') {
+    switch (data[1] as i32) {
       case 'x':
         base = 16;
-        start += 2;
+        data = data[2:];
       case 'o':
         base = 8;
-        start += 2;
+        data = data[2:];
       case 'b':
         base = 2;
-        start += 2;
+        data = data[2:];
       default:
         break;
     }
   }
 
-  let endp = token.data + token.len;
-  let num = strtol(start, &endp, base) as i32;
-  if (endp != token.data + token.len) {
+  let endp = &data[(data.len)];
+  let num = strtol(&data[0], &endp, base) as i32;
+  if (endp != &data[(data.len)]) {
     failParse(state, "Invalid integer");
   }
   return num;

@@ -85,7 +85,7 @@ func addLocalDecl(state: SemaState*, decl: DeclAST*) {
   if (state->semaLspMode) {
     let name = decl->name;
     printLoc(name.location);
-    fprintf(getStderr(), "decl: %p: %.*s\n", decl, name.len, name.data);
+    fprintf(getStderr(), "decl: %p: %.*s\n", decl, name.data.len, &name.data[0]);
   }
 
   let newLocal = newDeclList(decl);

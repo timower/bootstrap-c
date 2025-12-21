@@ -63,37 +63,38 @@ func usage() {
   exit(1);
 }
 
-func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
+func parseOpts(argv: [i8*]) -> CommandLineArgs {
   // TODO: _TARGET_
   let args = CommandLineArgs {
     inputFile = null,
     outputFile = null,
     outputKind = OutputKind::LLVM,
-    target = parseTriple(&_TARGET_),
+    target = parseTriple(_TARGET_[:strlen(&_TARGET_)]),
     mode = Mode::Compile,
     inPlace = false,
     readFromStdin = false,
   };
 
-  for (let i = 1; i < argc; i += 1) {
-    let arg = *(argv + i);
+  for (let i = 1; i < argv.len; i += 1) {
+    let arg = argv[i];
     if (strcmp(arg, "-o") == 0) {
-      if (i + 1 >= argc) {
+      if (i + 1 >= argv.len) {
         puts("Expected output file after -o");
         usage();
       }
-      args.outputFile = *(argv + i + 1);
+      args.outputFile = argv[i + 1];
       i++;
     } else if (strcmp(arg, "-emit-llvm") == 0) {
       args.outputKind = OutputKind::LLVM;
     } else if (strcmp(arg, "-emit-asm") == 0) {
       args.outputKind = OutputKind::Asm;
     } else if (strcmp(arg, "-target") == 0) {
-      if (i + 1 >= argc) {
+      if (i + 1 >= argv.len) {
         puts("Expected target after -target");
         usage();
       }
-      args.target = parseTriple(*(argv + i + 1));
+      let target = argv[i + 1];
+      args.target = parseTriple(target[:strlen(target)]);
       i++;
     } else if (strcmp(arg, "-debug") == 0) {
       debugMode = true;
@@ -106,11 +107,11 @@ func parseOpts(argc: i32, argv: i8**) -> CommandLineArgs {
     } else if (strcmp(arg, "-i") == 0) {
       args.inPlace = true;
     } else if (strcmp(arg, "-stdin-filename") == 0) {
-      if (i + 1 >= argc) {
+      if (i + 1 >= argv.len) {
         puts("Expected filename after -stdin-filename");
         usage();
       }
-      args.inputFile = *(argv + i + 1);
+      args.inputFile = argv[i + 1];
       args.readFromStdin = true;
       i++;
     } else {

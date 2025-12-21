@@ -14,11 +14,11 @@ struct ParseState {
   options: ParseOptions;
 
   // [start, end[ contains the current data buffer.
-  start: i8*;
-  end: i8*;
+  buf: [i8];
 
   // Pointer in [start, end[ where we're currently parsing.
-  current: i8*;
+  current: i32;
+  lineStart: i32;
 
   // Currently parsed token.
   curToken: Token;
@@ -26,10 +26,8 @@ struct ParseState {
   // current file name.
   fileName: i8*;
   line: i32;
-  lineStart: i8*;
 
-  currentSlab: SourceLoc*;
-  slabFree: i32;
+  sourceSlabs: [SourceLoc];
 
   // Any comments that should be taken up by the next node.
   // Only parsed if concrete is true.

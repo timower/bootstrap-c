@@ -75,12 +75,9 @@ func getType(value: Value) -> i8* {
   }
 }
 
+
+// TODO: make -> [i8]
 func getName(value: Value) -> i8* {
-  // let kindPtr = &value as void*;
-  // let kindPtrT = kindPtr as i32*;
-  // let buf = malloc(32);
-  // sprintf(buf, "kind-%d", *kindPtrT);
-  // return buf;
   switch (value) {
     case Value::InstrPtr as p:
       if (p.ptr == null) {
@@ -97,43 +94,41 @@ func getName(value: Value) -> i8* {
 
     case Value::StrConstant as s:
       let tok = s.value;
-      let len = tok.len as iptr;
+      let len = tok.data.len as iptr;
       let data = tok.data;
-      let val: i8* = malloc((len + 16) as uptr);
+      let buf = newBuf((len + 16) as iptr);
 
-      let cur = val;
-      cur += sprintf(val, "c\"");      // %.*s\\00\"", len, tok.data);
+      let offset = sprintf(&buf[0], "c\"");      // %.*s\\00\"", len, tok.data);
 
       for (let i: iptr = 0; i < len; i++) {
-        let val = *(data + i);
-        if (val == 92) {
-          let c = getEscaped(*(data + ++i));
-          cur += sprintf(cur, "\\%02x", c);
+        let val = data[i];
+        if (val == '\\') {
+          let c = getEscaped(data[(++i)]);
+          offset += sprintf(&buf[offset], "\\%02x", c);
         } else {
-          *cur++ = val;
+          buf[(offset++)] = val;
         }
       }
-      cur += sprintf(cur, "\\00\"");
-      return val;
+      offset += sprintf(&buf[offset], "\\00\"");
+      return &buf[0];
 
     case Value::ArrayConstant as a:
-      let buf: i8* = malloc((64 * a.size as iptr) as uptr);
-      let res = buf;
+      let buf = newBuf(64 * a.values.len as iptr);
 
-      buf += sprintf(buf, "[ ");
+      let offset = sprintf(&buf[0], "[ ");
 
-      for (let i = 0; i < a.size; i++) {
-        let value = *(a.values + i);
-        buf += sprintf(buf, "%s %s", getType(value), getName(value));
-        if (i != a.size - 1) {
-          buf += sprintf(buf, ", ");
+      for (let i = 0; i < a.values.len; i++) {
+        let value = a.values[i];
+        offset += sprintf(&buf[offset], "%s %s", getType(value), getName(value));
+        if (i != a.values.len - 1) {
+          offset += sprintf(&buf[offset], ", ");
         }
       }
-      buf += sprintf(buf, " ]");
-      return res;
+      offset += sprintf(&buf[offset], " ]");
+      return &buf[0];
 
     case Value::GlobalPtr as g:
-      return g.ptr->name;
+      return &g.ptr->name[0];
 
     case Value::AllocaPtr as a:
       let buf = malloc(32);
@@ -146,7 +141,7 @@ func getName(value: Value) -> i8* {
       return buf;
 
     case Value::FuncPtr as f:
-      return f.ptr->name;
+      return &f.ptr->name[0];
 
     case Value::Zero as z:
       if (isAggregate(z.type)) {
@@ -183,14 +178,14 @@ func printGlobal(global: Global*) {
     fprintf(
         outFile,
         "%s = external %s %s\n",
-        global->name,
+        &global->name[0],
         declSpec,
         convertType(global->type));
   } else {
     fprintf(
         outFile,
         "%s = %s %s %s\n",
-        global->name,
+        &global->name[0],
         declSpec,
         getType(global->init),
         getName(global->init));
@@ -202,7 +197,7 @@ func printFunc(fn: Function*) {
   let isEmpty = fn->begin == null;
   let defOrDecl = isEmpty ? "declare" as i8* : "define" as i8*;
 
-  fprintf(outFile, "%s %s %s(", defOrDecl, convertType(fnType->result), fn->name);
+  fprintf(outFile, "%s %s %s(", defOrDecl, convertType(fnType->result), &fn->name[0]);
 
   let idx = 0;
   for (let arg = fnType->args; arg != null; arg = arg->next, idx++) {
@@ -365,9 +360,9 @@ func printInstr(instr: Instruction*) {
 
     case InstrKind::Call as c:
       fprintf(outFile, "call %s %s(", convertType(c.fnType), getName(c.fn));
-      for (let i = 0; i < c.numArgs; i++) {
-        fprintf(outFile, "%s %s", getType(*(c.args + i)), getName(*(c.args + i)));
-        if (i != c.numArgs - 1) {
+      for (let i = 0; i < c.args.len; i++) {
+        fprintf(outFile, "%s %s", getType(c.args[i]), getName(c.args[i]));
+        if (i != c.args.len - 1) {
           fprintf(outFile, ", ");
         }
       }

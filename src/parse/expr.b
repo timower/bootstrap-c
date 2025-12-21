@@ -191,6 +191,7 @@ func parsePrimary(state: ParseState*) -> ExprAST* {
     case TokenKind::OPEN_PAREN:
       return parseParen(state);
     default:
+      printToken(state->curToken);
       failParse(state, "Unknow primary expression");
       return null;
   }
@@ -635,9 +636,10 @@ func parseType(state: ParseState*) -> Type* {
 
   if (match(state, TokenKind::INT2)) {
     let data = state->curToken.data;
-    let isSigned = *data == 'i';
-    let end = data + state->curToken.len;
-    let size = strtol(data + 1, &end, 10) as i32;
+    let isSigned = data[0] == 'i';
+    data = data[1:];
+    let end = &data[data.len];
+    let size = strtol(&data[0], &end, 10) as i32;
     getNextToken(state);
     type->kind = TypeKind::Int {
       size = size,

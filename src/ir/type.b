@@ -32,29 +32,29 @@ func convertType(type: Type*) -> const i8* {
       return "%slice";
 
     case TypeKind::Struct as s:
-      let len = s.tag.len as iptr;
+      let len = s.tag.data.len as iptr;
       let buf: i8* = null;
       if (s.parent != null) {
         let parent = s.parent->kind as TypeKind::Union*;
-        let parentLen = parent->tag.len as iptr;
+        let parentLen = parent->tag.data.len as iptr;
         buf = malloc((len + parentLen + 10) as uptr);
         sprintf(
             buf,
             "%%struct.%.*s.%.*s",
             parentLen,
-            parent->tag.data,
+            &parent->tag.data[0],
             len,
-            s.tag.data);
+            &s.tag.data[0]);
       } else {
         buf = malloc((len + 10) as uptr);
-        sprintf(buf, "%%struct.%.*s", len, s.tag.data);
+        sprintf(buf, "%%struct.%.*s", len, &s.tag.data[0]);
       }
       return buf;
 
     case TypeKind::Union as u:
-      let len = u.tag.len as iptr;
+      let len = u.tag.data.len as iptr;
       let buf: i8* = malloc((len + 10) as uptr);
-      sprintf(buf, "%%union.%.*s", len, u.tag.data);
+      sprintf(buf, "%%union.%.*s", len, &u.tag.data[0]);
       return buf;
 
     case TypeKind::Array as arr:
@@ -63,19 +63,19 @@ func convertType(type: Type*) -> const i8* {
       return buf;
 
     case TypeKind::Func as fn:
-      let buf: i8* = malloc(128);
-      let cur = buf + sprintf(buf, "%s (", convertType(fn.result));
+      let buf = newBuf(128);
+      let offset = sprintf(&buf[0], "%s (", convertType(fn.result));
       for (let arg = fn.args; arg != null; arg = arg->next) {
-        cur += sprintf(cur, "%s", convertType(arg));
+        offset += sprintf(&buf[offset], "%s", convertType(arg));
         if (arg->next != null) {
-          cur += sprintf(cur, ", ");
+          offset += sprintf(&buf[offset], ", ");
         }
       }
       if (fn.isVarargs) {
-        cur += sprintf(cur, ", ...");
+        offset += sprintf(&buf[offset], ", ...");
       }
-      sprintf(cur, ")");
-      return buf;
+      sprintf(&buf[offset], ")");
+      return &buf[0];
 
     case TypeKind::Enum:
       return "i32";

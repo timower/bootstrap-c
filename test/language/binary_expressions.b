@@ -56,9 +56,6 @@
 // CHECK-NEXT: 20 - 5 - 3 = 12
 // CHECK-NEXT: 24 / 4 / 2 = 3
 // CHECK-NEXT: true && false || true: true
-// CHECK: === Pointer Arithmetic ===
-// CHECK-NEXT: *(ptr + 2) = 30
-// CHECK-NEXT: ptr_end - ptr_start = 2
 // CHECK: All binary expression tests completed
 extern func printf(format: i8*, ...) -> i32;
 
@@ -283,24 +280,6 @@ func testAssociativity() {
 }
 
 
-// Test with pointer arithmetic (if supported)
-func testPointerArithmetic() {
-  printf("=== Pointer Arithmetic ===\n");
-
-  let numbers: i32[5] = { 10, 20, 30, 40, 50 };
-  let ptr = &numbers[0];
-
-  // Test pointer + integer
-  let ptr2 = ptr + 2;
-  printf("*(ptr + 2) = %d\n", *ptr2);  // Should be 30
-
-  // Test char pointer difference (only supported type)
-  let str: i8* = "Hello";
-  let char_ptr1 = str;
-  let char_ptr2 = str + 2;
-  let diff = char_ptr2 - char_ptr1;
-  printf("ptr_end - ptr_start = %d\n", diff as i32);  // Should be 2
-}
 
 func main() -> i32 {
   testArithmetic();
@@ -311,7 +290,6 @@ func main() -> i32 {
   testShortCircuit();
   testPrecedence();
   testAssociativity();
-  testPointerArithmetic();
 
   printf("All binary expression tests completed\n");
   return 0;

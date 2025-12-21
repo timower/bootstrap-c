@@ -1,103 +1,92 @@
 import target;
+import util;
 
-func cmpTriplePart(start: i8*, target: i8*) -> i8* {
-  let cur = start;
+func cmpTriplePart(str: [i8]*, target: i8*) -> bool {
+  let targetSlice = target[:strlen(target)];
 
-  while (*cur != 0 && *target != 0) {
-    if (*cur != *target) {
-      return null;
+  let i = 0;
+  for (; i < str->len && i < targetSlice.len; i++) {
+    if ((*str)[i] != targetSlice[i]) {
+      return false;
     }
-    cur++;
-    target++;
   }
 
-  if (*target == 0 && (*cur == 0 || *cur == '-')) {
-    return cur;
+  if (i == targetSlice.len && (i == str->len || (*str)[i] == '-')) {
+    *str = (*str)[i:];
+    return true;
   }
 
-  return null;
+  return false;
 }
 
-func parseArch(str: i8*, arch: Arch*) -> i8* {
-  let res = cmpTriplePart(str, "armv7l");
-  if (res != null) {
+func parseArch(str: [i8]*, arch: Arch*) -> bool {
+  if (cmpTriplePart(str, "armv7l")) {
     *arch = Arch::Armv7;
-    return res;
+    return true;
+  }
+  if (cmpTriplePart(str, "arm64")) {
+    *arch = Arch::Aarch64;
+    return true;
+  }
+  if (cmpTriplePart(str, "aarch64")) {
+    *arch = Arch::Aarch64;
+    return true;
   }
 
-  res = cmpTriplePart(str, "arm64");
-  if (res != null) {
-    *arch = Arch::Aarch64;
-    return res;
-  }
-  res = cmpTriplePart(str, "aarch64");
-  if (res != null) {
-    *arch = Arch::Aarch64;
-    return res;
-  }
-
-  res = cmpTriplePart(str, "x86_64");
-  if (res != null) {
+  if (cmpTriplePart(str, "x86_64")) {
     *arch = Arch::X86_64;
-    return res;
+    return true;
   }
 
-  return null;
+  return false;
 }
 
-func parsePlatform(str: i8*, platform: Platform*) -> i8* {
-  let res = cmpTriplePart(str, "unknown-linux");
-  if (res != null) {
+func parsePlatform(str: [i8]*, platform: Platform*) -> bool {
+  if (cmpTriplePart(str, "unknown-linux")) {
     *platform = Platform::Linux;
-    return res;
+    return true;
   }
 
-  res = cmpTriplePart(str, "apple-darwin");
-  if (res != null) {
+  if (cmpTriplePart(str, "apple-darwin")) {
     *platform = Platform::Darwin;
-    return res;
+    return true;
   }
 
-  res = cmpTriplePart(str, "w64");
-  if (res != null) {
+  if (cmpTriplePart(str, "w64")) {
     *platform = Platform::Windows;
-    return res;
+    return true;
   }
 
-  return null;
+  return false;
 }
 
-func parseAbi(str: i8*, abi: ABI*) -> i8* {
-  if (*str == 0) {
+func parseAbi(str: [i8]*, abi: ABI*) -> bool {
+  if (str->len == 0) {
     *abi = ABI::None;
-    return str;
+    return true;
   }
 
-  let res = cmpTriplePart(str, "gnueabihf");
-  if (res != null) {
+  if (cmpTriplePart(str, "gnueabihf")) {
     *abi = ABI::GnuEabiHf;
-    return res;
+    return true;
   }
 
-  res = cmpTriplePart(str, "gnu");
-  if (res != null) {
+  if (cmpTriplePart(str, "gnu")) {
     *abi = ABI::Gnu;
-    return res;
+    return true;
   }
 
-  res = cmpTriplePart(str, "musl");
-  if (res != null) {
+  if (cmpTriplePart(str, "musl")) {
     *abi = ABI::Musl;
-    return res;
+    return true;
   }
 
-  res = cmpTriplePart(str, "mingw32");
-  if (res != null) {
+  if (cmpTriplePart(str, "mingw32")) {
     *abi = ABI::Mingw32;
-    return res;
+    return true;
   }
 
-  return null;
+  return false;
 }
 
 
@@ -107,12 +96,12 @@ func parseAbi(str: i8*, abi: ABI*) -> i8* {
 //  - x86_64-unknown-linux-gnu
 //  - x86_64-apple-darwin
 //  - x86_64-w64-mingw32
-func parseTriple(triple: i8*) -> Target {
+func parseTriple(triple: [i8]) -> Target {
   let result = Target {
-    triple = triple,
+    triple = &triple[0],
   };
 
-  if (strcmp(triple, "darwin") == 0) {
+  if (strcmp(&triple[0], "darwin") == 0) {
     return Target {
       triple = "arm64-apple-darwin",
       arch = Arch::Aarch64,
@@ -120,7 +109,7 @@ func parseTriple(triple: i8*) -> Target {
       abi = ABI::None,
     };
   }
-  if (strcmp(triple, "windows") == 0) {
+  if (strcmp(&triple[0], "windows") == 0) {
     return Target {
       triple = "x86_64-w64-mingw32",
       arch = Arch::X86_64,
@@ -129,30 +118,28 @@ func parseTriple(triple: i8*) -> Target {
     };
   }
 
-  let cur = parseArch(triple, &result.arch);
-  if (cur == null) {
+  if (!parseArch(&triple, &result.arch)) {
     fprintf(getStderr(), "Failed to parse arch\n");
     exit(1);
   }
 
-  if (*cur != '-') {
-    fprintf(getStderr(), "Expected - in triple: %s\n", cur);
+  if (triple[0] != '-') {
+    fprintf(getStderr(), "Expected - in triple: %s\n", &triple[0]);
     exit(1);
   }
+  triple = triple[1:];
 
-  cur = parsePlatform(cur + 1, &result.platform);
-  if (cur == null) {
+  if (!parsePlatform(&triple, &result.platform)) {
     fprintf(getStderr(), "Failed to parse platform\n");
     exit(1);
   }
 
   // ABI is optional.
-  if (*cur == '-') {
-    cur++;
+  if (triple[0] == '-') {
+    triple = triple[1:];
   }
 
-  cur = parseAbi(cur, &result.abi);
-  if (cur == null) {
+  if (!parseAbi(&triple, &result.abi)) {
     fprintf(getStderr(), "Failed to parse abi\n");
     exit(1);
   }

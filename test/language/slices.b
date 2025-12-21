@@ -21,6 +21,10 @@ extern func printf(s: i8*, ...) -> i32;
 
 let array: i32[] = [ 1, 2, 3 ];
 
+func emptySlice[T]() -> [T] {
+  return (null as T*)[:0];
+}
+
 func newSlice(size: i32) -> [i32] {
   let ptr = malloc((size * sizeof(i32)) as iptr) as i32*;
   return ptr[:size];
@@ -63,5 +67,5 @@ func test2() -> i32 {
 }
 
 func main() -> i32 {
-  return test1() + test2() + sizeof([i8]) - sizeof([i32]);
+  return test1() + test2() + sizeof([i8]) - sizeof([i32]) + emptySlice:[i8]().len;
 }

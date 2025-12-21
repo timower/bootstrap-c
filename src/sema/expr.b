@@ -266,11 +266,10 @@ func checkBool(state: SemaState*, expr: ExprAST*) {
 func getStringLength(tok: Token) -> i32 {
   let len = 0;
 
-  let data = tok.data;
-  let end = data + tok.len;
-  for (let c = data; c < end; c++) {
-    if (*c == '\\') {
-      c++;
+  let end = tok.data.len;
+  for (let i = 0; i < end; i++) {
+    if (tok.data[i] == '\\') {
+      i++;
       len++;
     } else {
       len++;
@@ -300,7 +299,8 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   decl->type = expr->type;
 
   let name = newInternalToken(32);
-  name.len = sprintf(name.data, "str.%d", root->strCount++);
+  let len = sprintf(&name.data[0], "str.%d", root->strCount++);
+  name.data = name.data[:len];
 
   decl->name = name;
   decl->next = root->extraDecls;
@@ -361,34 +361,10 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
       expr->type = getBool();
       return;
 
-    case TokenKind::MINUS:
-      if (lhsTypePtr != null && rhsTypePtr != null) {
-        if (!typeEq(lhsTypePtr->pointee, getCharType())
-            || !typeEq(rhsTypePtr->pointee, lhsTypePtr->pointee)) {
-          // TODO: emit (expr) / sizeof(type)
-          failSemaExpr(state, expr, "Only char pointer subtract supported");
-        }
-
-        expr->type = getIPtr(&state->target);
-        return;
-      }
-      if (lhsTypePtr != null && rhsTypeInt != null) {
-        expr->type = binExpr->lhs->type;
-        return;
-      }
-    case TokenKind::PLUS:
-      if (lhsTypeInt != null && rhsTypePtr != null) {
-        expr->type = binExpr->rhs->type;
-        return;
-      }
-      if (lhsTypePtr != null && rhsTypeInt != null) {
-        expr->type = binExpr->lhs->type;
-        return;
-      }
-    case TokenKind::ADD_ASSIGN, TokenKind::SUB_ASSIGN:
-      if (lhsTypePtr != null && rhsTypeInt != null) {
-        expr->type = binExpr->lhs->type;
-        return;
+    case TokenKind::MINUS, TokenKind::PLUS,
+         TokenKind::ADD_ASSIGN, TokenKind::SUB_ASSIGN:
+      if (lhsTypePtr != null || rhsTypePtr != null) {
+        failSemaExpr(state, expr, "Pointer arith");
       }
 
     case TokenKind::AND_OP, TokenKind::OR_OP:
@@ -762,6 +738,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
           failSemaExpr(state, expr, "Expected pointer type for *");
         }
         expr->type = ptrType->pointee;
+      } else if (expr->type->kind as TypeKind::Pointer* != null) {
+        failSemaExpr(state, expr, "Unary on pointer");
       }
 
       // TODO: correct?

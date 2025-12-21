@@ -1,4 +1,5 @@
 import libc;
+import util;
 
 enum TokenKind {
   TOK_EOF,
@@ -114,14 +115,13 @@ struct SourceLoc {
 
 struct Token {
   kind: TokenKind;
-  data: i8*;
-  len: i32;
+  data: [i8];  // TODO: move to sourceoc?
   location: SourceLoc*;
 }
 
 struct TokenHashEntry {
   hash: i64;
-  len: i32;
+  data: [i8];
 }
 
 const tokenCount = sizeof(typeof(tokens)) / sizeof(typeof(tokens[0]));
@@ -137,16 +137,16 @@ const intTypeCount = (sizeof(typeof(intTypes)) / sizeof(typeof(intTypes[0])));
 let intTypeHashes: i64[8];
 
 
-func packTokenHash(str: const i8*, len: i32) -> i64 {
-  if (len > 8) {
+func packTokenHash(str: [i8]) -> i64 {
+  if (str.len > 8) {
     return 0;    // Fallback for tokens longer than 8 chars
   }
 
-  let strPtr = str as void*;
+  let strPtr = &str[0] as void*;
   let result: i64 = *(strPtr as i64*);
 
-  if (len != 8) {
-    let ulen = len as u32;
+  if (str.len != 8) {
+    let ulen = str.len as u32;
     let len8 = (ulen as u64) << 3;
     result &= (((1 as u64) << len8) - 1) as i64;
   }
@@ -157,8 +157,9 @@ func packTokenHash(str: const i8*, len: i32) -> i64 {
 func initTokenHashes() {
   for (let i = 0; i < tokenCount; i++) {
     let len = strlen(tokens[i]) as i32;
-    tokenHashes[i].hash = packTokenHash(tokens[i], len);
-    tokenHashes[i].len = len;
+    let data = tokens[i][:len];
+    tokenHashes[i].data = data;
+    tokenHashes[i].hash = packTokenHash(data);
     if (tokenHashes[i].hash == 0) {
       printf("Token too long: %s, %d", tokens[i], len);
       exit(1);
@@ -169,7 +170,7 @@ func initTokenHashes() {
 func initIntTypeHashes() {
   for (let i = 0; i < intTypeCount; i++) {
     let len = strlen(intTypes[i]) as i32;
-    intTypeHashes[i] = packTokenHash(intTypes[i], len);
+    intTypeHashes[i] = packTokenHash(intTypes[i][:len]);
   }
 }
 
@@ -184,25 +185,25 @@ func tokCmp(one: Token, two: Token) -> bool {
     return false;
   }
 
-  if (one.len != two.len) {
+  if (one.data.len != two.data.len) {
     return false;
   }
 
-  let len = one.len as u32;
-  return memcmp(one.data, two.data, len as uptr) == 0;
+  let len = one.data.len as u32;
+  return memcmp(&one.data[0], &two.data[0], len as uptr) == 0;
 }
 
 func tokCmpStr(one: Token, str: const i8*) -> bool {
   let len = strlen(str);
-  if (one.len != len as i32) {
+  if (one.data.len != len as i32) {
     return false;
   }
 
-  return memcmp(one.data, str, len as uptr) == 0;
+  return memcmp(&one.data[0], str, len as uptr) == 0;
 }
 
 func getTokenHash(token: Token) -> i64 {
-  return packTokenHash(token.data, token.len);
+  return packTokenHash(token.data);
 }
 
 func tokCmpHash(token: Token, hash: i64) -> bool {
@@ -210,16 +211,15 @@ func tokCmpHash(token: Token, hash: i64) -> bool {
 }
 
 func newInternalToken(bufSize: uptr) -> Token {
-  let alloc = malloc(sizeof(SourceLoc) + bufSize);
-  let loc = alloc as SourceLoc*;
-  let data = (alloc as i8*) + sizeof(SourceLoc);
+  let alloc = newBuf((bufSize + sizeof(SourceLoc)) as iptr);
+  let loc = (&alloc[0] as void*) as SourceLoc*;
+  let data = alloc[(sizeof(SourceLoc)):];
   loc->fileName = "<builtin>";
   loc->line = 1;
   loc->column = 1;
   return Token {
     kind = TokenKind::IDENTIFIER,
     data = data,
-    len = bufSize as i32,
     location = loc,
   };
 }

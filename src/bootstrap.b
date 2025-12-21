@@ -46,18 +46,19 @@ func finishInPlace(args: CommandLineArgs*, fileName: i8*, file: void*) {
 
 func main(argc: i32, argv: i8**) -> i32 {
   initTokenSystem();
-  let args = parseOpts(argc, argv);
+
+  let args = parseOpts(argv[:argc]);
   printFile = getStdout();
 
   let name: i8* = args.inputFile;
-  let buf = Buf {};
+  let buf = nullBuf();
   if (!args.readFromStdin) {
     buf = readFile(name);
   } else {
     buf = readStdin();
   }
 
-  if (buf.mem == null) {
+  if (&buf[0] == null) {
     puts("Failed to read input");
     return -1;
   }

@@ -5,12 +5,12 @@ let indent_width = 2;
 
 let printFile: void* = null;
 
-func printStr(start: i8*, len: i32) {
-  fprintf(printFile, "%.*s", len, start);
+func printStr(data: [i8]) {
+  fprintf(printFile, "%.*s", data.len as i32, &data[0]);
 }
 
 func printRawToken(token: Token) {
-  printStr(token.data, token.len);
+  printStr(token.data);
 }
 
 func printToken(token: Token) {
@@ -218,18 +218,18 @@ func printExprPrec(expr: ExprAST*, parentPrec: i32, indent: i32) {
     case ExprKind::Index as index:
       printExprPrec(index.array, curPrec, indent);
       fprintf(printFile, "[");
-      printExprPrec(index.index, nextPrec, indent);
+      printExprPrec(index.index, -1, indent);
       fprintf(printFile, "]");
 
     case ExprKind::SliceIndex as index:
       printExprPrec(index.slice, curPrec, indent);
       fprintf(printFile, "[");
       if (index.start != null) {
-        printExprPrec(index.start, nextPrec, indent);
+        printExprPrec(index.start, -1, indent);
       }
       fprintf(printFile, ":");
       if (index.end != null) {
-        printExprPrec(index.end, nextPrec, indent);
+        printExprPrec(index.end, -1, indent);
       }
       fprintf(printFile, "]");
 
