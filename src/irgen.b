@@ -145,8 +145,8 @@ func addUnion(state: IRGenState*, decl: DeclAST*) {
 
 func createIntrinsics(state: IRGenState*) {
   // memcpy
-  let args = newType(TypeKind::Pointer {});
-  args->next = newType(TypeKind::Pointer {});
+  let args = getPtrType();
+  args->next = getPtrType();
   args->next->next = getInt32();
   args->next->next->next = getBool();
 
@@ -161,4 +161,14 @@ func createIntrinsics(state: IRGenState*) {
   fn->next = state->module.functions;
   state->module.functions = fn;
   state->intrinsics.memcpy = fn;
+
+  // slice type
+  let irStruct = newIRStruct();
+
+  irStruct->name = "%slice";
+  irStruct->fields = getPtrType();
+  irStruct->fields->next = getIPtr(&state->module.target);
+
+  irStruct->next = state->module.types;
+  state->module.types = irStruct;
 }

@@ -94,17 +94,15 @@ func semaIntCast(
     return 1;
   }
 
-  if (fromInt->isSigned && toInt->isSigned) {
+  // Casting from a signed integer, so sign extend.
+  if (fromInt->isSigned) {
     *castKind = CastKind::Sext;
     return 1;
   }
 
-  if (!fromInt->isSigned && !toInt->isSigned) {
-    *castKind = CastKind::Zext;
-    return 1;
-  }
-
-  return 0;
+  // Otherwise zero extend.
+  *castKind = CastKind::Zext;
+  return 1;
 }
 
 func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
@@ -711,18 +709,31 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         default:
           failSemaExpr(state, expr, " Expected slice or array");
       }
+
       if (slice.start != null) {
         semaExpr(state, slice.start);
         if (slice.start->type->kind as TypeKind::Int* == null) {
           failSemaExpr(state, expr, "Start expression must be integer");
         }
+        slice.start = newExpr(ExprKind::Cast {
+          expr = slice.start,
+        });
+        slice.start->type = getIPtr(&state->target);
+        semaCast(state, slice.start);
       }
+
       if (slice.end != null) {
         semaExpr(state, slice.end);
         if (slice.end->type->kind as TypeKind::Int* == null) {
           failSemaExpr(state, expr, "End expression must be integer");
         }
+        slice.end = newExpr(ExprKind::Cast {
+          expr = slice.end,
+        });
+        slice.end->type = getIPtr(&state->target);
+        semaCast(state, slice.end);
       }
+
       expr->type = newType(TypeKind::Slice {
         element = elementType,
       });

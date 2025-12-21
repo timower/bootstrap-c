@@ -29,7 +29,7 @@ func convertType(type: Type*) -> const i8* {
       return "ptr";
 
     case TypeKind::Slice as s:
-      return "{ ptr, i32 }";
+      return "%slice";
 
     case TypeKind::Struct as s:
       let len = s.tag.len as iptr;

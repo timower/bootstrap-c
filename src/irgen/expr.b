@@ -265,6 +265,8 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
 func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
   let slice = expr->kind as ExprKind::SliceIndex*;
 
+  let iptrType = getIPtr(&state->module.target);
+
   let sliceVal = genExpr(state, slice->slice);
   let sliceType = expr->type;
   let sliceKind = sliceType->kind as TypeKind::Slice*;
@@ -288,7 +290,7 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
     case TypeKind::Array as a:
       sizeVal = Value::IntConstant {
         value = a.size,
-        type = getInt32(),
+        type = iptrType,
       };
       ptrVal = sliceVal;
 
@@ -296,7 +298,7 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
       ptrVal = sliceVal;
       sizeVal = Value::IntConstant {
         value = 0,
-        type = getInt32(),
+        type = iptrType,
       };
 
     case TypeKind::Slice:
@@ -307,7 +309,7 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
           field = 0,
         }),
       });
-      sizeVal = addInstr(state, getInt32(), InstrKind::Load {
+      sizeVal = addInstr(state, iptrType, InstrKind::Load {
         ptr = addInstr(state, getPtrType(), InstrKind::StructGEP {
           type = sliceType,
           ptr = sliceVal,
@@ -321,7 +323,7 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
   }
 
   let startVal: Value = Value::IntConstant {
-    type = getInt32(),
+    type = iptrType,
     value = 0,
   };
   if (slice->start != null) {
