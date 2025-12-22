@@ -36,6 +36,11 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
           addLocalDecl(&funcState, arg);
         }
         semaStmt(&funcState, funcKind.body);
+
+        if (!funcState.returns
+            && funcState.result->kind as TypeKind::Void* == null) {
+          failSemaDecl(state, decl, "Not all paths return");
+        }
       }
     case DeclKind::Var:
       semaVarDecl(state, decl);

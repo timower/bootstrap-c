@@ -37,6 +37,7 @@ func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
       return getFieldBitset(state, binExpr.lhs) | getFieldBitset(state, binExpr.rhs);
     default:
       failSemaExpr(state, expr, "Unsupported case expression");
+      return 0;
   }
 }
 
@@ -152,6 +153,7 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
 
   let fieldBitSet = 0;
 
+  let allReturn = true;
   for (let caseStmt = switchStmt->body; caseStmt != null; caseStmt = caseStmt->next) {
     let subState = newState(state);
 
@@ -167,6 +169,8 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
         for (let cur = caseKind.body; cur != null; cur = cur->next) {
           semaStmt(&subState, cur);
         }
+        allReturn &= subState.returns;
+
       case StmtKind::Default as defaultKind:
         fieldBitSet = -1;
 
@@ -174,6 +178,8 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
         for (let cur = defaultKind.body; cur != null; cur = cur->next) {
           semaStmt(&subState, cur);
         }
+        allReturn &= subState.returns;
+
       default:
         failSemaStmt(state, caseStmt, "Unknown switch case statement");
     }
@@ -189,6 +195,12 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
     if ((1 << size) - 1 != fieldBitSet) {
       failSemaStmt(state, stmt, "Switch is not exhaustive");
     }
+  }
+
+  // The switch returns if all cases return, and we're exhaustive or we have a
+  // default statement.
+  if (allReturn && (exhaustive || fieldBitSet == -1)) {
+    state->returns = true;
   }
 }
 
@@ -218,9 +230,11 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
       }
 
     case StmtKind::Return as retStmt:
-      if (retStmt.expr == null && &state->result->kind as TypeKind::Void* == null) {
+      if (retStmt.expr == null
+          && state->result->kind as TypeKind::Void* == null) {
         failSemaStmt(state, stmt, "Return type should be void");
       }
+
       if (retStmt.expr != null) {
         semaExpr(state, retStmt.expr);
         let conv = doConvert(state, retStmt.expr, state->result);
@@ -229,12 +243,20 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
         }
         retStmt.expr = conv;
       }
+
+      if (state->returns) {
+        printLoc(stmt->location);
+        fprintf(getStderr(), "warning: Duplicate return\n");
+      }
+      state->returns = true;
+
     case StmtKind::Compound as compStmt:
       let subState = newState(state);
 
       for (let cur = compStmt.stmt; cur != null; cur = cur->next) {
         semaStmt(&subState, cur);
       }
+      state->returns = subState.returns;
 
     case StmtKind::If as ifStmt:
       let subState = newState(state);
@@ -250,7 +272,11 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
 
       semaStmt(&subState, ifStmt.thenStmt);
       if (ifStmt.elseStmt != null) {
-        semaStmt(state, ifStmt.elseStmt);
+        let elseState = newState(state);
+        semaStmt(&elseState, ifStmt.elseStmt);
+
+        // Only an if with an else can ever return.
+        state->returns = subState.returns && elseState.returns;
       }
     case StmtKind::While as whileStmt:
       semaExpr(state, whileStmt.cond);

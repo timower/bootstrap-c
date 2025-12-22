@@ -453,6 +453,7 @@ func parseBinOpRhs(
 
     lhs = newLhs;
   }
+  return null;
 }
 
 

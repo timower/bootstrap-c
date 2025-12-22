@@ -27,11 +27,10 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
 
   genStmt(state, (&decl->kind as DeclKind::Func*)->body);
 
-  // TODO: check if there's no terminator
   let fnType = fn->type->kind as TypeKind::Func*;
   if (fnType->result->kind as TypeKind::Void* != null) {
     addInstr(state, null, InstrKind::ReturnVoid {});
-  } else {
+  } else if (state->curBB->begin == null) {
     addInstr(state, null, InstrKind::Return {
       val = Value::Zero {
         type = fnType->result,
@@ -285,6 +284,7 @@ func getCases(
 
     default:
       failIRGen("Unsupported case expr");
+      return null;
   }
 }
 

@@ -51,7 +51,11 @@ struct SemaState {
   // Set to true to give LSP related output during sema.
   semaLspMode: bool;
 
+  // Set to true by failSema to make sure we can report all errors.
   failed: bool;
+
+  // Used to check all paths in a function return.
+  returns: bool;
 }
 
 func newState(parent: SemaState*) -> SemaState {
@@ -80,20 +84,14 @@ func failSemaType(state: SemaState*, type: Type*, msg: const i8*) {
 }
 
 func failSemaExpr(state: SemaState*, expr: ExprAST*, msg: const i8*) {
-  printExpr(expr);
-  printf("\n");
   failSema(state, expr->location, msg);
 }
 
 func failSemaDecl(state: SemaState*, decl: DeclAST*, msg: const i8*) {
-  printDecl(decl);
-  printf("\n");
   failSema(state, decl->location, msg);
 }
 
 func failSemaStmt(state: SemaState*, stmt: StmtAST*, msg: const i8*) {
-  printStmt(stmt);
-  printf("\n");
   failSema(state, stmt->location, msg);
 }
 

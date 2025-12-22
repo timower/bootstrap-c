@@ -23,6 +23,7 @@ func lookupTypeMap(map: TypeMap*, tag: TypeKind::Tag*) -> Type* {
       return cur->value;
     }
   }
+  return null;
 }
 
 func lookupTagTypeMap(map: TypeMap*, tag: Token) -> Token {

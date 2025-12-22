@@ -92,6 +92,7 @@ func getImportExprName(expr: ExprAST*) -> Token {
 
     default:
       failSemaExpr(null, expr, "Unexpected expression in import");
+      return Token {};
   }
 }
 

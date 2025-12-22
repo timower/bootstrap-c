@@ -64,7 +64,6 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
       };
 
     // Address of global
-    // TODO: allow offsets?
     case ExprKind::Unary as unaryExpr:
       if (unaryExpr.op.kind != TokenKind::AND) {
         break;
@@ -96,6 +95,7 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
   printExpr(expr);
   printf("\n");
   failIRGen("TODO: constant exprs");
+  return Value::Zero {};
 }
 
 func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
@@ -265,6 +265,7 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
   }
 
   failIRGen("Invalid expr");
+  return Value::Zero {};
 }
 
 func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
@@ -444,6 +445,7 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
 
     default:
       failIRGen("Invalid unary");
+      return Value::Zero {};
   }
 }
 

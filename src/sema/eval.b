@@ -66,5 +66,6 @@ func evalConstant(state: SemaState*, expr: ExprAST*) -> ExprAST* {
     default:
       // Not a constant expression
       failSemaExpr(state, expr, "Not a constant expression");
+      return null;
   }
 }
