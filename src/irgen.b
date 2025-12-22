@@ -146,18 +146,30 @@ func createIntrinsics(state: IRGenState*) {
   args->next->next = getInt32();
   args->next->next->next = getBool();
 
-  let fn = newFunction();
-  let name: i8* = "@llvm.memcpy.p0.p0.i32";
-  fn->name = name[:strlen(name)];
-  fn->type = newType(TypeKind::Func {
+  let fnCpy = newFunction();
+  let nameCpy: i8* = "@llvm.memcpy.p0.p0.i32";
+  fnCpy->name = nameCpy[:strlen(nameCpy)];
+  fnCpy->type = newType(TypeKind::Func {
     result = newType(TypeKind::Void {}),
     args = args,
     isVarargs = false,
   });
 
-  fn->next = state->module.functions;
-  state->module.functions = fn;
-  state->intrinsics.memcpy = fn;
+  fnCpy->next = state->module.functions;
+  state->module.functions = fnCpy;
+  state->intrinsics.memcpy = fnCpy;
+
+  let fnTrap = newFunction();
+  let nameTrap: i8* = "@llvm.trap";
+  fnTrap->name = nameTrap[:strlen(nameTrap)];
+  fnTrap->type = newType(TypeKind::Func {
+    result = newType(TypeKind::Void {}),
+    isVarargs = false,
+  });
+
+  fnTrap->next = state->module.functions;
+  state->module.functions = fnTrap;
+  state->intrinsics.trap = fnTrap;
 
   // slice type
   let irStruct = newIRStruct();

@@ -31,6 +31,12 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
   if (fnType->result->kind as TypeKind::Void* != null) {
     addInstr(state, null, InstrKind::ReturnVoid {});
   } else if (state->curBB->begin == null) {
+    addInstr(state, null, InstrKind::Call {
+      fnType = state->intrinsics.trap->type,
+      fn = Value::FuncPtr {
+        ptr = state->intrinsics.trap,
+      },
+    });
     addInstr(state, null, InstrKind::Return {
       val = Value::Zero {
         type = fnType->result,

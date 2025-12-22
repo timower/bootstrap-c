@@ -29,6 +29,7 @@ struct Local {
 
 struct Intrinsics {
   memcpy: Function*;
+  trap: Function*;
 }
 
 func failIRGen(msg: i8*) {
