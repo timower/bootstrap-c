@@ -118,7 +118,7 @@ func getToken(state: ParseState*) -> Token {
     // i32 types [iu](8|16|32|64) using hash lookup
     for (let i = 0; i < intTypeCount; i++) {
       if (intTypeHashes[i] == tokenHash) {
-        token.kind = TokenKind::INT2;
+        token.kind = TokenKind::INT;
         return token;
       }
     }

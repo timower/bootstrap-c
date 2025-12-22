@@ -635,7 +635,7 @@ func parseType(state: ParseState*) -> Type* {
   }
   type->location = state->curToken.location;
 
-  if (match(state, TokenKind::INT2)) {
+  if (match(state, TokenKind::INT)) {
     let data = state->curToken.data;
     let isSigned = data[0] == 'i';
     data = data[1:];

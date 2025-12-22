@@ -287,13 +287,13 @@ struct StmtAST {
 
 // utils
 func newExpr(kind: ExprKind) -> ExprAST* {
-  let result: ExprAST* = calloc(1, sizeof(struct ExprAST));
+  let result = calloc(1, sizeof(struct ExprAST)) as ExprAST*;
   result->kind = kind;
   return result;
 }
 
 func newFieldIndex(name: Token, field: ExprAST*) -> FieldIndex* {
-  let result: FieldIndex* = calloc(1, sizeof(struct FieldIndex));
+  let result = calloc(1, sizeof(struct FieldIndex)) as FieldIndex*;
   result->fieldName = name;
   result->value = field;
   result->index = -1;
@@ -301,32 +301,32 @@ func newFieldIndex(name: Token, field: ExprAST*) -> FieldIndex* {
 }
 
 func newDecl(kind: DeclKind) -> DeclAST* {
-  let decl: DeclAST* = calloc(1, sizeof(struct DeclAST));
+  let decl = calloc(1, sizeof(struct DeclAST)) as DeclAST*;
   decl->kind = kind;
   return decl;
 }
 
 func newDeclList(decl: DeclAST*) -> DeclList* {
-  let res: DeclList* = calloc(1, sizeof(struct DeclList));
+  let res = calloc(1, sizeof(struct DeclList)) as DeclList*;
   res->decl = decl;
   return res;
 }
 
 func newStmt(kind: StmtKind) -> StmtAST* {
-  let stmt: StmtAST* = calloc(1, sizeof(struct StmtAST));
+  let stmt = calloc(1, sizeof(struct StmtAST)) as StmtAST*;
   stmt->kind = kind;
   return stmt;
 }
 
 
 func newType(kind: TypeKind) -> Type* {
-  let type: Type* = calloc(1, sizeof(struct Type));
+  let type = calloc(1, sizeof(struct Type)) as Type*;
   type->kind = kind;
   return type;
 }
 
 func newComment(token: Token) -> Comment* {
-  let comment: Comment* = calloc(1, sizeof(struct Comment));
+  let comment = calloc(1, sizeof(struct Comment)) as Comment*;
   comment->value = token;
   comment->location = token.location;
   return comment;

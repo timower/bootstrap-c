@@ -159,6 +159,7 @@ module.exports = grammar({
       $.if_statement,
       $.while_statement,
       $.break_statement,
+      $.continue_statement,
     ),
 
     for_statement: $ => seq(
@@ -221,6 +222,7 @@ module.exports = grammar({
     ),
 
     break_statement: $ => seq('break', ';'),
+    continue_statement: $ => seq('continue', ';'),
 
     expression_statement: $ => seq(optional($.expression), ';'),
 

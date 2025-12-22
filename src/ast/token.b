@@ -8,7 +8,7 @@ enum TokenKind {
   IDENTIFIER,
   CONSTANT,
   STRING_LITERAL,
-  INT2,
+  INT,
   COMMENT,
 
   // keywords

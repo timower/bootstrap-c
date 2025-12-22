@@ -50,40 +50,42 @@ TODO
  - [x] `typeof(foo)` expression to do:
      * `sizeof(typeof(foo))`
      * `let x: typeof(foo) = 12`
-
  - [x] Function types & function pointer support.
-
  - [x] No semicolons for decls.
-
  - [x] Add target pointer size, Add iptr and uptr types.
-
- - [ ] Generic functions.
+ - [x] Generic functions.
      * `func foo<T>(a: T, b: T) -> T { return a + b; }`
+ - [x] Add slice type.
+    * syntax: slice: `[i8]`, array `i8[N]` or `i8[] = [1, 2]`
+    * stored as `{ ptr: T*, len: isize }`
+    * arrays become `[1, 2, 3]`
+    * array to slice: `array[start:end]` start & end are optional
+    * array or pointer to it? can be converted to slice implicitly
+ - [x] continue statement.
+
+ - [ ] Remove array to pointer decay, make strings slices.
+   * Will `puts("foo")` still work?
+     `puts(&"foo"[0])` or `puts("foo".ptr)` or allow implicit slice -> ptr decay.
+   * Clean `doDecay`, decay array to slice?
+   * Allow slice global expressions in `genConst`.
+
+ - [ ] Dedup generic instantiations.
+ - [ ] Generic function inference
+ - [ ] Generic types
  - [ ] `is[T, U](union: U*) -> bool` function.
      * `is[T, U](union: U*) -> bool { return union as T* != NULL; }`
- - [ ] Generic types
+ - [ ] stdlib shipped with compiler.
 
  - [ ] Isolated imports.
 
  - [ ] Methods and method call syntax
     * `a.foo(...)` -> `Foo::foo(a, ...)`
 
-
-
- - [ ] Add slice type.
-    * syntax: slice: `[i8]`, array `i8[N]` or `i8[] = [1, 2]`
-
-    * stored as `{ ptr: T*, len: isize }`
-    * arrays become `[1, 2, 3]`
-    * array to slice: `array[start:end]` start & end are optional
-    * array or pointer to it? can be converted to slice implicitly
-
  - [ ] aarch64 backend
  - [ ] Remove intrinsic lists for types, cache types.
  - [ ] Add references?
  - [ ] Actual constant expressions and decls.
  - [ ] Correctly padded structs.
- - [ ] continue statement.
  - [ ] x86_64 backend
 
 LSP TODO

@@ -136,6 +136,10 @@
         "named": true
       },
       {
+        "type": "continue_statement",
+        "named": true
+      },
+      {
         "type": "expression_statement",
         "named": true
       },
@@ -428,6 +432,11 @@
         }
       ]
     }
+  },
+  {
+    "type": "continue_statement",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "default_statement",
@@ -1361,6 +1370,10 @@
   },
   {
     "type": "const",
+    "named": false
+  },
+  {
+    "type": "continue",
     "named": false
   },
   {
