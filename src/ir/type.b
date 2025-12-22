@@ -1,5 +1,18 @@
 import ast;
 
+func needsAlloc(expr: ExprAST*) -> bool {
+  switch (expr->kind) {
+    case ExprKind::Struct, ExprKind::SliceIndex:
+      return false;
+    case ExprKind::Call:
+      return !isAggregate(expr->type);
+    case ExprKind::Cast as c:
+      return c.castKind != CastKind::StructUnion;
+    default:
+      return true;
+  }
+}
+
 func isAggregate(type: Type*) -> bool {
   // slice is a {ptr, i32} pair, so aggregate.
   return type->kind as TypeKind::Struct* != null

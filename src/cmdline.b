@@ -64,7 +64,6 @@ func usage() {
 }
 
 func parseOpts(argv: [i8*]) -> CommandLineArgs {
-  // TODO: _TARGET_
   let args = CommandLineArgs {
     inputFile = null,
     outputFile = null,

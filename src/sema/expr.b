@@ -742,7 +742,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(state, expr, "Unary on pointer");
       }
 
-      // TODO: correct?
       if (unaryExpr.op.kind == TokenKind::BANG) {
         expr->type = getBool();
       }

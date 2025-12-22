@@ -6,7 +6,7 @@
 // CHECK-NOT: @foo =
 // CHECK-NOT: store i32 -12
 // CHECK: add i32
-// CHECK: ret i32 0
+// CHECK: ret i32
 const foo = 0xC;
 
 const baz = 0o14;

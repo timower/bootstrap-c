@@ -91,7 +91,6 @@ func main(argc: i32, argv: i8**) -> i32 {
   debug("End sema");
 
   if (args.mode == Mode::SemaLsp) {
-    // TODO: dump dep graph, dump refs, ...
     return 0;
   }
 

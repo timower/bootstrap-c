@@ -9,6 +9,9 @@ func main() -> i32 {
   // CHECK: store i1 0, ptr %alloc
   let falseV = false;
 
+  // CHECK: icmp eq i1 {{.*}}, 0
+  let invertB = !trueV;
+
   if (trueV && falseV) {
     // CHECK: ret i32 1
     return 1;

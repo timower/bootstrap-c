@@ -7,6 +7,8 @@ import util;
 import irgen.state;
 import irgen.utils;
 
+import sema.type;
+
 
 func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
   switch (expr->kind) {
@@ -241,10 +243,13 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
         case DeclKind::Var as varKind:
           let initVal = genExpr(state, varKind.init);
 
-          // TODO: if init is an alloca, don't make a new one.
-          let alloc = addAlloca(state, expr->type);
+          let alloc = initVal;
+          if (needsAlloc(varKind.init)) {
+            alloc = addAlloca(state, expr->type);
+            genStore(state, alloc, initVal, expr->type);
+          }
+
           addLocal(state, letExpr.decl->name, alloc);
-          genStore(state, alloc, initVal, expr->type);
 
           return initVal;
 
@@ -433,7 +438,7 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
         lhs = op,
         rhs = Value::IntConstant {
           value = 0,
-          type = getInt32(),
+          type = getBool(),
         },
       });
 

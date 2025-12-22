@@ -9,10 +9,7 @@ struct Module {
 
 struct IRStruct {
   name: i8*;
-
-  // TODO: figure out type.
   fields: Type*;
-
   next: IRStruct*;
 }
 

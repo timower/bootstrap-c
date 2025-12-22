@@ -13,7 +13,6 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
 
   let idx = 0;
   for (let arg = (&decl->kind as DeclKind::Func*)->args; arg != null; arg = arg->next, idx++) {
-    // TODO: just return Value?
     let alloc = addAlloca(state, arg->type);
 
     addLocal(state, arg->name, alloc);

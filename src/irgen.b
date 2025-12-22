@@ -59,15 +59,16 @@ func genModule(decls: DeclAST*, target: Target) -> Module {
   return state.module;
 }
 
-func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
-  // TODO: dedup
-  let ident = decl->name.data;
+func getDeclIRName(ident: [i8]) -> [i8] {
   let len = ident.len as i32;
   let buf: i8* = malloc((len + 2) as uptr);
   len = sprintf(buf, "@%.*s", len, &ident[0]);
+  return buf[:len];
+}
 
+func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
   let global = newGlobal();
-  global->name = buf[:len];
+  global->name = getDeclIRName(decl->name.data);
   global->type = decl->type;
 
   let varKind = &decl->kind as DeclKind::Var*;
@@ -90,13 +91,8 @@ func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
 }
 
 func addFunc(state: IRGenState*, decl: DeclAST*) -> Value {
-  let ident = decl->name.data;
-  let len = ident.len as i32;
-  let buf: i8* = malloc((len + 2) as uptr);
-  len = sprintf(buf, "@%.*s", len, &ident[0]);
-
   let fn = newFunction();
-  fn->name = buf[:len];
+  fn->name = getDeclIRName(decl->name.data);
   fn->type = decl->type;
 
   fn->next = state->module.functions;
