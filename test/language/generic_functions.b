@@ -29,7 +29,7 @@ func identity[T](value: T) -> T {
 
 // Generic function using type parameters in complex ways
 func process[T](data: [T], callback: func*(T) -> bool) -> bool {
-  for (let i = 0; i < data.len; i++) {
+  for (let i: iptr = 0; i < data.len; i++) {
     if (!callback(data[i])) {
       return false;
     }
@@ -78,8 +78,8 @@ func main() -> i32 {
   // Test convert with multiple types
   let char_val = convert:[i32, i8](41);
 
-  let true_data = { 1, 2, 3 };
-  let false_data = { 1, -2, 3 };
+  let true_data = [ 1, 2, 3 ];
+  let false_data = [ 1, -2, 3 ];
   if (!process:[i32](true_data[:], &isPositive:[i32])) {
     return 1;
   }

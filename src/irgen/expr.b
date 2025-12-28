@@ -48,6 +48,27 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
         type = expr->type,
       };
 
+    case ExprKind::SliceIndex as sliceIdx:
+      let slice = genConstant(state, sliceIdx.slice);
+      if (sliceIdx.end == null || sliceIdx.start != null) {
+        failIRGen("Constant GEP not supported yet");
+      }
+      let values = (calloc(2, sizeof(Value)) as Value*)[:2];
+      values[0] = slice;
+      values[1] = genConstant(state, sliceIdx.end);
+      return Value::StructConstant {
+        values = values,
+        type = expr->type,
+      };
+
+    case ExprKind::Cast as cast:
+      switch (cast.castKind) {
+        case CastKind::Noop:
+          return genConstant(state, cast.expr);
+        default:
+          break;
+      }
+
     case ExprKind::Array as arrayExpr:
       let arrayType = expr->type->kind as TypeKind::Array*;
       let size = arrayType->size as u32;

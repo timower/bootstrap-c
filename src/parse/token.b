@@ -217,7 +217,7 @@ func getToken(state: ParseState*) -> Token {
       }
 
       if (match) {
-        state->current = tokenStart + len;
+        state->current = (tokenStart + len) as i32;
         let token = makeToken(state, tokenStart);
         token.kind = i as enum TokenKind;
         return token;

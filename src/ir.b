@@ -196,6 +196,11 @@ union Value {
     values: [Value];
   }
 
+  StructConstant {
+    type: Type*;
+    values: [Value];
+  }
+
   Argument {
     type: Type*;
     idx: i32;

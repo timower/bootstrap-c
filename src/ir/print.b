@@ -54,6 +54,9 @@ func getType(value: Value) -> i8* {
     case Value::ArrayConstant as a:
       return convertType(a.type);
 
+    case Value::StructConstant as s:
+      return convertType(s.type);
+
     case Value::Argument as a:
       return convertType(a.type);
 
@@ -125,6 +128,22 @@ func getName(value: Value) -> i8* {
         }
       }
       offset += sprintf(&buf[offset], " ]");
+      return &buf[0];
+
+    case Value::StructConstant as s:
+      let buf = newBuf(64 * s.values.len as iptr);
+
+      let offset = sprintf(&buf[0], "<{ ");
+
+      // TODO: dedup with array
+      for (let i = 0; i < s.values.len; i++) {
+        let value = s.values[i];
+        offset += sprintf(&buf[offset], "%s %s", getType(value), getName(value));
+        if (i != s.values.len - 1) {
+          offset += sprintf(&buf[offset], ", ");
+        }
+      }
+      offset += sprintf(&buf[offset], " }>");
       return &buf[0];
 
     case Value::GlobalPtr as g:

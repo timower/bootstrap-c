@@ -14,7 +14,7 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
 
   switch (to->kind) {
     // Allow integer expression casting
-    case TypeKind::Int:
+    case TypeKind::Int as i:
       if (let intExpr = expr->kind as ExprKind::Int*) {
         let res = newExpr(ExprKind::Int {
           value = intExpr->value,
@@ -24,6 +24,45 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
         res->type = to;
         return res;
       }
+
+      if (let fromInt = from->kind as TypeKind::Int*) {
+        if (fromInt->isSigned != i.isSigned) {
+          break;
+        }
+        if (fromInt->size > i.size) {
+          break;
+        }
+
+        let res = newExpr(ExprKind::Cast {
+          castKind = i.isSigned ? CastKind::Sext : CastKind::Zext,
+          expr = expr,
+        });
+        res->type = to;
+        res->location = expr->location;
+        return res;
+      }
+
+    case TypeKind::Slice as toSlice:
+      let fromArray = getPointerToArray(from);
+      if (fromArray == null) {
+        break;
+      }
+
+      if (!typeEq(fromArray->element, toSlice.element)) {
+        break;
+      }
+
+      let sizeExpr = newExpr(ExprKind::Int {
+        value = fromArray->size,
+      });
+      sizeExpr->type = getIPtr(&state->target);
+      let res = newExpr(ExprKind::SliceIndex {
+        slice = expr,
+        end = sizeExpr,
+      });
+      res->type = to;
+      res->location = expr->location;
+      return res;
 
     case TypeKind::Pointer as toPtr:
       if (let fromPtr = from->kind as TypeKind::Pointer*) {
@@ -37,6 +76,7 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
 
         // Pointer to arrays can be convert to pointers to the first element.
         // This is a no-op for code gen?
+        // TODO: remove
         if (let fromArray = fromPtr->pointee->kind as TypeKind::Array*) {
           if (typeEq(fromArray->element, toPtr.pointee)) {
             return expr;
@@ -202,6 +242,7 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
 
         // Pointer to arrays can be casted to pointers to the first element.
         // This is a no-op for code gen.
+        // TODO: fix
         if (let fromArray = fromPtr.pointee->kind as TypeKind::Array*) {
           if (typeEq(fromArray->element, toPtr->pointee)) {
             cast->castKind = CastKind::Noop;
@@ -476,33 +517,46 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(state, expr, "Unknown member op");
       }
 
-      if (let sliceType = objectType->kind as TypeKind::Slice*) {
-        if (!tokCmpStr(memberExpr.identifier, "len")) {
-          failSemaExpr(state, expr, " Only 'len' member supported");
-        }
+      switch (objectType->kind) {
+        case TypeKind::Array as a:
+          if (!tokCmpStr(memberExpr.identifier, "len")) {
+            failSemaExpr(state, expr, " Only 'len' member supported");
+          }
 
-        // (ptr, len) so index 1
-        memberExpr.fieldIndex = 1;
-        expr->type = getInt32();
-        return;
+          expr->kind = ExprKind::Int {
+            token = memberExpr.identifier,
+            value = a.size,
+          };
+          expr->type = getIPtr(&state->target);
+          return;
+
+        case TypeKind::Slice:
+          if (!tokCmpStr(memberExpr.identifier, "len")) {
+            failSemaExpr(state, expr, " Only 'len' member supported");
+          }
+
+          // (ptr, len) so index 1
+          memberExpr.fieldIndex = 1;
+          expr->type = getIPtr(&state->target);
+          return;
+
+        case TypeKind::Struct as structType:
+          let structDecl = lookupStruct(state, &structType);
+          if (structDecl == null) {
+            failSemaExpr(state, expr, "Unknown type for member expression");
+          }
+
+          let fieldDecl = findField(state, structDecl, memberExpr.identifier, &memberExpr.fieldIndex);
+          if (fieldDecl == null) {
+            failSemaExpr(state, expr, " Cannot find field");
+          }
+
+          expr->type = fieldDecl->type;
+          return;
+
+        default:
+          failSemaExpr(state, expr, ": Expected struct type for member access");
       }
-
-      let structType = objectType->kind as TypeKind::Struct*;
-      if (structType == null) {
-        failSemaExpr(state, expr, ": Expected struct type for member access");
-      }
-
-      let structDecl = lookupStruct(state, structType);
-      if (structDecl == null) {
-        failSemaExpr(state, expr, "Unknown type for member expression");
-      }
-
-      let fieldDecl = findField(state, structDecl, memberExpr.identifier, &memberExpr.fieldIndex);
-      if (fieldDecl == null) {
-        failSemaExpr(state, expr, " Cannot find field");
-      }
-
-      expr->type = fieldDecl->type;
 
     case ExprKind::GenericInstantiation as genericInst:
       resolveTypeTags(state, genericInst.typeArgs);
@@ -681,7 +735,22 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         case TypeKind::Slice as s:
           elementType = s.element;
         case TypeKind::Pointer as p:
-          elementType = p.pointee;
+          let ptrToArray = getPointerToArray(slice.slice->type);
+          if (ptrToArray != null) {
+            if (slice.end == null) {
+              slice.end = newExpr(ExprKind::Int {
+                value = ptrToArray->size,
+              });
+              slice.end->type = getIPtr(&state->target);
+            }
+            elementType = ptrToArray->element;
+          } else {
+            // TODO: remove
+            if (slice.end == null) {
+              failSemaExpr(state, expr, " Pointer to slice requires end");
+            }
+            elementType = p.pointee;
+          }
         default:
           failSemaExpr(state, expr, " Expected slice or array");
       }
