@@ -3,10 +3,13 @@ import irgen.state;
 import ir.type;
 
 func genLoad(state: IRGenState*, addr: Value, type: Type*) -> Value {
-  if (type->kind as TypeKind::Func* != null
-      || type->kind as TypeKind::Array* != null) {
+  if (type->kind as TypeKind::Func* != null) {
     return addr;
   }
+
+  // if (type->kind as TypeKind::Array* != null) {
+  //   return addr;
+  // }
   if (isAggregate(type)) {
     return addr;
   }

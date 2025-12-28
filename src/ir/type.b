@@ -2,7 +2,7 @@ import ast;
 
 func needsAlloc(expr: ExprAST*) -> bool {
   switch (expr->kind) {
-    case ExprKind::Struct, ExprKind::SliceIndex:
+    case ExprKind::Struct, ExprKind::Array, ExprKind::SliceIndex:
       return false;
     case ExprKind::Call:
       return !isAggregate(expr->type);
@@ -14,10 +14,13 @@ func needsAlloc(expr: ExprAST*) -> bool {
 }
 
 func isAggregate(type: Type*) -> bool {
-  // slice is a {ptr, i32} pair, so aggregate.
-  return type->kind as TypeKind::Struct* != null
-      || type->kind as TypeKind::Union* != null
-      || type->kind as TypeKind::Slice* != null;
+  switch (type->kind) {
+    // slice is a {ptr, i32} pair, so aggregate.
+    case TypeKind::Struct, TypeKind::Array, TypeKind::Union, TypeKind::Slice:
+      return true;
+    default:
+      return false;
+  }
 }
 
 

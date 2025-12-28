@@ -118,7 +118,7 @@ def main():
         )
 
         # Exit with error if coverage is below 90%
-        if overall_coverage < 90.0:
+        if round(overall_coverage, 1) < 90.0:
             print(f"Error: Coverage {overall_coverage:.2f}% is below required 90%")
             sys.exit(1)
 

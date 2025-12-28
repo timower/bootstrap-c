@@ -187,7 +187,7 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Paren as parenExpr:
       return genExpr(state, parenExpr.expr);
 
-    case ExprKind::Int, ExprKind::Scope, ExprKind::Str, ExprKind::Array:
+    case ExprKind::Int, ExprKind::Scope, ExprKind::Str:
       return genConstant(state, expr);
 
     case ExprKind::Variable, ExprKind::Index, ExprKind::Member,
@@ -234,6 +234,8 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
 
     case ExprKind::Struct:
       return genStructExpr(state, expr);
+    case ExprKind::Array:
+      return genArrayExpr(state, expr);
 
     case ExprKind::Cast:
       return genCast(state, expr);
@@ -273,7 +275,6 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
 
   let iptrType = getIPtr(&state->module.target);
 
-  let sliceVal = genExpr(state, slice->slice);
   let sliceType = expr->type;
   let sliceKind = sliceType->kind as TypeKind::Slice*;
 
@@ -294,6 +295,7 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
 
   switch (slice->slice->type->kind) {
     case TypeKind::Array as a:
+      let sliceVal = genAddr(state, slice->slice);
       sizeVal = Value::IntConstant {
         value = a.size,
         type = iptrType,
@@ -301,13 +303,14 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
       ptrVal = sliceVal;
 
     case TypeKind::Pointer:
-      ptrVal = sliceVal;
+      ptrVal = genExpr(state, slice->slice);
       sizeVal = Value::IntConstant {
         value = 0,
         type = iptrType,
       };
 
     case TypeKind::Slice:
+      let sliceVal = genExpr(state, slice->slice);
       ptrVal = addInstr(state, getPtrType(), InstrKind::Load {
         ptr = addInstr(state, getPtrType(), InstrKind::StructGEP {
           type = sliceType,
@@ -802,6 +805,29 @@ func genStructExpr(state: IRGenState*, expr: ExprAST*) -> Value {
       field = field->index,
     });
     genStore(state, fieldGep, fieldVal, field->value->type);
+  }
+
+  return res;
+}
+
+func genArrayExpr(state: IRGenState*, expr: ExprAST*) -> Value {
+  let structExpr = expr->kind as ExprKind::Array*;
+  let arrayType = expr->type->kind as TypeKind::Array*;
+
+  let res = addAlloca(state, expr->type);
+  let idx = 0;
+  for (let elem = structExpr->elements; elem != null; elem = elem->next, idx++) {
+    let fieldVal = genExpr(state, elem);
+    let fieldGep =
+        addInstr(state, getPtrType(), InstrKind::ArrayGEP {
+      type = arrayType->element,
+      ptr = res,
+      idx = Value::IntConstant {
+        value = idx,
+        type = getInt32(),
+      },
+    });
+    genStore(state, fieldGep, fieldVal, elem->type);
   }
 
   return res;
