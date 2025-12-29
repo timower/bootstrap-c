@@ -136,7 +136,10 @@ func getTargetDecl(target: Target*) -> DeclAST* {
   let decl = newDecl(DeclKind::Var {
     init = init,
   });
-  decl->type = init->type;
+  decl->type = newType(TypeKind::Array {
+    element = getCharType(),
+    size = tripleLen as i32,
+  });
   decl->name = targetTok;
 
   return decl;

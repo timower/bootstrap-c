@@ -319,24 +319,35 @@ func getStringLength(tok: Token) -> i32 {
   return len + 1;  // null terminator
 }
 
+
+// Does the AST transform of a string expression.
+//
+// A string constant like "foo" is turned into a global static array:
+//  let str.0: i8[3] = ['f', 'o', 'o', 0];
+// The expression itself is then replaced with `&str.0`
+//
+// Note: the array init length is one more than the type due to the 0 terminator.
 func semaString(state: SemaState*, expr: ExprAST*) {
   let strExpr = expr->kind as ExprKind::Str*;
-  expr->type = newType(TypeKind::Array {
-    element = getCharType(),
-    size = getStringLength(strExpr->identifier),
-  });
-
+  let strLen = getStringLength(strExpr->identifier);
   let init = newExpr(ExprKind::Str {
     identifier = strExpr->identifier,
   });
-  init->type = expr->type;
+
+  init->type = newType(TypeKind::Array {
+    element = getCharType(),
+    size = strLen,
+  });
 
   // Add a global variable for the string.
   let root = getRoot(state);
   let decl = newDecl(DeclKind::Var {
     init = init,
   });
-  decl->type = expr->type;
+  decl->type = newType(TypeKind::Array {
+    element = getCharType(),
+    size = strLen - 1,
+  });
 
   let name = newInternalToken(32);
   let len = sprintf(&name.data[0], "str.%d", root->strCount++);

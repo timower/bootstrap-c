@@ -55,5 +55,10 @@ func main() -> i32 {
   printArray2();
   arrayElems();
 
+  let array: [i8] = "1234";
+  if (array.len != 4) {
+    return 1;
+  }
+
   return 0;
 }
