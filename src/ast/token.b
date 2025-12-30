@@ -156,8 +156,7 @@ func packTokenHash(str: [i8]) -> i64 {
 
 func initTokenHashes() {
   for (let i = 0; i < tokens.len; i++) {
-    let len = strlen(&tokens[i][0]);
-    let data = tokens[i][:len];
+    let data = tokens[i];
     tokenHashes[i].data = data;
     tokenHashes[i].hash = packTokenHash(data);
     if (tokenHashes[i].hash == 0) {
@@ -169,9 +168,7 @@ func initTokenHashes() {
 
 func initIntTypeHashes() {
   for (let i = 0; i < intTypes.len; i++) {
-    // let len = intTypes[i].len - 1;
-    let len = strlen(&intTypes[i][0]);
-    intTypeHashes[i] = packTokenHash(intTypes[i][:len]);
+    intTypeHashes[i] = packTokenHash(intTypes[i]);
   }
 }
 
@@ -194,13 +191,12 @@ func tokCmp(one: Token, two: Token) -> bool {
   return memcmp(&one.data[0], &two.data[0], len as uptr) == 0;
 }
 
-func tokCmpStr(one: Token, str: const i8*) -> bool {
-  let len = strlen(str);
-  if (one.data.len != len as i32) {
+func tokCmpStr(one: Token, str: [i8]) -> bool {
+  if (one.data.len != str.len as i32) {
     return false;
   }
 
-  return memcmp(&one.data[0], str, len as uptr) == 0;
+  return memcmp(&one.data[0], &str[0], str.len as uptr) == 0;
 }
 
 func getTokenHash(token: Token) -> i64 {

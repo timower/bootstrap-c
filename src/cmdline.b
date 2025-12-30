@@ -68,7 +68,7 @@ func parseOpts(argv: [i8*]) -> CommandLineArgs {
     inputFile = null,
     outputFile = null,
     outputKind = OutputKind::LLVM,
-    target = parseTriple(_TARGET_[:strlen(&_TARGET_)]),
+    target = parseTriple(&_TARGET_),
     mode = Mode::Compile,
     inPlace = false,
     readFromStdin = false,
