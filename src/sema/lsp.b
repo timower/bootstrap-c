@@ -3,19 +3,6 @@ import ast;
 import state;
 
 
-func getTypeTag(type: Type*) -> Token* {
-  switch (type->kind) {
-    case TypeKind::Struct as s:
-      return &s.tag;
-    case TypeKind::Union as u:
-      return &u.tag;
-    case TypeKind::Enum as e:
-      return &e.tag;
-    default:
-      return null;
-  }
-}
-
 func lspDecl(ptr: void*, tag: Token*) {
   printLoc(tag->location);
   fprintf(getStderr(), "decl: %p: %.*s\n", ptr, tag->data.len, &tag->data[0]);

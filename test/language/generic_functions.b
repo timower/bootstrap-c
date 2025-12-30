@@ -3,6 +3,7 @@
 // RUN: FileCheck %s --input-file %t.ll
 //
 // Basic generic function declaration
+extern func printf(s: i8*, ...) -> i32;
 func swap[T](a: T*, b: T*) {
   let temp: T = *a;
   *a = *b;
@@ -12,6 +13,28 @@ func swap[T](a: T*, b: T*) {
 
 union Union {
   A {}
+}
+
+union Bunion {
+  A {}
+}
+
+enum Foonum {
+  A,
+  B,
+}
+
+enum Barnum {
+  B,
+  C,
+}
+
+func getEnum[T]() -> T {
+  return T::B;
+}
+
+func getUnion[T]() -> T {
+  return T::A {};
 }
 
 
@@ -24,6 +47,16 @@ func convert[T, U](input: T) -> U {
 // Generic function with return type
 func identity[T](value: T) -> T {
   return value;
+}
+
+func nested[U](v: U) -> U {
+  return identity:[U](v);
+}
+
+
+func array[T]() -> T {
+  let arr = [ identity:[T](1), identity:[T](2) ];
+  return arr[0] + arr[1] + sizeof(T);
 }
 
 
@@ -41,6 +74,10 @@ func process[T](data: [T], callback: func*(T) -> bool) -> bool {
 // Helper function for testing
 func isPositive[T](n: T) -> bool {
   return n > 0;
+}
+
+func testCond[T](n: T) -> T {
+  return isPositive:[T](n) ? n : -n;
 }
 
 
@@ -67,6 +104,20 @@ func main() -> i32 {
   let a = true;
   let b = false;
   swap:[bool](&a, &b);
+
+  let unionVal = getUnion:[Union]();
+  let unionVal2 = getUnion:[Bunion]();
+  if (unionVal as Union::A* == null) {
+    return 1;
+  }
+  let enumVal = getEnum:[Foonum]();
+  if (enumVal != Foonum::B) {
+    return 1;
+  }
+
+  let benumVal = getEnum:[Barnum]();
+
+  let test = nested:[iptr](2);
 
   // Test identity function with different types
   // CHECK: call i32 (i32) @{{_?}}identity
@@ -97,5 +148,15 @@ func main() -> i32 {
   let bar: Union = Union::A {};
   let ptr = &bar;
   let aptr = convert:[Union*, Union::A*](&bar);
+
+  let arrayTest = array:[i32]();
+  if (arrayTest != 7) {
+    return 1;
+  }
+
+  if (testCond:[i32](-5) != testCond:[i32](5)) {
+    return 1;
+  }
+
   return 0;
 }

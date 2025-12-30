@@ -1,5 +1,18 @@
 import ast;
 
+func getTypeTag(type: Type*) -> Token* {
+  switch (type->kind) {
+    case TypeKind::Struct as s:
+      return &s.tag;
+    case TypeKind::Union as u:
+      return &u.tag;
+    case TypeKind::Enum as e:
+      return &e.tag;
+    default:
+      return null;
+  }
+}
+
 struct TypeMap {
   tag: TypeKind::Tag*;
   value: Type*;
@@ -29,7 +42,9 @@ func lookupTypeMap(map: TypeMap*, tag: TypeKind::Tag*) -> Type* {
 func lookupTagTypeMap(map: TypeMap*, tag: Token) -> Token {
   for (let cur = map; cur != null; cur = cur->next) {
     if (tokCmp(cur->tag->tag, tag)) {
-      return cur->tag->tag;
+      if (let newTag = getTypeTag(cur->value)) {
+        return *newTag;
+      }
     }
   }
   return tag;
