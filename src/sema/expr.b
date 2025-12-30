@@ -243,13 +243,12 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
         // Pointer to arrays can be casted to pointers to the first element.
         // This is a no-op for code gen.
         // TODO: fix
-        if (let fromArray = fromPtr.pointee->kind as TypeKind::Array*) {
-          if (typeEq(fromArray->element, toPtr->pointee)) {
-            cast->castKind = CastKind::Noop;
-            return 1;
-          }
-        }
-
+        // if (let fromArray = fromPtr.pointee->kind as TypeKind::Array*) {
+        //   if (typeEq(fromArray->element, toPtr->pointee)) {
+        //     cast->castKind = CastKind::Noop;
+        //     return 1;
+        //   }
+        // }
         // Pointers to unions can be converted to pointers to structs.
         let fromUnion = fromPtr.pointee->kind as TypeKind::Union*;
         let toStruct = toPtr->pointee->kind as TypeKind::Struct*;
@@ -586,13 +585,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
     case ExprKind::Call as callExpr:
       semaExpr(state, callExpr.function);
 
-      if (callExpr.function == null) {
-        failSemaExpr(state, expr, "Function callee null");
-      }
-      if (callExpr.function->type == null) {
-        failSemaExpr(state, expr, "Function callee type null");
-      }
-
       let funType = getFunctionType(&callExpr);
       if (funType == null) {
         failSemaExpr(state, expr, "Must call function or function pointer type");
@@ -655,8 +647,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         semaExpr(state, sub);
 
         // Decay types in arrays.
-        sub->type = doDecay(sub->type);
-
+        // sub->type = doDecay(sub->type);
         if (elementType == null) {
           elementType = sub->type;
         } else if (!typeEq(elementType, sub->type)) {

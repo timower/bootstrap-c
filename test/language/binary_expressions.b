@@ -59,6 +59,10 @@
 // CHECK: All binary expression tests completed
 extern func printf(format: i8*, ...) -> i32;
 
+let trueStr = "true"[:];
+
+let falseStr = "false"[:];
+
 func printBool(value: bool, name: i8*) {
   if (value) {
     printf("%s: true\n", name);
@@ -106,28 +110,28 @@ func testComparison() {
   let z = 10;
 
   // Equality
-  printf("%d == %d: %s\n", x, y, (x == y) ? "true" as i8* : "false" as i8*);
-  printf("%d == %d: %s\n", x, z, (x == z) ? "true" as i8* : "false" as i8*);
+  printf("%d == %d: %s\n", x, y, (x == y) ? &trueStr[0] : &falseStr[0]);
+  printf("%d == %d: %s\n", x, z, (x == z) ? &trueStr[0] : &falseStr[0]);
 
   // Inequality
-  printf("%d != %d: %s\n", x, y, (x != y) ? "true" as i8* : "false" as i8*);
-  printf("%d != %d: %s\n", x, z, (x != z) ? "true" as i8* : "false" as i8*);
+  printf("%d != %d: %s\n", x, y, (x != y) ? &trueStr[0] : &falseStr[0]);
+  printf("%d != %d: %s\n", x, z, (x != z) ? &trueStr[0] : &falseStr[0]);
 
   // Less than
-  printf("%d < %d: %s\n", x, y, (x < y) ? "true" as i8* : "false" as i8*);
-  printf("%d < %d: %s\n", y, x, (y < x) ? "true" as i8* : "false" as i8*);
+  printf("%d < %d: %s\n", x, y, (x < y) ? &trueStr[0] : &falseStr[0]);
+  printf("%d < %d: %s\n", y, x, (y < x) ? &trueStr[0] : &falseStr[0]);
 
   // Less than or equal
-  printf("%d <= %d: %s\n", x, y, (x <= y) ? "true" as i8* : "false" as i8*);
-  printf("%d <= %d: %s\n", x, z, (x <= z) ? "true" as i8* : "false" as i8*);
+  printf("%d <= %d: %s\n", x, y, (x <= y) ? &trueStr[0] : &falseStr[0]);
+  printf("%d <= %d: %s\n", x, z, (x <= z) ? &trueStr[0] : &falseStr[0]);
 
   // Greater than
-  printf("%d > %d: %s\n", y, x, (y > x) ? "true" as i8* : "false" as i8*);
-  printf("%d > %d: %s\n", x, y, (x > y) ? "true" as i8* : "false" as i8*);
+  printf("%d > %d: %s\n", y, x, (y > x) ? &trueStr[0] : &falseStr[0]);
+  printf("%d > %d: %s\n", x, y, (x > y) ? &trueStr[0] : &falseStr[0]);
 
   // Greater than or equal
-  printf("%d >= %d: %s\n", y, x, (y >= x) ? "true" as i8* : "false" as i8*);
-  printf("%d >= %d: %s\n", x, z, (x >= z) ? "true" as i8* : "false" as i8*);
+  printf("%d >= %d: %s\n", y, x, (y >= x) ? &trueStr[0] : &falseStr[0]);
+  printf("%d >= %d: %s\n", x, z, (x >= z) ? &trueStr[0] : &falseStr[0]);
 }
 
 
@@ -139,16 +143,16 @@ func testLogical() {
   let f = false;
 
   // Logical AND
-  printf("true && true: %s\n", (t && t) ? "true" as i8* : "false" as i8*);
-  printf("true && false: %s\n", (t && f) ? "true" as i8* : "false" as i8*);
-  printf("false && true: %s\n", (f && t) ? "true" as i8* : "false" as i8*);
-  printf("false && false: %s\n", (f && f) ? "true" as i8* : "false" as i8*);
+  printf("true && true: %s\n", (t && t) ? &trueStr[0] : &falseStr[0]);
+  printf("true && false: %s\n", (t && f) ? &trueStr[0] : &falseStr[0]);
+  printf("false && true: %s\n", (f && t) ? &trueStr[0] : &falseStr[0]);
+  printf("false && false: %s\n", (f && f) ? &trueStr[0] : &falseStr[0]);
 
   // Logical OR
-  printf("true || true: %s\n", (t || t) ? "true" as i8* : "false" as i8*);
-  printf("true || false: %s\n", (t || f) ? "true" as i8* : "false" as i8*);
-  printf("false || true: %s\n", (f || t) ? "true" as i8* : "false" as i8*);
-  printf("false || false: %s\n", (f || f) ? "true" as i8* : "false" as i8*);
+  printf("true || true: %s\n", (t || t) ? &trueStr[0] : &falseStr[0]);
+  printf("true || false: %s\n", (t || f) ? &trueStr[0] : &falseStr[0]);
+  printf("false || true: %s\n", (f || t) ? &trueStr[0] : &falseStr[0]);
+  printf("false || false: %s\n", (f || f) ? &trueStr[0] : &falseStr[0]);
 }
 
 
@@ -251,11 +255,11 @@ func testPrecedence() {
 
   // Test comparison vs arithmetic
   let result3 = 5 + 3 > 4 * 2;
-  printf("5 + 3 > 4 * 2: %s\n", result3 ? "true" as i8* : "false" as i8*);  // 8 > 8 = false
+  printf("5 + 3 > 4 * 2: %s\n", result3 ? &trueStr[0] : &falseStr[0]);  // 8 > 8 = false
 
   // Test logical vs comparison
   let result4 = 5 > 3 && 2 < 4;
-  printf("5 > 3 && 2 < 4: %s\n", result4 ? "true" as i8* : "false" as i8*);  // true && true = true
+  printf("5 > 3 && 2 < 4: %s\n", result4 ? &trueStr[0] : &falseStr[0]);  // true && true = true
 
   // Test bitwise vs arithmetic
   let result5 = 4 + 2 & 3;
@@ -276,9 +280,8 @@ func testAssociativity() {
 
   // Right associative (logical operations should be left associative)
   let result3 = true && false || true;
-  printf("true && false || true: %s\n", result3 ? "true" as i8* : "false" as i8*);  // Should be true
+  printf("true && false || true: %s\n", result3 ? &trueStr[0] : &falseStr[0]);  // Should be true
 }
-
 
 
 func main() -> i32 {

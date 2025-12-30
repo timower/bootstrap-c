@@ -146,19 +146,6 @@ func getPointerToArray(type: Type*) -> TypeKind::Array* {
 }
 
 
-// Decays pointers to arrays to pointers to the first element
-func doDecay(type: Type*) -> Type* {
-  let fromArray = getPointerToArray(type);
-  if (fromArray == null) {
-    return type;
-  }
-
-  let res = newType(TypeKind::Pointer {
-    pointee = fromArray->element,
-  });
-  return res;
-}
-
 func getStructDeclSize(state: SemaState*, decl: DeclAST*) -> i32 {
   let size = 0;
   for (let field = (&decl->kind as DeclKind::Struct*)->fields; field != null; field = field->next) {

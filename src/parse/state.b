@@ -89,7 +89,7 @@ func match(state: ParseState*, tok: TokenKind) -> bool {
 
 func expect(state: ParseState*, tok: TokenKind) {
   if (!match(state, tok)) {
-    failParseArg(state, "Expected: ", tokens[(tok as i32)]);
+    failParseArg(state, "Expected: ", &tokens[(tok as i32)][0]);
   }
 }
 

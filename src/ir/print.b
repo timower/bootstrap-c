@@ -190,22 +190,22 @@ func getName(value: Value) -> i8* {
 func printGlobal(global: Global*) {
   let declSpec =
       global->type->isConst
-       ? "constant" as i8*
-       : "global" as i8*;
+       ? "constant"[:]
+       : "global"[:];
 
   if (global->isExtern) {
     fprintf(
         outFile,
         "%s = external %s %s\n",
         &global->name[0],
-        declSpec,
+        &declSpec[0],
         convertType(global->type));
   } else {
     fprintf(
         outFile,
         "%s = %s %s %s\n",
         &global->name[0],
-        declSpec,
+        &declSpec[0],
         getType(global->init),
         getName(global->init));
   }
@@ -214,9 +214,9 @@ func printGlobal(global: Global*) {
 func printFunc(fn: Function*) {
   let fnType = fn->type->kind as TypeKind::Func*;
   let isEmpty = fn->begin == null;
-  let defOrDecl = isEmpty ? "declare" as i8* : "define" as i8*;
+  let defOrDecl = isEmpty ? "declare"[:] : "define"[:];
 
-  fprintf(outFile, "%s %s %s(", defOrDecl, convertType(fnType->result), &fn->name[0]);
+  fprintf(outFile, "%s %s %s(", &defOrDecl[0], convertType(fnType->result), &fn->name[0]);
 
   let idx = 0;
   for (let arg = fnType->args; arg != null; arg = arg->next, idx++) {

@@ -95,15 +95,18 @@ enum TokenKind {
   QUESTION,
 }
 
-let tokens: const i8*[] = [
-  "EOF", "IDENT", "CONST", "STR", "INT", "COMMENT",
-  "continue", "default", "extern", "sizeof", "typeof", "struct", "switch",
-  "return", "import", "const", "while", "break", "union", "iptr", "uptr", "void", "bool",
-  "true", "false", "enum", "case", "else", "func", "for", "let", "if", "as",
-  "<<=", ">>=", "...", "::", "->", "++", "--", "<<", ">>", "<=", ">=", "==",
-  "!=", "&&", "||", "*=", "/=", "%=", "+=", "-=", "&=", "^=", "|=", ":[", ";",
-  "{", "}", ",", ":", "=", "(", ")", "[", "]", ".", "&", "!", "~", "-", "+",
-  "*", "/", "%", "<", ">", "^", "|", "?",
+let tokens: [i8][] = [
+  "EOF"[:], "IDENT"[:], "CONST"[:], "STR"[:], "INT"[:], "COMMENT"[:],
+  "continue"[:], "default"[:], "extern"[:], "sizeof"[:], "typeof"[:],
+  "struct"[:], "switch"[:], "return"[:], "import"[:], "const"[:], "while"[:],
+  "break"[:], "union"[:], "iptr"[:], "uptr"[:], "void"[:], "bool"[:], "true"[:],
+  "false"[:], "enum"[:], "case"[:], "else"[:], "func"[:], "for"[:], "let"[:],
+  "if"[:], "as"[:], "<<="[:], ">>="[:], "..."[:], "::"[:], "->"[:], "++"[:],
+  "--"[:], "<<"[:], ">>"[:], "<="[:], ">="[:], "=="[:], "!="[:], "&&"[:],
+  "||"[:], "*="[:], "/="[:], "%="[:], "+="[:], "-="[:], "&="[:], "^="[:],
+  "|="[:], ":["[:], ";"[:], "{"[:], "}"[:], ","[:], ":"[:], "="[:], "("[:],
+  ")"[:], "["[:], "]"[:], "."[:], "&"[:], "!"[:], "~"[:], "-"[:], "+"[:],
+  "*"[:], "/"[:], "%"[:], "<"[:], ">"[:], "^"[:], "|"[:], "?"[:],
 ];
 
 struct SourceLoc {
@@ -124,15 +127,12 @@ struct TokenHashEntry {
   data: [i8];
 }
 
-const tokenCount = sizeof(typeof(tokens)) / sizeof(typeof(tokens[0]));
 
 let tokenHashes: TokenHashEntry[128];
 
-let intTypes: const i8*[] = [
-  "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
+let intTypes: const [i8][] = [
+  "i8"[:], "i16"[:], "i32"[:], "i64"[:], "u8"[:], "u16"[:], "u32"[:], "u64"[:],
 ];
-
-const intTypeCount = (sizeof(typeof(intTypes)) / sizeof(typeof(intTypes[0])));
 
 let intTypeHashes: i64[8];
 
@@ -155,21 +155,22 @@ func packTokenHash(str: [i8]) -> i64 {
 }
 
 func initTokenHashes() {
-  for (let i = 0; i < tokenCount; i++) {
-    let len = strlen(tokens[i]) as i32;
+  for (let i = 0; i < tokens.len; i++) {
+    let len = strlen(&tokens[i][0]);
     let data = tokens[i][:len];
     tokenHashes[i].data = data;
     tokenHashes[i].hash = packTokenHash(data);
     if (tokenHashes[i].hash == 0) {
-      printf("Token too long: %s, %d", tokens[i], len);
+      printf("Token too long: %s, %d", &data[0], data.len);
       exit(1);
     }
   }
 }
 
 func initIntTypeHashes() {
-  for (let i = 0; i < intTypeCount; i++) {
-    let len = strlen(intTypes[i]) as i32;
+  for (let i = 0; i < intTypes.len; i++) {
+    // let len = intTypes[i].len - 1;
+    let len = strlen(&intTypes[i][0]);
     intTypeHashes[i] = packTokenHash(intTypes[i][:len]);
   }
 }

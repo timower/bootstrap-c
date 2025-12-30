@@ -116,7 +116,7 @@ func getToken(state: ParseState*) -> Token {
     }
 
     // i32 types [iu](8|16|32|64) using hash lookup
-    for (let i = 0; i < intTypeCount; i++) {
+    for (let i = 0; i < intTypeHashes.len; i++) {
       if (intTypeHashes[i] == tokenHash) {
         token.kind = TokenKind::INT;
         return token;
@@ -204,7 +204,7 @@ func getToken(state: ParseState*) -> Token {
 
   // Assume operator - try different lengths for hash lookup
   let rest = state->buf[tokenStart:];
-  for (let i = TokenKind::LEFT_ASSIGN as i32; i < tokenCount; i++) {
+  for (let i = TokenKind::LEFT_ASSIGN as i32; i < tokenHashes.len; i++) {
     let token = tokenHashes[i];
     let len = token.data.len;
     if (len <= rest.len) {
@@ -230,6 +230,7 @@ func getToken(state: ParseState*) -> Token {
     return makeEof(state, tokenStart);
   }
 
+  fprintf(getStderr(), "Token: '%s\n", state->buf[tokenStart:]);
   failParse(state, "Unknown token");
   return Token {};
 }
