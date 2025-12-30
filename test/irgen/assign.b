@@ -10,9 +10,9 @@ func main() -> i32 {
   // CHECK: ashr i32 {{.*}}, 2
   x >>= 2;
 
+  // CHECK: sub i32 0, {{.*}}
   x = -x;
 
-  x = ~x;
-
+  // CHECK: xor i32 {{.*}}, -1
   return ~x;
 }

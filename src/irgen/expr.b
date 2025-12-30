@@ -434,15 +434,17 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
       }
       return res;
 
-    case TokenKind::PLUS, TokenKind::MINUS:
+    case TokenKind::PLUS:
+      return genExpr(state, unaryExpr->prefix);
+    case TokenKind::MINUS:
       let op = genExpr(state, unaryExpr->prefix);
       return addInstr(state, expr->type, InstrKind::Binary {
-        op = BinaryOp::Add,
-        lhs = op,
-        rhs = Value::IntConstant {
-          value = unaryExpr->op.kind == TokenKind::PLUS ? 1 : -1,
-          type = getInt32(),
+        op = BinaryOp::Sub,
+        lhs = Value::IntConstant {
+          value = 0,
+          type = expr->type,
         },
+        rhs = op,
       });
 
     case TokenKind::TILDE:
