@@ -46,7 +46,6 @@ func main() -> i32 {
   let test2: [[i8]] = array2[:];
   let test3: [[i8]] = &array2;
 
-  let str1: i8* = "test1";
   let str2: i8[]* = "test2";
   let str3: [i8] = "test3";
 

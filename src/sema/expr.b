@@ -5,7 +5,7 @@ import eval;
 import generics;
 
 
-func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
+func doConvertBase(state: SemaState*, expr: ExprAST*, to: Type*, isArg: bool) -> ExprAST* {
   let from = expr->type;
 
   if (typeEq(from, to)) {
@@ -76,9 +76,8 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
 
         // Pointer to arrays can be convert to pointers to the first element.
         // This is a no-op for code gen?
-        // TODO: remove
         if (let fromArray = fromPtr->pointee->kind as TypeKind::Array*) {
-          if (typeEq(fromArray->element, toPtr.pointee)) {
+          if (isArg && typeEq(fromArray->element, toPtr.pointee)) {
             return expr;
           }
         }
@@ -116,6 +115,9 @@ func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
   return null;
 }
 
+func doConvert(state: SemaState*, expr: ExprAST*, to: Type*) -> ExprAST* {
+  return doConvertBase(state, expr, to, false);
+}
 
 func semaIntCast(
     castKind: CastKind*,
@@ -605,10 +607,12 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       let cur = callExpr.args;
       let last: ExprAST** = &callExpr.args;
       for (; cur != null; cur = cur->next) {
+        // Cache the string expression kind before sema transforms it.
+        let isStringExpr = cur->kind as ExprKind::Str* != null;
         semaExpr(state, cur);
 
         if (curArgTy != null) {
-          let conv = doConvert(state, cur, curArgTy);
+          let conv = doConvertBase(state, cur, curArgTy, isStringExpr);
           if (conv == null) {
             printType(curArgTy);
             failSemaExpr(state, expr, " Arg type mismatch");

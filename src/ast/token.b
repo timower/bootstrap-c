@@ -211,7 +211,8 @@ func newInternalToken(bufSize: uptr) -> Token {
   let alloc = newBuf((bufSize + sizeof(SourceLoc)) as iptr);
   let loc = (&alloc[0] as void*) as SourceLoc*;
   let data = alloc[(sizeof(SourceLoc)):];
-  loc->fileName = "<builtin>";
+  let str: [i8] = "<builtin>";
+  loc->fileName = &str[0];
   loc->line = 1;
   loc->column = 1;
   return Token {

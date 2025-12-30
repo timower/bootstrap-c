@@ -230,7 +230,7 @@ func emitInstruction(instr: Instruction*, state: EmitState*) {
 }
 
 func emitBinaryOp(instr: Instruction*, b: InstrKind::Binary, state: EmitState*) {
-  let opStr: i8* = null;
+  let opStr: [i8] = nullBuf();
   let supportsImmediate = false;
   switch (b.op) {
     case BinaryOp::Add:
@@ -264,7 +264,7 @@ func emitBinaryOp(instr: Instruction*, b: InstrKind::Binary, state: EmitState*) 
 
     if (supportsImmediate) {
       // Can use immediate for second operand
-      fprintf(outFile, "  %s r%d, r%d, ", opStr, destReg, destReg);
+      fprintf(outFile, "  %s r%d, r%d, ", &opStr[0], destReg, destReg);
       emitValue(b.rhs, state);
       fprintf(outFile, "\n");
     } else {
@@ -273,19 +273,19 @@ func emitBinaryOp(instr: Instruction*, b: InstrKind::Binary, state: EmitState*) 
       fprintf(outFile, "  mov r%d, ", temp_reg);
       emitValue(b.rhs, state);
       fprintf(outFile, "\n");
-      fprintf(outFile, "  %s r%d, r%d, r%d\n", opStr, destReg, destReg, temp_reg);
+      fprintf(outFile, "  %s r%d, r%d, r%d\n", &opStr[0], destReg, destReg, temp_reg);
     }
   } else if (rhsImmediateUnsupported) {
     // First operand is register, second is immediate but not supported
     fprintf(outFile, "  mov r%d, ", temp_reg);
     emitValue(b.rhs, state);
     fprintf(outFile, "\n");
-    fprintf(outFile, "  %s r%d, ", opStr, destReg);
+    fprintf(outFile, "  %s r%d, ", &opStr[0], destReg);
     emitValue(b.lhs, state);
     fprintf(outFile, ", r%d\n", temp_reg);
   } else {
     // Normal case: opStr w<dest>, <lhs>, <rhs>
-    fprintf(outFile, "  %s r%d, ", opStr, destReg);
+    fprintf(outFile, "  %s r%d, ", &opStr[0], destReg);
     emitValue(b.lhs, state);
     fprintf(outFile, ", ");
     emitValue(b.rhs, state);

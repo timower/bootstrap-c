@@ -8,7 +8,7 @@ struct Module {
 }
 
 struct IRStruct {
-  name: i8*;
+  name: [i8];
   fields: Type*;
   next: IRStruct*;
 }

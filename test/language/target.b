@@ -5,7 +5,7 @@
 //--- bar.b
 import foo;
 
-func bar() -> i8* {
+func bar() -> [i8] {
   return &_TARGET_;
 }
 

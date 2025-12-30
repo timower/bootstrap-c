@@ -18,7 +18,7 @@ enum Mode {
 
 struct CommandLineArgs {
   // required.
-  inputFile: i8*;
+  inputFile: [i8];
 
   // stdout if null.
   outputFile: i8*;
@@ -65,7 +65,7 @@ func usage() {
 
 func parseOpts(argv: [i8*]) -> CommandLineArgs {
   let args = CommandLineArgs {
-    inputFile = null,
+    inputFile = nullBuf(),
     outputFile = null,
     outputKind = OutputKind::LLVM,
     target = parseTriple(&_TARGET_),
@@ -110,11 +110,12 @@ func parseOpts(argv: [i8*]) -> CommandLineArgs {
         puts("Expected filename after -stdin-filename");
         usage();
       }
-      args.inputFile = argv[i + 1];
+      let file = argv[i + 1];
+      args.inputFile = file[:strlen(file)];
       args.readFromStdin = true;
       i++;
     } else {
-      if (args.inputFile != null) {
+      if (args.inputFile.len != 0) {
         puts("Multiple input files not supported");
         usage();
       }
@@ -122,12 +123,12 @@ func parseOpts(argv: [i8*]) -> CommandLineArgs {
         args.readFromStdin = true;
         args.inputFile = "stdin";
       } else {
-        args.inputFile = arg;
+        args.inputFile = arg[:strlen(arg)];
       }
     }
   }
 
-  if (args.inputFile == null) {
+  if (args.inputFile.len == 0) {
     puts("No input file specified");
     usage();
   }

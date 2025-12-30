@@ -128,13 +128,15 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
         break;
       }
 
+      let targetName = getImportName(&state->target);
       sprintf(
           relPath,
-          "%s/%.*s.%s.b",
+          "%s/%.*s.%.*s.b",
           rootDir,
           name.data.len,
           &name.data[0],
-          getImportName(&state->target));
+          targetName.len,
+          &targetName[0]);
       if (access(relPath, F_OK) == 0) {
         absPath = realpath(relPath, null);
         break;

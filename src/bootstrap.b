@@ -13,7 +13,7 @@ import cmdline;
 
 func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
   if (args->inPlace) {
-    if (args->inputFile == null) {
+    if (args->inputFile.len == 0) {
       puts("Cannot use -i with stdin input");
       exit(-1);
     }
@@ -22,8 +22,7 @@ func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
       exit(-1);
     }
 
-    let len = strlen(args->inputFile);
-    let tempFile = malloc(len + 20);
+    let tempFile = malloc((args->inputFile.len + 20) as uptr);
     sprintf(tempFile, "%s.tmp.%d", args->inputFile, getpid());
     return tempFile;
   }
@@ -38,7 +37,7 @@ func finishInPlace(args: CommandLineArgs*, fileName: i8*, file: void*) {
 
   fclose(file);
 
-  if (rename(fileName, args->inputFile) != 0) {
+  if (rename(fileName, &args->inputFile[0]) != 0) {
     puts("Failed to replace original file");
     exit(-1);
   }
@@ -50,7 +49,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   let args = parseOpts(argv[:argc]);
   printFile = getStdout();
 
-  let name: i8* = args.inputFile;
+  let name: i8* = &args.inputFile[0];
   let buf = nullBuf();
   if (!args.readFromStdin) {
     buf = readFile(name);

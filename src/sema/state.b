@@ -121,16 +121,15 @@ func getNullDecl() -> DeclAST* {
 func getTargetDecl(target: Target*) -> DeclAST* {
   let targetTok = newInternalToken(8);
   memcpy(&targetTok.data[0], "_TARGET_", 8);
-  let tripleLen = strlen(target->triple);
-  let initVal = newInternalToken(tripleLen);
-  memcpy(&initVal.data[0], target->triple, tripleLen);
+  let initVal = newInternalToken(target->triple.len as uptr);
+  memcpy(&initVal.data[0], &target->triple[0], target->triple.len as uptr);
 
   let init = newExpr(ExprKind::Str {
     identifier = initVal,
   });
   init->type = newType(TypeKind::Array {
     element = getCharType(),
-    size = tripleLen as i32 + 1,
+    size = target->triple.len as i32 + 1,
   });
 
   let decl = newDecl(DeclKind::Var {
@@ -138,7 +137,7 @@ func getTargetDecl(target: Target*) -> DeclAST* {
   });
   decl->type = newType(TypeKind::Array {
     element = getCharType(),
-    size = tripleLen as i32,
+    size = target->triple.len as i32,
   });
   decl->name = targetTok;
 

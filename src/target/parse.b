@@ -98,7 +98,7 @@ func parseAbi(str: [i8]*, abi: ABI*) -> bool {
 //  - x86_64-w64-mingw32
 func parseTriple(triple: [i8]) -> Target {
   let result = Target {
-    triple = &triple[0],
+    triple = triple,
   };
 
   if (strcmp(&triple[0], "darwin") == 0) {

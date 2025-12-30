@@ -147,8 +147,7 @@ func createIntrinsics(state: IRGenState*) {
   args->next->next->next = getBool();
 
   let fnCpy = newFunction();
-  let nameCpy: i8* = "@llvm.memcpy.p0.p0.i32";
-  fnCpy->name = nameCpy[:strlen(nameCpy)];
+  fnCpy->name = "@llvm.memcpy.p0.p0.i32";
   fnCpy->type = newType(TypeKind::Func {
     result = newType(TypeKind::Void {}),
     args = args,
@@ -160,8 +159,7 @@ func createIntrinsics(state: IRGenState*) {
   state->intrinsics.memcpy = fnCpy;
 
   let fnTrap = newFunction();
-  let nameTrap: i8* = "@llvm.trap";
-  fnTrap->name = nameTrap[:strlen(nameTrap)];
+  fnTrap->name = "@llvm.trap";
   fnTrap->type = newType(TypeKind::Func {
     result = newType(TypeKind::Void {}),
     isVarargs = false,

@@ -21,14 +21,14 @@ enum ABI {
 }
 
 struct Target {
-  triple: i8*;
+  triple: [i8];
 
   arch: Arch;
   platform: Platform;
   abi: ABI;
 }
 
-func getImportName(target: Target*) -> i8* {
+func getImportName(target: Target*) -> [i8] {
   switch (target->platform) {
     case Platform::Linux:
       return "posix";
