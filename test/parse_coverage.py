@@ -5,6 +5,20 @@ Coverage is defined as non-zero BB counts / total BBs.
 """
 
 import sys
+from dataclasses import dataclass
+
+
+@dataclass
+class FuncCounts:
+    name: str
+    covered_bbs: int
+    total_bbs: int
+    covered_edges: int
+    total_edges: int
+
+    def get_coverage(self):
+        assert self.total_edges != 0
+        return (self.covered_edges / self.total_edges) * 100
 
 
 def split_into_function_groups(lines):
@@ -40,13 +54,17 @@ def parse_function_group(group):
     assert group[2].startswith("Number of Basic Blocks:")
     num_bbs = int(group[2].split(": ", 1)[1])
 
+    idx = 3
     # Parse BB lines
     bb_counts = []
-    for line in group[3:]:
+    while idx < len(group):
+        line = group[idx]
         if not line.startswith("BB: "):
             break
+        idx += 1
 
         if "FakeNode" in line:
+            assert "Index=0" in line
             continue
 
         if "Count=" in line:
@@ -63,8 +81,39 @@ def parse_function_group(group):
     total_bbs = len(bb_counts)
     assert total_bbs >= 1, "No basic blocks in function?"
 
-    coverage_pct = (non_zero_bbs / total_bbs) * 100
-    return (func_name, coverage_pct, non_zero_bbs, total_bbs)
+    # Parse edges
+    assert group[idx].startswith("Number of Edges:"), (
+        f"Expected edges at {idx}: {group[idx]}"
+    )
+    # num_edges = int(group[idx].split(": ", 1)[1])
+    idx += 1
+    edge_counts = []
+    while idx < len(group):
+        line = group[idx]
+        idx += 1
+        if not line.startswith("Edge "):
+            break
+
+        # Skip fakenode wich has index 0
+        if " 0-->" in line:
+            continue
+        if "Count=" in line:
+            count_part = line.split("Count=", 1)[1].strip()
+            count = int(count_part)
+            edge_counts.append(count)
+        else:
+            edge_counts.append(0)
+
+    non_zero_edges = sum(1 for c in edge_counts if c > 0)
+    total_edges = len(edge_counts)
+
+    return FuncCounts(
+        func_name,
+        non_zero_bbs,
+        total_bbs,
+        non_zero_edges,
+        total_edges,
+    )
 
 
 def parse_coverage_file(filepath):
@@ -97,24 +146,37 @@ def main():
         functions = parse_coverage_file(filepath)
 
         # Sort by coverage percentage (descending)
-        functions.sort(key=lambda x: x[1], reverse=True)
+        functions.sort(key=lambda x: x.get_coverage(), reverse=True)
 
-        print(f"{'Function':<30} {'Coverage':<10} {'Non-zero/Total':<15}")
-        print("-" * 55)
+        header = f"{'Function':<32} {'BBs':<7} {'Edges':<7} {'Coverage':<6}"
 
-        for func_name, coverage_pct, non_zero, total in functions:
-            print(f"{func_name:<30} {coverage_pct:>7.1f}%    {non_zero:>3}/{total:<3}")
+        print(header)
+        print("-" * len(header))
+
+        for func in functions:
+            print(
+                f"{func.name:<30} {func.covered_bbs:>3}/{func.total_bbs:<3} {func.covered_edges:>3}/{func.total_edges:<3} {func.get_coverage():>7.1f}%    "
+            )
 
         # Calculate and print total coverage at the end
-        total_non_zero = sum(non_zero for _, _, non_zero, _ in functions)
-        total_blocks = sum(total for _, _, _, total in functions)
+        total_non_zero = sum(func.covered_bbs for func in functions)
+        total_blocks = sum(func.total_bbs for func in functions)
         overall_coverage = (
             (total_non_zero / total_blocks * 100) if total_blocks > 0 else 0
         )
 
-        print("-" * 55)
+        # Calculate and print total coverage at the end
+        total_covered_edges = sum(func.covered_edges for func in functions)
+        total_edges = sum(func.total_edges for func in functions)
+        edge_coverage = (
+            (total_covered_edges / total_edges * 100) if total_edges > 0 else 0
+        )
+        print("-" * len(header))
         print(
-            f"Total Coverage: {overall_coverage:.2f}% ({total_non_zero}/{total_blocks} blocks)"
+            f"BB Coverage: {overall_coverage:.2f}% ({total_non_zero}/{total_blocks} blocks)"
+        )
+        print(
+            f"Edge Coverage: {edge_coverage:.2f}% ({total_covered_edges}/{total_edges} edges)"
         )
 
         # Exit with error if coverage is below 90%
