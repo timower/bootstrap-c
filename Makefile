@@ -131,6 +131,13 @@ tree-sitter-check: tree-sitter ## Verify that all tests and sources parse
 		fi'
 	@echo "All files parse with tree-sitter"
 
+$(BUILD_DIR)/fuzz-parser: $(BUILD_DIR)/fuzz.ll
+	clang -g -O1 -fno-omit-frame-pointer -fsanitize=fuzzer,address $< -o $@
+
+fuzz: $(BUILD_DIR)/fuzz-parser
+	mkdir -p corpus/
+	find test src -name '*.b' -exec cp {} corpus/ \;
+	$(BUILD_DIR)/fuzz-parser -fork=1 -ignore_ooms=1 -rss_limit_mb=0 -close_fd_mask=2 corpus/
 
 .PHONY: clean
 clean: ## Remove build artifacts and binaries

@@ -36,7 +36,6 @@ struct ParseState {
   comments: Comment*;
   lastComment: Comment*;
 
-  depth: i32;
   jmpBuf: JmpBuf*;
 }
 
