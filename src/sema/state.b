@@ -56,6 +56,8 @@ struct SemaState {
 
   // Used to check all paths in a function return.
   returns: bool;
+
+  jmpBuf: JmpBuf*;
 }
 
 func newState(parent: SemaState*) -> SemaState {
@@ -70,11 +72,13 @@ func newState(parent: SemaState*) -> SemaState {
 
 
 // 2. sema
-// TODO: remove state
 func failSema(state: SemaState*, loc: SourceLoc*, msg: const i8*) {
   printLoc(loc);
   fprintf(getStderr(), "sema error: %s\n", msg);
-  exit(1);
+  if (state == null) {
+    exit(1);
+  }
+  longjmp(getRoot(state)->jmpBuf, 1);
 }
 
 func errorSema(state: SemaState*, loc: SourceLoc*, msg: const i8*) {

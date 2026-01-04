@@ -1,4 +1,5 @@
 import parse;
+import sema;
 
 func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
   let parseOpts = ParseOptions {
@@ -13,5 +14,18 @@ func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
   printFile = getStdout();
 
   let decls = parseBufOpts("fuzz", buf, parseOpts);
+  if (decls == null) {
+    return 0;
+  }
+
+  let target = Target {
+    triple = "foo",
+    arch = Arch::Aarch64,
+    platform = Platform::Linux,
+    abi = ABI::Gnu,
+  };
+
+  let state = initSemaState(target, false);
+  decls = semaTopLevel(&state, decls);
   return 0;
 }

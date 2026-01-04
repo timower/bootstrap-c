@@ -202,6 +202,13 @@ func instantiateGeneric(state: SemaState*, generic: GenericInst*) {
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   let fileName = decl->location->fileName;
 
+  if (state->jmpBuf == null) {
+    state->jmpBuf = newJmpBuf();
+    if (setjmp(state->jmpBuf) != 0) {
+      return null;
+    }
+  }
+
   // First resolve all imports.
   for (let cur = decl; cur != null; cur = cur->next) {
     if (&cur->kind as DeclKind::Import* != null) {
