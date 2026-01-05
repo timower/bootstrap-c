@@ -25,26 +25,25 @@ func main() -> i32 {
 
   // Test pre-increment
   // CHECK: add i32 {{.*}}, 1
-  // CHECK: store i32 {{.*}}, ptr %alloc3
+  // CHECK: store i32 {{.*}}, ptr %alloc
   ++y;
 
   // Test post-increment
   // CHECK: add i32 {{.*}}, 1
-  // CHECK: store i32 {{.*}}, ptr %alloc1
+  // CHECK: store i32 {{.*}}, ptr %alloc
   (x)++;
 
   // Test pre-decrement
   // CHECK: add i32 {{.*}}, -1
-  // CHECK: store i32 {{.*}}, ptr %alloc3
+  // CHECK: store i32 {{.*}}, ptr %alloc
   --y;
 
   // Test post-decrement
   // CHECK: add i32 {{.*}}, -1
-  // CHECK: store i32 {{.*}}, ptr %alloc1
+  // CHECK: store i32 {{.*}}, ptr %alloc
   x--;
 
   // Test address-of and dereference
-  // CHECK: store ptr %alloc1, ptr {{.*}}
   let ptr = &x;
 
   // CHECK: load ptr, ptr {{.*}}

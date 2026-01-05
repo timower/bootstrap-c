@@ -9,7 +9,7 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
   newScope(state);
 
   state->curFunc = fn;
-  state->curBB = addBasicBlock(state, "entry");
+  state->curBB = addBasicBlock(state, "entry", decl->location);
 
   let idx = 0;
   for (let arg = (&decl->kind as DeclKind::Func*)->args; arg != null; arg = arg->next, idx++) {
@@ -84,11 +84,11 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
     case StmtKind::If as ifStmt:
       let cond = genExpr(state, ifStmt.cond);
 
-      let trueBB = addBasicBlock(state, "if.true");
+      let trueBB = addBasicBlock(state, "if.true", ifStmt.thenStmt->location);
       let falseBB: BasicBlock* = ifStmt.elseStmt != null
-           ? addBasicBlock(state, "if.false")
+           ? addBasicBlock(state, "if.false", ifStmt.elseStmt->location)
            : null as BasicBlock*;
-      let contBB = addBasicBlock(state, "if.cont");
+      let contBB = addBasicBlock(state, "if.cont", stmt->endLocation);
       let falseJmpBB = falseBB == null ? contBB : falseBB;
       addInstr(state, null, InstrKind::CondBranch {
         cond = cond,
@@ -113,15 +113,15 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       state->curBB = contBB;
 
     case StmtKind::While as whileStmt:
-      let condBB = addBasicBlock(state, "while.cond");
+      let condBB = addBasicBlock(state, "while.cond", stmt->location);
       addInstr(state, null, InstrKind::Branch {
         bb = condBB,
       });
 
       state->curBB = condBB;
       let cond = genExpr(state, whileStmt.cond);
-      let bodyBB = addBasicBlock(state, "while.body");
-      let contBB = addBasicBlock(state, "while.cont");
+      let bodyBB = addBasicBlock(state, "while.body", whileStmt.body->location);
+      let contBB = addBasicBlock(state, "while.cont", stmt->endLocation);
       addInstr(state, null, InstrKind::CondBranch {
         cond = cond,
         trueBB = bodyBB,
@@ -147,10 +147,10 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       genStmt(state, forStmt.init);
 
       // Create basic blocks for all parts of the for loop
-      let condBB = addBasicBlock(state, "for.cond");
-      let bodyBB = addBasicBlock(state, "for.body");
-      let incrBB = addBasicBlock(state, "for.incr");
-      let contBB = addBasicBlock(state, "for.cont");
+      let condBB = addBasicBlock(state, "for.cond", stmt->location);
+      let bodyBB = addBasicBlock(state, "for.body", forStmt.body->location);
+      let incrBB = addBasicBlock(state, "for.incr", stmt->location);
+      let contBB = addBasicBlock(state, "for.cont", stmt->endLocation);
 
       // Branch to condition block
       addInstr(state, null, InstrKind::Branch {
@@ -287,8 +287,8 @@ func getCases(
 
 func genSwitch(state: IRGenState*, stmt: StmtAST*) {
   // Create basic blocks for switch
-  let switchBB = addBasicBlock(state, "switch");
-  let contBB = addBasicBlock(state, "switch.cont");
+  let switchBB = addBasicBlock(state, "switch", stmt->location);
+  let contBB = addBasicBlock(state, "switch.cont", stmt->endLocation);
 
   // Set up new scope for switch
   newScope(state);
@@ -333,7 +333,7 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
 
     switch (caseStmt->kind) {
       case StmtKind::Case as cs:
-        let caseBB = addBasicBlock(state, "switch.case");
+        let caseBB = addBasicBlock(state, "switch.case", caseStmt->location);
         state->curBB = caseBB;
 
         cases = getCases(state, cs.expr, unionAddrPtr, cases, caseBB);
@@ -346,7 +346,7 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
         if (defaultBB != null) {
           failIRGen(state, "Multiple default");
         }
-        defaultBB = addBasicBlock(state, "switch.default");
+        defaultBB = addBasicBlock(state, "switch.default", caseStmt->location);
         state->curBB = defaultBB;
 
         for (let cur = defKind.body; cur != null; cur = cur->next) {
@@ -367,7 +367,7 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
   }
 
   if (defaultBB == null) {
-    defaultBB = addBasicBlock(state, "switch.default.trap");
+    defaultBB = addBasicBlock(state, "switch.default.trap", stmt->location);
     state->curBB = defaultBB;
     addInstr(state, null, InstrKind::Call {
       fnType = state->intrinsics.trap->type,

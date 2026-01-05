@@ -267,9 +267,23 @@ func printFunc(fn: Function*) {
 }
 
 func getBBName(bb: BasicBlock*) -> i8* {
-  let buf = malloc(32);
-  sprintf(buf, "%s.%d", bb->label, bb->name);
-  return buf;
+  let name = bb->location->fileName[:strlen(bb->location->fileName)];
+
+  let ptr = malloc(32 + name.len as uptr) as i8*;
+  let buf = ptr[:32 + name.len];
+
+  let offset = sprintf(ptr, "%s.%d.", bb->label, bb->name);
+  for (let i = 0; i < name.len; i++) {
+    if (name[i] == '/') {
+      buf[offset] = '_';
+    } else {
+      buf[offset] = name[i];
+    }
+    offset++;
+  }
+  sprintf(&buf[offset], ".%d", bb->location->line);
+
+  return ptr;
 }
 
 func printBB(bb: BasicBlock*) {

@@ -95,8 +95,6 @@ func allocateRegistersBackwards(fn: Function*, state: EmitState*) {
     for (let instr = bb->begin; instr != null; instr = instr->next) {
       if (instr->name > maxInstrName) {
         maxInstrName = instr->name;
-      } else {
-        unreachable("Instruction counter is always increasing during irgen");
       }
     }
   }

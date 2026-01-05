@@ -6,7 +6,12 @@ struct IRGenState {
   curFunc: Function*;
   curBB: BasicBlock*;
 
+  // Used for basic blocks.
+  globalCounter: i32;
+
+  // Used for instructions.
   counter: i32;
+
   scope: Scope*;
 
   intrinsics: Intrinsics;
@@ -86,11 +91,16 @@ func addAlloca(state: IRGenState*, type: Type*) -> Value {
   };
 }
 
-func addBasicBlock(state: IRGenState*, label: i8*) -> BasicBlock* {
+func addBasicBlock(
+    state: IRGenState*,
+    label: i8*,
+    sourceLoc: SourceLoc*
+) -> BasicBlock* {
   let fn = state->curFunc;
   let res = calloc(1, sizeof(struct BasicBlock)) as BasicBlock*;
   res->label = label;
-  res->name = state->counter++;
+  res->name = state->globalCounter++;
+  res->location = sourceLoc;
 
   if (fn->end == null) {
     fn->begin = res;

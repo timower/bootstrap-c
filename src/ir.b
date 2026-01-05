@@ -45,6 +45,7 @@ struct Alloca {
 struct BasicBlock {
   label: i8*;
   name: i32;
+  location: SourceLoc*;
 
   begin: Instruction*;
   end: Instruction*;

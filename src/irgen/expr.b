@@ -636,8 +636,8 @@ func genLogicalBinOp(state: IRGenState*, expr: ExprAST*) -> Value {
   let lhs = genExpr(state, binExpr->lhs);
   let entryBB = state->curBB;
 
-  let trueBB = addBasicBlock(state, "true");
-  let falseBB = addBasicBlock(state, "false");
+  let trueBB = addBasicBlock(state, "true", binExpr->rhs->location);
+  let falseBB = addBasicBlock(state, "false", expr->location);
 
   let firstBB = trueBB;
   let secondBB = falseBB;
@@ -729,9 +729,9 @@ func genConditional(state: IRGenState*, expr: ExprAST*) -> Value {
   let condExpr = expr->kind as ExprKind::Conditional*;
   let cond = genExpr(state, condExpr->cond);
 
-  let trueBB = addBasicBlock(state, "true");
-  let falseBB = addBasicBlock(state, "false");
-  let contBB = addBasicBlock(state, "cont");
+  let trueBB = addBasicBlock(state, "true", expr->location);
+  let falseBB = addBasicBlock(state, "false", expr->location);
+  let contBB = addBasicBlock(state, "cont", expr->location);
 
   addInstr(state, null, InstrKind::CondBranch {
     cond = cond,
