@@ -1,6 +1,8 @@
 import ast;
 import ast.print;
 
+import libc;
+
 struct ParseOptions {
   // If set to true, build a concere syntax tree,
   // preserving parens.
@@ -33,6 +35,9 @@ struct ParseState {
   // Only parsed if concrete is true.
   comments: Comment*;
   lastComment: Comment*;
+
+  depth: i32;
+  jmpBuf: JmpBuf*;
 }
 
 
@@ -76,7 +81,7 @@ func failParseArg(state: ParseState*, msg: const i8*, arg: const i8*) {
   printLoc(location);
 
   fprintf(getStderr(), ": %s%s\n", msg, arg);
-  exit(1);
+  longjmp(state->jmpBuf, 1);
 }
 
 func failParse(state: ParseState*, msg: const i8*) {

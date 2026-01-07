@@ -7,7 +7,12 @@ func parseBufOpts(name: i8*, buf: [i8], options: ParseOptions) -> DeclAST* {
     buf = buf,
     fileName = name,
     line = 1,
+    jmpBuf = newJmpBuf(),
   };
+
+  if (setjmp(parseState.jmpBuf) != 0) {
+    return null;
+  }
 
   // clang-format on
   return parseTopLevel(&parseState);

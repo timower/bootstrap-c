@@ -32,3 +32,15 @@ const F_OK: i32 = 0;
 const SEEK_SET: i32 = 0;
 
 const SEEK_END: i32 = 2;
+
+struct JmpBuf {
+  buf: i32[0];
+}
+
+func newJmpBuf() -> JmpBuf* {
+  // clang on armv7 uses 392, which seems to be the largest.
+  return calloc(392, 1) as JmpBuf*;
+}
+
+extern func setjmp(buf: JmpBuf*) -> i32;
+extern func longjmp(buf: JmpBuf*, value: i32);
