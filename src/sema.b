@@ -9,21 +9,23 @@ import sema.decl;
 import sema.lsp;
 
 func addTaggedType(state: SemaState*, decl: DeclAST*) {
-  if (&decl->kind as DeclKind::Struct* != null
-      || &decl->kind as DeclKind::Enum* != null
-      || &decl->kind as DeclKind::Union* != null) {
-    if (findType(state->types, *getTypeTag(decl->type)) != null) {
-      failSemaDecl(state, decl, ": Type redef");
-    }
+  switch (decl->kind) {
+    case DeclKind::Struct, DeclKind::Enum, DeclKind::Union:
+      if (findType(state->types, *getTypeTag(decl->type)) != null) {
+        failSemaDecl(state, decl, ": Type redef");
+      }
 
-    if (state->semaLspMode) {
-      dumpDecl(decl);
-    }
+      if (state->semaLspMode) {
+        dumpDecl(decl);
+      }
 
-    // Add the struct to the types.
-    let type = newDeclList(decl);
-    type->next = state->types;
-    state->types = type;
+      // Add the struct to the types.
+      let type = newDeclList(decl);
+      type->next = state->types;
+      state->types = type;
+
+    default:
+      break;
   }
 }
 
@@ -91,14 +93,15 @@ func getImportExprName(expr: ExprAST*) -> Token {
       return res;
 
     default:
-      failSemaExpr(null, expr, "Unexpected expression in import");
+      unreachable("Unexpected expression in import");
       return Token {};
   }
 }
 
 func resolveImport(state: SemaState*, decl: DeclAST*) {
   if (state->parent != null) {
-    failSemaDecl(state, decl, "Import not allowed in local scope");
+    // The parser doesn't accept this.
+    unreachable("Import not allowed in local scope");
   }
 
   let name = getImportExprName((&decl->kind as DeclKind::Import*)->path);

@@ -9,7 +9,8 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
     case DeclKind::Struct as structKind:
       for (let field = structKind.fields; field != null; field = field->next) {
         if (&field->kind as DeclKind::Var* == null) {
-          failSemaDecl(state, field, "Only var decls allowed in struct");
+          // parser doesn't allow this.
+          unreachable("Only var decls allowed in struct");
         }
       }
     case DeclKind::Union as unionKind:
@@ -39,7 +40,7 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
 
         if (!funcState.returns
             && funcState.result->kind as TypeKind::Void* == null) {
-          failSemaDecl(state, decl, "Not all paths return");
+          errorSema(state, decl->location, "Not all paths return");
         }
       }
     case DeclKind::Var:
@@ -53,7 +54,7 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
       // Nothing to do for imports
       break;
     case DeclKind::EnumField:
-      failSemaDecl(state, decl, "Shoudln't happen");
+      unreachable("Enum field at top level?");
       return;
   }
 }

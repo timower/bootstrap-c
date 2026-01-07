@@ -27,7 +27,8 @@ func isAggregate(type: Type*) -> bool {
 // Convert type to LLVM type.
 func convertType(type: Type*) -> [i8] {
   if (type == null) {
-    return "NULL-TYPE!";
+    unreachable("NULL-TYPE!");
+    return "NULL";
   }
   switch (type->kind) {
     case TypeKind::Void:
@@ -97,13 +98,11 @@ func convertType(type: Type*) -> [i8] {
       return "i32";
 
     case TypeKind::Tag:
-      fprintf(getStderr(), "Unknown type to convert");
-      exit(1);
+      unreachable("Unknown type to convert");
+      return nullBuf();
 
     case TypeKind::Typeof:
-      fprintf(getStderr(), "Typeof not resolved before IR generation");
-      exit(1);
+      unreachable("Typeof not resolved before IR generation");
+      return nullBuf();
   }
-
-  return nullBuf();
 }

@@ -324,7 +324,7 @@ func monomorphizeStmt(stmt: StmtAST*, typeMap: TypeMap*) -> StmtAST* {
       };
 
     case StmtKind::Default as d:
-      resultKind = StmtKind::Case {
+      resultKind = StmtKind::Default {
         body = monomorphizeStmt(d.body, typeMap),
       };
 

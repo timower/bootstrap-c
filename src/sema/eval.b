@@ -4,9 +4,17 @@ import sema.state;
 
 func evalConstant(state: SemaState*, expr: ExprAST*) -> ExprAST* {
   switch (expr->kind) {
+    case ExprKind::Cast as castExpr:
+      let res = evalConstant(state, castExpr.expr);
+      res->type = expr->type;
+      return res;
+
     case ExprKind::Int as intExpr:
       // Already a constant
       return expr;
+
+    case ExprKind::Paren as paren:
+      return evalConstant(state, paren.expr);
 
     case ExprKind::Scope as scopeExpr:
       // Enum values - already a constant
@@ -47,8 +55,7 @@ func evalConstant(state: SemaState*, expr: ExprAST*) -> ExprAST* {
             case TokenKind::RIGHT_OP:
               result = lhsInt->value >> rhsInt->value;
             default:
-              // Not a constant binary expression
-              return expr;
+              break;
           }
 
           // Create new constant expression with computed value
@@ -61,11 +68,12 @@ func evalConstant(state: SemaState*, expr: ExprAST*) -> ExprAST* {
           return constExpr;
         }
       }
-      return expr;
 
     default:
-      // Not a constant expression
-      failSemaExpr(state, expr, "Not a constant expression");
-      return null;
+      break;
   }
+
+  // Not a constant expression
+  failSemaExpr(state, expr, "Not a constant expression");
+  return null;
 }

@@ -214,9 +214,11 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       genSwitch(state, stmt);
 
     case StmtKind::Case:
-      failIRGen("Case outside of switch");
+      // sema would've caught this
+      unreachable("Case outside of switch");
     case StmtKind::Default:
-      failIRGen("Default outside of switch");
+      // sema would've caught this
+      unreachable("Default outside of switch");
   }
 }
 
@@ -251,28 +253,16 @@ func getCases(
       if (binary.op.kind == TokenKind::COMMA) {
         let lhsCases = getCases(state, binary.lhs, unionAddr, cases, bb);
         return getCases(state, binary.rhs, unionAddr, lhsCases, bb);
-      } else {
-        // Handle non-comma binary expressions like arithmetic
-        let cse = newCase(cases, bb);
-        cse->val = genConstant(state, expr);
-        return cse;
       }
 
     case ExprKind::Int as intExpr:
       let cse = newCase(cases, bb);
-      if (unionAddr != null) {
-        cse->val = Value::IntConstant {
-          value = intExpr.value,
-          type = getInt32(),
-        };
-      } else {
-        cse->val = genConstant(state, expr);
-      }
+      cse->val = genConstant(state, expr);
       return cse;
 
     case ExprKind::Member as memberExpr:
       if (unionAddr == null) {
-        failIRGen("case as on non union type?");
+        unreachable("case as on non union type?");
       }
       let val = addInstr(state, getPtrType(), InstrKind::StructGEP {
         type = expr->type,
@@ -289,9 +279,11 @@ func getCases(
       return cse;
 
     default:
-      failIRGen("Unsupported case expr");
-      return null;
+      break;
   }
+
+  unreachable("Unsupported case expr");
+  return null;
 }
 
 func genSwitch(state: IRGenState*, stmt: StmtAST*) {
@@ -340,18 +332,22 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
   for (let caseStmt = switchStmt->body; caseStmt != null; caseStmt = caseStmt->next) {
     newScope(state);
 
-    if (let caseKind = &caseStmt->kind as StmtKind::Case*) {
-      let caseBB = addBasicBlock(state, "switch.case");
-      state->curBB = caseBB;
-      cases = getCases(state, caseKind->expr, unionAddrPtr, cases, caseBB);
-    } else if (&caseStmt->kind as StmtKind::Default* != null) {
-      if (defaultBB != null) {
-        failIRGen("Multiple default");
-      }
-      defaultBB = addBasicBlock(state, "switch.default");
-      state->curBB = defaultBB;
-    } else {
-      failIRGen("Unsupported switch stmt");
+    switch (caseStmt->kind) {
+      case StmtKind::Case as cs:
+        let caseBB = addBasicBlock(state, "switch.case");
+        state->curBB = caseBB;
+        cases = getCases(state, cs.expr, unionAddrPtr, cases, caseBB);
+
+      case StmtKind::Default:
+        if (defaultBB != null) {
+          failIRGen("Multiple default");
+        }
+        defaultBB = addBasicBlock(state, "switch.default");
+        state->curBB = defaultBB;
+
+      default:
+        // parseSwitch doesn't make anything else
+        unreachable("Unsupported switch stmt");
     }
 
     // Generate case body

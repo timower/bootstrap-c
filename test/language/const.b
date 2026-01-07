@@ -11,7 +11,9 @@ const foo = 0xC;
 
 const baz = 0o14;
 
+const buz = 0xa;
+
 func main() -> const i32 {
   const bar = 0b11;
-  return foo + bar + baz - 27;
+  return foo + bar + baz + buz - 37;
 }

@@ -53,7 +53,7 @@ func readFile(name: i8*) -> [i8] {
     return nullBuf();
   }
 
-  let result = newBuf(size);
+  let result = newBuf(size + sizeof(i64))[:size];
 
   let off: iptr = 0;
   while (off != size) {

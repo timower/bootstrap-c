@@ -13,6 +13,7 @@ func swap[T](a: T*, b: T*) {
 
 union Union {
   A {}
+  B {}
 }
 
 union Bunion {
@@ -37,6 +38,17 @@ func getUnion[T]() -> T {
   return T::A {};
 }
 
+func switchUnion[T](t: T) -> i32 {
+  switch (t) {
+    case T::A:
+      return 1;
+    case T::B as b:
+      return 2;
+    default:
+      return 3;
+  }
+}
+
 
 // Multiple type parameters
 func convert[T, U](input: T) -> U {
@@ -59,6 +71,10 @@ func array[T]() -> T {
   return arr[0] + arr[1] + sizeof(T);
 }
 
+func getArray[T]() -> T[2] {
+  return [ 1 as T, 2 as T ];
+}
+
 
 // Generic function using type parameters in complex ways
 func process[T](data: [T], callback: func*(T) -> bool) -> bool {
@@ -66,6 +82,9 @@ func process[T](data: [T], callback: func*(T) -> bool) -> bool {
     if (!callback(data[i])) {
       return false;
     }
+  }
+  while (false) {
+    return false;
   }
   return true;
 }
@@ -115,6 +134,11 @@ func main() -> i32 {
     return 1;
   }
 
+  let res = switchUnion:[Union](Union::A {});
+  if (res != 1) {
+    return 1;
+  }
+
   let benumVal = getEnum:[Barnum]();
 
   let test = nested:[iptr](2);
@@ -155,6 +179,11 @@ func main() -> i32 {
   }
 
   if (testCond:[i32](-5) != testCond:[i32](5)) {
+    return 1;
+  }
+
+  let arr = getArray:[i32]();
+  if (arr[0] != 1 || arr[1] != 2) {
     return 1;
   }
 

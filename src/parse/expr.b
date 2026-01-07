@@ -156,10 +156,10 @@ func parseParen(state: ParseState*) -> ExprAST* {
 
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state);  // eat )
-  if (!state->options.concrete) {
-    return expr;
-  }
 
+  // if (!state->options.concrete) {
+  //   return expr;
+  // }
   let res = newLocExpr(loc, ExprKind::Paren {
     expr = expr,
   });
@@ -195,7 +195,7 @@ func parsePrimary(state: ParseState*) -> ExprAST* {
 
     default:
       printToken(state->curToken);
-      failParse(state, "Unknow primary expression");
+      failParse(state, "Unknown primary expression");
       return null;
   }
 }

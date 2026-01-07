@@ -328,7 +328,7 @@ func parseLetDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
       failParse(state, "Extern let cannot have init");
     }
   } else if (isExtern) {
-    failParse(state, "Cannot have extern const");
+    unreachable("Cannot have extern const");
   }
 
   expect(state, TokenKind::SEMICOLON);

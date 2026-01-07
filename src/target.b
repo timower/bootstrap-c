@@ -39,20 +39,14 @@ func getImportName(target: Target*) -> [i8] {
   }
 }
 
+func is32Bit(target: Target*) -> bool {
+  return target->arch == Arch::Armv7;
+}
+
 func getIntSize(target: Target*) -> i32 {
-  switch (target->arch) {
-    case Arch::Armv7:
-      return 32;
-    case Arch::Aarch64, Arch::X86_64:
-      return 64;
-  }
+  return is32Bit(target) ? 32 : 64;
 }
 
 func getPtrSize(target: Target*) -> i32 {
-  switch (target->arch) {
-    case Arch::Armv7:
-      return 4;
-    case Arch::Aarch64, Arch::X86_64:
-      return 8;
-  }
+  return is32Bit(target) ? 4 : 8;
 }

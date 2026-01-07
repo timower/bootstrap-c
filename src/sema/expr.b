@@ -86,25 +86,13 @@ func doConvertBase(state: SemaState*, expr: ExprAST*, to: Type*, isArg: bool) ->
     // A union member can be converted to the union type by inserting the kind.
     case TypeKind::Union as toUnion:
       if (let fromStruct = from->kind as TypeKind::Struct*) {
-        let unionDecl = lookupType(state, toUnion.tag);
-        if (unionDecl == null) {
-          failSemaExpr(state, expr, "Can't find union decl to cast to");
-        }
-
-        let idx = 0;
-        let unionDeclKind = &unionDecl->kind as DeclKind::Union*;
-        let structDecl = findSubType(state, unionDeclKind, fromStruct->tag, &idx);
-        if (structDecl == null) {
-          failSemaExpr(state, expr, "No way to convert struct to unrelated union");
-        }
-
         let castExpr = newExpr(ExprKind::Cast {
           expr = expr,
           castKind = CastKind::StructUnion,
-          fieldIndex = idx,
         });
         castExpr->location = expr->location;
         castExpr->type = to;
+        semaCast(state, castExpr);
         return castExpr;
       }
 
@@ -150,7 +138,7 @@ func semaIntCast(
 func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
   resolveTypeTags(state, castExpr->type);
   if (castExpr->type == null) {
-    failSemaExpr(state, castExpr, "Cast without type?");
+    unreachable("Cast without type?");
   }
 
   let cast = castExpr->kind as ExprKind::Cast*;
@@ -160,13 +148,6 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
 
   if (typeEq(from, to)) {
     cast->castKind = CastKind::Noop;
-    return 1;
-  }
-
-  // Allow casting int expressions '64 as i32'
-  if (let intExpr = expr->kind as ExprKind::Int*) {
-    cast->castKind = CastKind::Noop;
-    expr->type = to;
     return 1;
   }
 
@@ -199,19 +180,28 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
       if (let toPtr = to->kind as TypeKind::Pointer*) {
         if (let toStruct = toPtr->pointee->kind as TypeKind::Struct*) {
           // Check if target struct belongs to the same union as source
-          if (!typeEq(from, toStruct->parent)) {
-            failSemaExpr(state, expr, "Cannot cast union to pointer of variant from different union");
+          if (toStruct->parent == null || !typeEq(from, toStruct->parent)) {
+            failSemaExpr(
+                state,
+                expr,
+                "Cannot cast union to pointer of variant from different union");
           }
 
           let unionDecl = lookupType(state, fromUnion.tag);
           if (unionDecl == null) {
-            failSemaExpr(state, expr, "Can't find union decl to cast from");
+            // resolving type tags should've faied.
+            unreachable("Can't find union decl to cast from");
           }
 
           let idx = 0;
-          let structDecl = findSubType(state, &unionDecl->kind as DeclKind::Union*, toStruct->tag, &idx);
+          let structDecl = findSubType(
+              state,
+              &unionDecl->kind as DeclKind::Union*,
+              toStruct->tag,
+              &idx);
           if (structDecl == null) {
-            failSemaExpr(state, expr, "No way to convert union to unrelated struct");
+            // The typeEq above ensures this is unreachable.
+            unreachable("No way to convert union to unrelated struct");
           }
 
           // Insert a deref expr.
@@ -255,16 +245,26 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
         let fromUnion = fromPtr.pointee->kind as TypeKind::Union*;
         let toStruct = toPtr->pointee->kind as TypeKind::Struct*;
         if (fromUnion != null && toStruct != null) {
+          if (toStruct->parent == null || !typeEq(toStruct->parent, fromPtr.pointee)) {
+            failSemaExpr(
+                state,
+                expr,
+                "Cannot cast union to pointer of variant from different union");
+          }
+
           let unionDecl = lookupType(state, fromUnion->tag);
+
           if (unionDecl == null) {
-            failSemaExpr(state, expr, "Can't find union decl to cast from");
+            // The typeEq will fail before this.
+            unreachable("Can't find union decl to cast from");
           }
 
           let idx = 0;
           let unionDeclKind = &unionDecl->kind as DeclKind::Union*;
           let structDecl = findSubType(state, unionDeclKind, toStruct->tag, &idx);
           if (structDecl == null) {
-            failSemaExpr(state, expr, "No way to convert union to unrelated struct");
+            // The typeEq will fail before this.
+            unreachable("No way to convert union to unrelated struct");
           }
 
           cast->fieldIndex = idx;
@@ -275,15 +275,23 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> i32 {
 
     case TypeKind::Struct as fromStruct:
       if (let toUnion = to->kind as TypeKind::Union*) {
+        if (fromStruct.parent == null || !typeEq(fromStruct.parent, to)) {
+          failSemaExpr(state, expr, "Can't cast struct to unrelated union");
+        }
+
         let unionDecl = lookupType(state, toUnion->tag);
         if (unionDecl == null) {
-          failSemaExpr(state, expr, "Can't find union decl to cast to");
+          unreachable("Can't find union decl to cast to");
         }
 
         let idx = 0;
-        let structDecl = findSubType(state, &unionDecl->kind as DeclKind::Union*, fromStruct.tag, &idx);
+        let structDecl = findSubType(
+            state,
+            &unionDecl->kind as DeclKind::Union*,
+            fromStruct.tag,
+            &idx);
         if (structDecl == null) {
-          failSemaExpr(state, expr, "No way to convert struct to unrelated union");
+          unreachable("No way to convert struct to unrelated union");
         }
 
         cast->fieldIndex = idx;
@@ -504,7 +512,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         case DeclKind::Enum:
           let fieldDecl = findField(state, decl, scopeExpr.identifier, &scopeExpr.enumValue);
           if (fieldDecl == null) {
-            failSemaExpr(state, expr, " Cannot find field");
+            failSemaExpr(state, expr, " Cannot find enum value");
           }
 
         default:
@@ -526,7 +534,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       } else if (memberExpr.op.kind == TokenKind::DOT) {
         objectType = memberExpr.object->type;
       } else {
-        failSemaExpr(state, expr, "Unknown member op");
+        // The parser doesn't allow this.
+        unreachable("Unknown member op");
       }
 
       switch (objectType->kind) {
@@ -585,12 +594,12 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
       let mapping = getTypeMap(fnType, genericInst.typeArgs);
       if (mapping == null) {
-        failSemaExpr(state, expr, "Failed to instantiate");
+        failSemaExpr(state, expr, "Failed to instantiate, incorrect number of type args");
       }
 
       expr->type = substituteTypeWithMapping(local->type, mapping);
       if (expr->type == null) {
-        failSemaExpr(state, expr, "Failed to instantiate");
+        unreachable("Failed to instantiate");
       }
       resolveTypeTags(state, expr->type);
       genericInst.instance = addGenericInst(state, local, mapping);
@@ -640,7 +649,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
       let isValidVararg = funType->isVarargs && curArgTy == null;
       if (!isValidVararg && ((curArgTy == null) != (cur == null))) {
-        failSemaExpr(state, expr, "Function call arg length mismatch");
+        errorSema(state, expr->location, "Function call arg length mismatch");
       }
       expr->type = funType->result;
 
@@ -706,7 +715,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
     case ExprKind::Int:
       if (expr->type == null) {
-        failSemaExpr(state, expr, "Expected int type to be set during parsing.");
+        unreachable("Expected int type to be set during parsing.");
       }
       return;
 
@@ -723,7 +732,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         case TypeKind::Slice as s:
           elementType = s.element;
         default:
-          failSemaExpr(state, expr, " Index only works on arrays, or pointers to them.");
+          failSemaExpr(state, expr, " Index only works on arrays, or slices.");
       }
 
       semaExpr(state, indexExpr.index);
@@ -848,7 +857,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         case DeclKind::Const as constKind:
           init = constKind.init;
         default:
-          failSemaExpr(state, expr, "Only let expressions allowed");
+          // The parser doesn't allow this.
+          unreachable("Only let expressions allowed");
       }
       if (init == null) {
         failSemaExpr(state, expr, "Let expression must have an init");
@@ -882,7 +892,7 @@ func semaVarDecl(state: SemaState*, decl: DeclAST*) {
       failSemaDecl(state, decl, ": Decl init type doesn't match");
     }
 
-    sizeArrayTypes(decl->type, init->type);
+    sizeArrayTypes(state, decl->type, init->type);
 
     // Update the init field in the union
     switch (decl->kind) {
@@ -900,7 +910,8 @@ func semaVarDecl(state: SemaState*, decl: DeclAST*) {
           case ExprKind::Scope as scopeExpr:
             constKind.enumValue = scopeExpr.enumValue;
           default:
-            failSemaDecl(state, decl, "Const decl must have an int init");
+            // This is impossibe as evalConstant only returns ints or scopes.
+            unreachable("Const decl must have an int init");
         }
 
       default:

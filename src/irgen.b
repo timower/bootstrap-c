@@ -41,7 +41,7 @@ func genModule(decls: DeclAST*, target: Target) -> Module {
       if (!isGeneric(cur) && funcKind->body != null) {
         let fun = findName(&state, cur->name);
         if (fun == null) {
-          failIRGen("Expected to find function");
+          unreachable("Expected to find function");
         }
 
         let fnPtr = fun as Value::FuncPtr*;
@@ -53,7 +53,7 @@ func genModule(decls: DeclAST*, target: Target) -> Module {
 
   popScope(&state);
   if (state.scope != null) {
-    failIRGen("Scope push & pop mismatch");
+    unreachable("Scope push & pop mismatch");
   }
 
   return state.module;

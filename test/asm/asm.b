@@ -3,6 +3,8 @@
 // RUN: %cc %t.s -o %t
 // RUN: %run %t
 //
+// CHECK: {{_?}}foo:
+// CHECK:   bx lr
 // CHECK: {{_?}}helper:
 // CHECK:   mov r0, #123
 // CHECK:   bx lr
@@ -17,4 +19,12 @@ func main() -> i32 {
 
 func helper() -> i32 {
   return 123;
+}
+
+func foo() {
+
+}
+
+func bar() -> i8* {
+  return null;
 }

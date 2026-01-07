@@ -14,7 +14,7 @@ union Result {
 
 enum Status {
     ACTIVE,
-    INACTIVE,
+    INACTIVE
 }
 
 func main() -> i32 {

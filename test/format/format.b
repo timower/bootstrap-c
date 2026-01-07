@@ -4,8 +4,11 @@
 // RUN: diff %t %s
 // RUN: cat %s | %bootstrap -format - -o %t
 // RUN: diff %t %s
-//
+import a.b;
+
 extern func printf(format: i8*, ...) -> i32;
+
+extern let global_var: i32;
 
 
 // A struct
@@ -27,19 +30,42 @@ union Bar {
   }
 }
 
+union Baz {
+  A {}
+  B {}
+}
+
+
+extern func foo(
+    x: Foo,
+    y: i32,
+    ...
+);
+
+const x = 12;
+
 
 // comment
-func foo(x: Foo) {
+func foo(x: Foo) -> typeof(printf) {
+  const cst = 12;
+
   // comment
   let v = Foo {};  // comments
   let z = v as struct Foo;
+
   // comment
+  let verylonglet =
+      12;
 }
 
 func bar(str: const i8*, b: Bar::Void) {
   let y: void = 0;
   let x: i8[5] = [ 0, 1, 2 ];
   let x: u32[] = [ 0 ];
+  let x: [u32] = x[:];
+  let x: [u32] = x[1:];
+  let x: [u32] = x[:1];
+  let x: [u32] = x[1:2];
 }
 
 let array = [ "a", "b", "c" ];
@@ -128,6 +154,14 @@ func main() -> i32 {
     }
   }
 
+  for (let x = 1;
+       x < 10;
+       x++) {
+    continue;
+    // comment 1
+    // comment 2
+  }
+
   // Test switch statement with enum
   switch (g) {
     case Enum::Option1:
@@ -159,15 +193,16 @@ func main() -> i32 {
       break;
   }
 
+  // double comments
   // Test compound statement with nested scope
-{
+  {
     let local_var = 42;
-{
+    {
       let nested_var = local_var * 2;
       printf("Nested: %d\n", nested_var);
     }
-      // nested_var not accessible here
-}
+    // nested_var not accessible here
+  }
 
   // Test expression statements
   printf("Expression statement\n");

@@ -100,11 +100,16 @@ func addBasicBlock(state: IRGenState*, label: i8*) -> BasicBlock* {
   return res;
 }
 
-func addInstr(state: IRGenState*, type: Type*, kind: InstrKind) -> Value {
+func newInstr(kind: InstrKind) -> Instruction* {
   let res = calloc(1, sizeof(struct Instruction)) as Instruction*;
   res->kind = kind;
-  res->name = state->counter++;
+  return res;
+}
+
+func addInstr(state: IRGenState*, type: Type*, kind: InstrKind) -> Value {
+  let res = newInstr(kind);
   res->type = type;
+  res->name = state->counter++;
 
   let bb = state->curBB;
   if (bb->end == null) {

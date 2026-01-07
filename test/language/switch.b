@@ -85,7 +85,7 @@ func testIntegerSwitch() {
   for (let i = 0; i < 5; i++) {
     let num = numbers[i];
     switch (num) {
-      case 1:
+      case (sizeof(i8) as i32):
         printf("One\n");
         break;
       case 2, 3:
@@ -352,6 +352,15 @@ func testCharacterSwitch() {
   }
 }
 
+func testSizeof() {
+  switch (sizeof(i32)) {
+    case (sizeof(iptr)):
+      break;
+    default:
+      break;
+  }
+}
+
 func main() -> i32 {
   testIntegerSwitch();
   testEnumSwitch();
@@ -362,6 +371,7 @@ func main() -> i32 {
   testFallthrough();
   testLetExpressions();
   testCharacterSwitch();
+  testSizeof();
 
   printf("All switch tests completed\n");
   return 0;

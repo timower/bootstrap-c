@@ -32,11 +32,11 @@ func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
       return 1 << memberExpr.fieldIndex;
     case ExprKind::Binary as binExpr:
       if (binExpr.op.kind != TokenKind::COMMA) {
-        failSemaExpr(state, expr, "Unsupported case expression");
+        unreachable("Unsupported case expression");
       }
       return getFieldBitset(state, binExpr.lhs) | getFieldBitset(state, binExpr.rhs);
     default:
-      failSemaExpr(state, expr, "Unsupported case expression");
+      unreachable("Unsupported case expression");
       return 0;
   }
 }
@@ -44,37 +44,31 @@ func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
 func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
   switch (expr->kind) {
     case ExprKind::Binary as binary:
-      if (binary.op.kind == TokenKind::COMMA) {
-        semaCaseExpr(state, switchType, binary.lhs);
-        semaCaseExpr(state, switchType, binary.rhs);
-        expr->type = switchType;
-      } else {
-        semaExpr(state, expr);
-
-        // Try to evaluate constant expressions in case statements
-        let evaluated = evalConstant(state, expr);
-
-        // Replace the expression with its evaluated form
-        expr->kind = evaluated->kind;
-        expr->type = evaluated->type;
+      if (binary.op.kind != TokenKind::COMMA) {
+        unreachable("Binary expressions should be evaluated");
       }
+      semaCaseExpr(state, switchType, binary.lhs);
+      semaCaseExpr(state, switchType, binary.rhs);
+      expr->type = switchType;
 
     case ExprKind::Member as memberExpr:
       let scopeExpr = memberExpr.object;
       let varName = memberExpr.identifier;
 
-      if (scopeExpr->kind as ExprKind::Scope* == null) {
+      let scopeVar = scopeExpr->kind as ExprKind::Scope*;
+      if (scopeVar == null) {
         failSemaExpr(state, scopeExpr, "Expected :: expression");
       }
-
-      let scopeVar = scopeExpr->kind as ExprKind::Scope*;
       let unionName = scopeVar->parent;
       let tagName = scopeVar->identifier;
 
       let unionDecl = lookupType(state, unionName);
-      let unionDeclKind = unionDecl->kind as DeclKind::Union*;
-      if (unionDecl == null || unionDeclKind == null) {
+      if (unionDecl == null) {
         failSemaExpr(state, expr, "Unknown union");
+      }
+      let unionDeclKind = unionDecl->kind as DeclKind::Union*;
+      if (unionDeclKind == null) {
+        failSemaExpr(state, expr, "Expected union type");
       }
 
       let tagIdx = 0;
@@ -102,7 +96,11 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
 
       switch (decl->type->kind) {
         case TypeKind::Enum:
-          let fieldDecl = findField(state, decl, scopeExpr.identifier, &scopeExpr.enumValue);
+          let fieldDecl = findField(
+              state,
+              decl,
+              scopeExpr.identifier,
+              &scopeExpr.enumValue);
           if (fieldDecl == null) {
             failSemaExpr(state, expr, " Cannot find field");
           }
@@ -130,6 +128,13 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
 
     default:
       semaExpr(state, expr);
+
+      // Try to evaluate constant expressions in case statements
+      let evaluated = evalConstant(state, expr);
+
+      // Replace the expression with its evaluated form
+      expr->kind = evaluated->kind;
+      expr->type = evaluated->type;
   }
 
   if (!typeEq(expr->type, switchType)) {
@@ -181,7 +186,8 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
         allReturn &= subState.returns;
 
       default:
-        failSemaStmt(state, caseStmt, "Unknown switch case statement");
+        // The parse shouldn't prodduce anything else.
+        unreachable("Unknown switch case statement");
     }
   }
 
@@ -296,13 +302,17 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
 
     case StmtKind::Switch as switchStmt:
       semaSwitchStmt(state, stmt);
-    case StmtKind::Case:
-      failSemaStmt(state, stmt, "Case outside of switch");
-    case StmtKind::Default:
-      failSemaStmt(state, stmt, "Default outside of switch");
+
+    // TODO: verify we're in a loop, currently irgen does this.
     case StmtKind::Break:
       break;
     case StmtKind::Continue:
       break;
+
+    // The parser will not generate these.
+    case StmtKind::Case:
+      unreachable("Case outside of switch");
+    case StmtKind::Default:
+      unreachable("Default outside of switch");
   }
 }

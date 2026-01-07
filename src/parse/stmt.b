@@ -174,12 +174,6 @@ func parseCaseOrDefault(state: ParseState*) -> StmtAST* {
   expect(state, TokenKind::COLON);
   getNextToken(state);
 
-  if (match(state, TokenKind::CASE)
-      || match(state, TokenKind::DEFAULT)
-      || match(state, TokenKind::CLOSE_BRACE)) {
-    failParse(state, "Empty case not allowed");
-  }
-
   let firstStmt: StmtAST* = null;
   let cur: StmtAST* = null;
 
@@ -197,13 +191,17 @@ func parseCaseOrDefault(state: ParseState*) -> StmtAST* {
     }
   }
 
+  if (cur == null) {
+    failParse(state, "Empty case not allowed");
+  }
+
   // Set the parsed statements as the body of the case/default
   if (let caseKind = &stmt->kind as StmtKind::Case*) {
     caseKind->body = firstStmt;
   } else if (let defaultKind = &stmt->kind as StmtKind::Default*) {
     defaultKind->body = firstStmt;
   }
-  stmt->endLocation = cur != null ? cur->endLocation : stmt->location;
+  stmt->endLocation = cur->endLocation;
 
   return stmt;
 }

@@ -78,9 +78,9 @@ func typeEq(one: Type*, two: Type*) -> bool {
       }
       return false;
     case TypeKind::Tag as tag:
-      failSemaType(null, one, "Type tag not resolved before eq");
+      unreachable("Type tag not resolved before eq");
     case TypeKind::Typeof as t:
-      failSemaType(null, one, "Typeof not resolved before eq");
+      unreachable("Typeof not resolved before eq");
   }
 
   return true;
@@ -111,6 +111,7 @@ func findSubType(
     idxOut: i32*
 ) -> DeclAST* {
   if (unionKind == null) {
+    unreachable("Expected union");
     return null;
   }
   let res = findTypeIdx(unionKind->subTypes, tag, idxOut);
@@ -171,6 +172,7 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
 
     case TypeKind::Pointer, TypeKind::Func:
       return getPtrSize(&state->target);
+
     case TypeKind::Slice:
       return 2 * getPtrSize(&state->target);
 
@@ -200,32 +202,29 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
       }
       return maxSize + 4;      // i32 tag.
 
-    case TypeKind::Typeof:
-      failSemaType(state, type, "Typeof not resolved before getSize");
-      return 0;
-
-    default:
-      printType(type);
-      failSemaType(state, type, "Unknown type for size");
-      return 0;
+    case TypeKind::Typeof, TypeKind::Tag:
+      break;
   }
+
+  unreachable("Type not resolved before getSize");
+  return 0;
 }
 
 
 // TODO: do this on 'doConvert'?
-func sizeArrayTypes(declType: Type*, initType: Type*) {
+func sizeArrayTypes(state: SemaState*, declType: Type*, initType: Type*) {
   switch (declType->kind) {
     case TypeKind::Array as array:
       let initArray = initType->kind as TypeKind::Array*;
       array.size = initArray->size;
       if (array.size < 0) {
-        failSemaType(null, declType, "Coudln't infer array size");
+        unreachable("Couldn't infer array size");
       }
-      sizeArrayTypes(array.element, initArray->element);
+      sizeArrayTypes(state, array.element, initArray->element);
 
     case TypeKind::Pointer as ptr:
       let ptrInit = initType->kind as TypeKind::Pointer*;
-      sizeArrayTypes(ptr.pointee, ptrInit->pointee);
+      sizeArrayTypes(state, ptr.pointee, ptrInit->pointee);
     default:
       break;
   }

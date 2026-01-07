@@ -1,7 +1,7 @@
 // RUN: %bootstrap -emit-asm %s -o %t.s
 // RUN: cat %t.s | FileCheck %s
 // RUN: %cc %t.s -o %t
-// RUN: %check-exit-code 8 %run %t
+// RUN: %check-exit-code 11 %run %t
 //
 // Test addition with immediate values
 // CHECK: {{_?}}main:
@@ -11,5 +11,5 @@
 // CHECK:   bx lr
 //
 func main() -> i32 {
-  return 5 + 3;
+  return (5 + 3) + (1  + 2);
 }

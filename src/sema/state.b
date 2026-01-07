@@ -70,12 +70,16 @@ func newState(parent: SemaState*) -> SemaState {
 
 
 // 2. sema
+// TODO: remove state
 func failSema(state: SemaState*, loc: SourceLoc*, msg: const i8*) {
   printLoc(loc);
   fprintf(getStderr(), "sema error: %s\n", msg);
-  if (state == null) {
-    exit(1);
-  }
+  exit(1);
+}
+
+func errorSema(state: SemaState*, loc: SourceLoc*, msg: const i8*) {
+  printLoc(loc);
+  fprintf(getStderr(), "sema error: %s\n", msg);
   getRoot(state)->failed = true;
 }
 

@@ -13,7 +13,7 @@ import cmdline;
 
 func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
   if (args->inPlace) {
-    if (args->inputFile.len == 0) {
+    if (args->readFromStdin) {
       puts("Cannot use -i with stdin input");
       exit(-1);
     }
@@ -38,7 +38,9 @@ func finishInPlace(args: CommandLineArgs*, fileName: i8*, file: void*) {
   fclose(file);
 
   if (rename(fileName, &args->inputFile[0]) != 0) {
-    puts("Failed to replace original file");
+    // The opening of the output, or reading of the input would fail before
+    // this fails.
+    unreachable("Failed to replace original file");
     exit(-1);
   }
 }
@@ -50,12 +52,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   printFile = getStdout();
 
   let name: i8* = &args.inputFile[0];
-  let buf = nullBuf();
-  if (!args.readFromStdin) {
-    buf = readFile(name);
-  } else {
-    buf = readStdin();
-  }
+  let buf = args.readFromStdin ? readStdin() : readFile(name);
 
   if (&buf[0] == null) {
     puts("Failed to read input");

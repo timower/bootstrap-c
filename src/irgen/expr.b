@@ -15,7 +15,8 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Int as intExpr:
       if (expr->type->kind as TypeKind::Pointer* != null) {
         if (intExpr.value != 0) {
-          failIRGen("Only null constants supported");
+          // sema doesn't allow us to geenrate this.
+          unreachable("Only null constants supported");
         }
         return Value::Zero {
           type = expr->type,
@@ -27,16 +28,10 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
         type = expr->type,
       };
 
-    case ExprKind::Scope as scopeExpr:
-      if (expr->type->kind as TypeKind::Pointer* != null) {
-        if (scopeExpr.enumValue != 0) {
-          failIRGen("Only null constants supported");
-        }
-        return Value::Zero {
-          type = expr->type,
-        };
-      }
+    case ExprKind::Paren as paren:
+      return genConstant(state, paren.expr);
 
+    case ExprKind::Scope as scopeExpr:
       return Value::IntConstant {
         value = scopeExpr.enumValue,
         type = expr->type,
@@ -124,7 +119,7 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Variable as varExpr:
       let var = findName(state, varExpr.identifier);
       if (var == null) {
-        failIRGen("Failed to find variable");
+        unreachable("Failed to find variable");
       }
       return *var;
 
@@ -148,7 +143,7 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
         case TypeKind::Array:
           array = genAddr(state, indexExpr.array);
         default:
-          failIRGen("Unsupported index array type");
+          unreachable("Unsupported index array type");
       }
 
       let index = genExpr(state, indexExpr.index);
@@ -181,7 +176,7 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::GenericInstantiation as genericInst:
       let var = findName(state, genericInst.instance);
       if (var == null) {
-        failIRGen("Failed to find function");
+        unreachable("Failed to find function");
       }
       return *var;
 
@@ -208,7 +203,7 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Paren as parenExpr:
       return genExpr(state, parenExpr.expr);
 
-    case ExprKind::Int, ExprKind::Scope, ExprKind::Str:
+    case ExprKind::Int, ExprKind::Scope:
       return genConstant(state, expr);
 
     case ExprKind::Variable, ExprKind::Index, ExprKind::Member,
@@ -280,15 +275,21 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
           // Const expressions are handled during sema.
           return genExpr(state, constKind.init);
         default:
-          failIRGen("Invalid decl kind in let expression");
+          // Parsing doesn't allow this to happen.
+          unreachable("Invalid decl kind in let expression");
+          return Value::Zero {};
       }
 
-    case ExprKind::Sizeof:
-      break;
-  }
+    case ExprKind::Str:
+      // Sema should've transformed these.
+      unreachable("Strings should only be globals");
+      return Value::Zero {};
 
-  failIRGen("Invalid expr");
-  return Value::Zero {};
+    case ExprKind::Sizeof:
+      // Sema should've transformed these.
+      unreachable("Invalid expr");
+      return Value::Zero {};
+  }
 }
 
 func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
@@ -348,8 +349,8 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
       });
 
     default:
-      printType(slice->slice->type);
-      failIRGen("Unsupported slice index operation");
+      // Sema shoud reject any other types.
+      unreachable("Unsupported slice index operation");
   }
 
   let startVal: Value = Value::IntConstant {
@@ -410,9 +411,7 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
       let opExpr = unaryExpr->postfix == null ? unaryExpr->prefix : unaryExpr->postfix;
       let operand = genAddr(state, opExpr);
       let val = genLoad(state, operand, opExpr->type);
-      let type = opExpr->type->kind as TypeKind::Pointer* != null
-           ? getInt32()
-           : opExpr->type;
+      let type = opExpr->type;
       let one = Value::IntConstant {
         value = unaryExpr->op.kind == TokenKind::INC_OP ? 1 : -1,
         type = type,
@@ -470,7 +469,8 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
       });
 
     default:
-      failIRGen("Invalid unary");
+      // The parser should not accept this, and sema should fail before this.
+      unreachable("Invalid unary");
       return Value::Zero {};
   }
 }
@@ -544,7 +544,7 @@ func genCast(state: IRGenState*, expr: ExprAST*) -> Value {
       });
       return res;
 
-    case CastKind::Trunc, CastKind::Sext, CastKind::Zext, CastKind::PtrToInt:
+    case CastKind::Trunc, CastKind::Sext, CastKind::Zext:
       return addInstr(state, expr->type, InstrKind::Cast {
         kind = castExpr->castKind,
         val = v,
@@ -561,63 +561,16 @@ func genBinary(
     rhs: Value,
     rhsType: Type*
 ) -> Value {
-  let lhsPointer = lhsType->kind as TypeKind::Pointer*;
-  let lhsIsPointer = lhsPointer != null;
-  let rhsPointer = rhsType->kind as TypeKind::Pointer*;
-  let rhsIsPointer = rhsPointer != null;
-
-  // Pointer sub.
-  if (lhsIsPointer && rhsIsPointer && opKind == TokenKind::MINUS) {
-    let lhsInt = addInstr(state, resType, InstrKind::Cast {
-      kind = CastKind::PtrToInt,
-      val = lhs,
-    });
-
-    let rhsInt = addInstr(state, resType, InstrKind::Cast {
-      kind = CastKind::PtrToInt,
-      val = rhs,
-    });
-
-    return addInstr(state, resType, InstrKind::Binary {
-      op = BinaryOp::Sub,
-      lhs = lhsInt,
-      rhs = rhsInt,
-    });
-  }
-
-  if (lhsIsPointer != rhsIsPointer) {
-    let ptrType = lhsIsPointer ? lhsType : rhsType;
-    let ptrTypeKind = lhsIsPointer ? lhsPointer : rhsPointer;
-    let intType = lhsIsPointer ? rhsType : lhsType;
-    let ptrOp = lhsIsPointer ? lhs : rhs;
-    let intOp = lhsIsPointer ? rhs : lhs;
-
-    // negate the i32 for minus op
-    if (opKind == TokenKind::MINUS) {
-      intOp = addInstr(state, intType, InstrKind::Binary {
-        op = BinaryOp::Sub,
-        lhs = Value::IntConstant {
-          type = intType,
-          value = 0,
-        },
-        rhs = intOp,
-      });
-    }
-
-    return addInstr(state, ptrType, InstrKind::ArrayGEP {
-      type = ptrTypeKind->pointee,
-      ptr = ptrOp,
-      idx = intOp,
-    });
-  }
-
   let isBinOp = true;
   let binOp = BinaryOp::Add;
   let cmpOp = CmpOp::Eq;
 
+  let intResType = resType->kind as TypeKind::Int*;
+
   switch (opKind) {
     default:
-      failIRGen("Invalid binary op");
+      // We don't parse anything not in this list.
+      unreachable("Invalid binary op");
     case TokenKind::PLUS:
       binOp = BinaryOp::Add;
     case TokenKind::MINUS:
@@ -631,7 +584,7 @@ func genBinary(
     case TokenKind::LEFT_OP:
       binOp = BinaryOp::Shl;
     case TokenKind::RIGHT_OP:
-      binOp = BinaryOp::AShr;
+      binOp = intResType->isSigned ? BinaryOp::AShr : BinaryOp::LShr;
     case TokenKind::AND:
       binOp = BinaryOp::And;
     case TokenKind::HAT:
@@ -752,7 +705,7 @@ func genAssign(state: IRGenState*, expr: ExprAST*) -> Value {
     case TokenKind::OR_ASSIGN:
       op = TokenKind::PIPE;
     default:
-      failIRGen("Invalid assign op");
+      unreachable("Invalid assign op");
   }
 
   let res = genBinary(

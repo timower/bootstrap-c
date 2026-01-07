@@ -32,14 +32,14 @@ func initEmitState(state: EmitState*) {
 
 func setInstrReg(instrName: i32, reg: i32, state: EmitState*) {
   if (instrName >= state->instrToReg.len) {
-    failEmit("Instruction name out of bounds in register mapping");
+    unreachable("Instruction name out of bounds in register mapping");
   }
   state->instrToReg[instrName] = reg;
 }
 
 func getInstrReg(instrName: i32, state: EmitState*) -> i32 {
   if (instrName >= state->instrToReg.len) {
-    failEmit("Instruction name out of bounds in register mapping");
+    unreachable("Instruction name out of bounds in register mapping");
   }
   return state->instrToReg[instrName];
 }
@@ -62,14 +62,9 @@ func freeRegister(instrName: i32, state: EmitState*) {
 }
 
 func getPhysicalReg(instrName: i32, state: EmitState*) -> i32 {
-  // Get the allocated physical register for an instruction
-  if (instrName >= state->instrToReg.len) {
-    failEmit("Instruction name out of bounds in register mapping");
-  }
-
   let reg = getInstrReg(instrName, state);
   if (reg == -1) {
-    failEmit("No register allocated for instruction");
+    unreachable("No register allocated for instruction");
   }
 
   return reg;
@@ -135,6 +130,8 @@ func processUsesBackwards(instr: Instruction*, state: EmitState*) {
       markAsLive(b.rhs, state);
     case InstrKind::Return as r:
       markAsLive(r.val, state);
+    case InstrKind::ReturnVoid:
+      break;
     default:
       failEmit("Unhandled instruction kind in processUsesBackwards");
   }
@@ -143,20 +140,17 @@ func processUsesBackwards(instr: Instruction*, state: EmitState*) {
 func markAsLive(val: Value, state: EmitState*) {
   switch (val) {
     case Value::InstrPtr as p:
-      // Walking backwards: this use means we need to allocate a register
-      // if one hasn't been allocated yet
       if ((p.ptr)->name < state->instrToReg.len) {
         let reg = getInstrReg((p.ptr)->name, state);
         if (reg == -1) {
-          // First time seeing this value (walking backwards), allocate register
           reg = allocateNextRegister(state);
           if (reg == -1) {
-            failEmit("Function needs too many registers for allocation");
+            // Currently unreachable with the supported expressions.
+            unreachable("Function needs too many registers for allocation");
           }
           setInstrReg((p.ptr)->name, reg, state);
         }
 
-        // Mark register as used so it won't be reused
         state->usedRegs[reg] = true;
       }
 
@@ -224,8 +218,8 @@ func emitInstruction(instr: Instruction*, state: EmitState*) {
       fprintf(outFile, "  bx lr\n");
 
     default:
-      // TODO: handle other instructions
-      failEmit("Unhandled instruction kind in emitInstruction");
+      // Process users will trigger before this
+      unreachable("Unhandled instruction kind in emitInstruction");
   }
 }
 

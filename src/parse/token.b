@@ -204,7 +204,7 @@ func getToken(state: ParseState*) -> Token {
 
   // Assume operator - try different lengths for hash lookup
   let rest = state->buf[tokenStart:];
-  for (let i = TokenKind::LEFT_ASSIGN as i32; i < tokenHashes.len; i++) {
+  for (let i = TokenKind::LEFT_ASSIGN as i32; i < tokens.len; i++) {
     let token = tokenHashes[i];
     let len = token.data.len;
     if (len <= rest.len) {
@@ -227,7 +227,8 @@ func getToken(state: ParseState*) -> Token {
 
   // Check if we're at EOF before reporting unknown token
   if (state->current >= state->buf.len) {
-    return makeEof(state, tokenStart);
+    // TODO: fuzz test this.
+    unreachable("How did we get to EOF here?");
   }
 
   fprintf(getStderr(), "Token: '%s\n", state->buf[tokenStart:]);

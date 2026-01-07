@@ -160,8 +160,7 @@ func initTokenHashes() {
     tokenHashes[i].data = data;
     tokenHashes[i].hash = packTokenHash(data);
     if (tokenHashes[i].hash == 0) {
-      printf("Token too long: %s, %d", &data[0], data.len);
-      exit(1);
+      unreachable("Token too long!");
     }
   }
 }

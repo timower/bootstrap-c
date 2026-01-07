@@ -41,7 +41,7 @@ func _getType(value: Value) -> [i8] {
   switch (value) {
     case Value::InstrPtr as p:
       if (p.ptr == null) {
-        return "NULL-INSTR!";
+        unreachable("NULL-INSTR!");
       }
       return convertType(p.ptr->type);
 
@@ -83,7 +83,7 @@ func _getName(value: Value) -> [i8] {
   switch (value) {
     case Value::InstrPtr as p:
       if (p.ptr == null) {
-        return "NULL-INSTR!";
+        unreachable("NULL-INSTR!");
       }
       let buf = malloc(32) as i8*;
       let len = sprintf(buf, "%%tmp%d", p.ptr->name);
@@ -174,8 +174,6 @@ func _getName(value: Value) -> [i8] {
         return "zeroinitializer";
       }
       switch (z.type->kind) {
-        case TypeKind::Array:
-          return "zeroinitializer";
         case TypeKind::Int:
           return "0";
         case TypeKind::Bool:
@@ -374,11 +372,8 @@ func printInstr(instr: Instruction*) {
           castStr = "sext";
         case CastKind::Trunc:
           castStr = "trunc";
-        case CastKind::PtrToInt:
-          castStr = "ptrtoint";
         default:
-          fprintf(outFile, "Error, cast print!");
-          exit(1);
+          unreachable("Error, cast print!");
       }
       fprintf(
           outFile,

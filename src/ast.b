@@ -161,8 +161,6 @@ enum CastKind {
   StructUnion,
   UnionStructPtr,
 
-  PtrToInt,
-
   // Int casts
   Trunc,
   Sext,
