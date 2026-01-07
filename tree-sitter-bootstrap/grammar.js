@@ -416,8 +416,7 @@ module.exports = grammar({
       choice('let', 'const'),
       $.identifier,
       optional(seq(':', $.type)),
-      '=',
-      $._assignment
+      optional(seq('=', $._assignment))
     )),
 
     conditional_expression: $ => prec.right(PREC.CONDITIONAL, seq(

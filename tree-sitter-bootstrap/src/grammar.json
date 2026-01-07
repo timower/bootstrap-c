@@ -2647,12 +2647,25 @@
             ]
           },
           {
-            "type": "STRING",
-            "value": "="
-          },
-          {
-            "type": "SYMBOL",
-            "name": "_assignment"
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "="
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_assignment"
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
           }
         ]
       }
