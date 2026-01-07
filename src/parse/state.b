@@ -37,6 +37,9 @@ struct ParseState {
   lastComment: Comment*;
 
   jmpBuf: JmpBuf*;
+
+  // Limit the depth of primary expressions, to prevent stack overflow
+  depth: i32;
 }
 
 

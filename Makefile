@@ -119,7 +119,8 @@ tree-sitter-bootstrap/bootstrap.so: tree-sitter-bootstrap/grammar.js
 
 tree-sitter-check: tree-sitter ## Verify that all tests and sources parse
 	rm -rf test/**/Output
-	@find test/ -name '*.b' -not -path 'test/parsing/fail/*' | xargs -I{} sh -c \
+	@find test/ -name '*.b' -not -path 'test/parsing/fail/*' -not -path 'test/fuzz/*' | \
+		xargs -I{} sh -c \
 		'export HOME=$PWD/build; cd tree-sitter-bootstrap; \
 		 if ! tree-sitter parse ../{} > /dev/null 2>&1; then \
 			echo "File {} failed to parse"; exit 1; \

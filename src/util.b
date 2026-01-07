@@ -53,6 +53,7 @@ func readFile(name: i8*) -> [i8] {
     return nullBuf();
   }
 
+  // Add one i64 as padding so packTokenhash doesn't read out of bounds.
   let result = newBuf(size + sizeof(i64))[:size];
 
   let off: iptr = 0;

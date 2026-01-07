@@ -1,6 +1,8 @@
 import state;
 import token;
 
+const max_depth = 200;
+
 
 // number := [0-9]+ | '[\n\t\r\\'"]' | '.'
 func parseNumber(state: ParseState*) -> ExprAST* {
@@ -172,32 +174,41 @@ func parseParen(state: ParseState*) -> ExprAST* {
 //          | string
 //          | paren
 func parsePrimary(state: ParseState*) -> ExprAST* {
+  if (state->depth > max_depth) {
+    failParse(state, "Too deep!");
+  }
+
+  state->depth++;
+  let res: ExprAST* = null;
+
   switch (state->curToken.kind) {
     case TokenKind::TRUE, TokenKind::FALSE:
       let token = getNextToken(state);
       let value = token.kind == TokenKind::TRUE ? 1 : 0;
-      let expr = newLocExpr(token.location, ExprKind::Int {
+      res = newLocExpr(token.location, ExprKind::Int {
         value = value,
         token = token,
       });
-      expr->type = getBool();
-      return expr;
+      res->type = getBool();
     case TokenKind::IDENTIFIER:
-      return parseIdentifierExpr(state);
+      res = parseIdentifierExpr(state);
     case TokenKind::CONSTANT:
-      return parseNumber(state);
+      res = parseNumber(state);
     case TokenKind::STRING_LITERAL:
-      return parseString(state);
+      res = parseString(state);
     case TokenKind::OPEN_PAREN:
-      return parseParen(state);
+      res = parseParen(state);
     case TokenKind::OPEN_BRACKET:
-      return parseInitializer(state);
+      res = parseInitializer(state);
 
     default:
       printToken(state->curToken);
       failParse(state, "Unknown primary expression");
       return null;
   }
+
+  state->depth--;
+  return res;
 }
 
 
@@ -375,6 +386,11 @@ func isUnary(tok: Token) -> bool {
 //        | sizeof '(' decl ')'
 func parseUnary(state: ParseState*) -> ExprAST* {
   if (isUnary(state->curToken)) {
+    if (state->depth > max_depth) {
+      failParse(state, "Too deep!");
+    }
+    state->depth++;
+
     let op = getNextToken(state);
     let prefix = parseUnary(state);
     let expr = newLocExpr(op.location, ExprKind::Unary {

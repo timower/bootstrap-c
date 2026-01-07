@@ -227,8 +227,7 @@ func getToken(state: ParseState*) -> Token {
 
   // Check if we're at EOF before reporting unknown token
   if (state->current >= state->buf.len) {
-    // TODO: fuzz test this.
-    unreachable("How did we get to EOF here?");
+    return makeEof(state, tokenStart);
   }
 
   fprintf(getStderr(), "Token: '%s\n", state->buf[tokenStart:]);
