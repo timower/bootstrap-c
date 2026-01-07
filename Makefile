@@ -34,7 +34,7 @@ PARENT_STAGE ?= $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 ALL_SRC = $(shell find src/ -type f -name '*.b')
 LSP_SRC = $(shell find bootstrap-lsp/ -type f -name '*.go')
 
-ALL_TESTS = $(shell find test/ -name "*.b" | sed 's/^test\///' | tr '\n' ';')
+XFAIL_TESTS = $(shell find test/ -name "*.b" | sed 's/^test\///' | tr '\n' ';')
 
 # We call the bootstrap compiler on the first source file.
 MAIN_SRC = src/bootstrap.b
@@ -81,7 +81,7 @@ lit-stage%: stage%
 .PHONY: lit-mutate
 lit-mutate: mutated ## Run lit tests with mutated compiler (expect failures)
 	rm -rf test/**/Output
-	env BOOTSTRAP=mutated lit --xfail="$(ALL_TESTS)" -v test/
+	env BOOTSTRAP=mutated lit --xfail="$(XFAIL_TESTS)" -v test/
 
 .PHONY: lit-coverage
 lit-coverage: bootstrap-coverage ## Run tests with coverage analysis
@@ -91,7 +91,7 @@ lit-coverage: bootstrap-coverage ## Run tests with coverage analysis
 	opt -p pgo-instr-use -o /dev/null $(BUILD_DIR)/coverage.ll \
 		-pgo-test-profile-file=$(BUILD_DIR)/coverage/merged.profdata \
 		-pgo-view-raw-counts=text 2> $(BUILD_DIR)/coverage/coverage.txt
-	python3 ./test/parse_coverage.py $(BUILD_DIR)/coverage/coverage.txt
+	python3 ./test/parse_coverage.py $(BUILD_DIR)/coverage/coverage.txt $(BUILD_DIR)/coverage.ll
 
 .PHONY: format-all
 format-all: bootstrap ## Format all .b source files in the project

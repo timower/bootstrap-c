@@ -4,8 +4,15 @@ Parse coverage.txt and output functions with their coverage percentages.
 Coverage is defined as non-zero BB counts / total BBs.
 """
 
-import sys
 from dataclasses import dataclass
+
+import sys
+import re
+
+# group 1: BB name, group 2: Index, group 3: Count (opt)
+BB_REGEX = re.compile(r"BB: (\S*)  Index=(\d+)(?:  Count=(\d+))?")
+# group 1: from Index, group 2: to Index, group 3: Count
+EDGE_REGEX = re.compile(r"Edge \d+: (\d+)-->(\d+).*Count=(\d+)")
 
 
 @dataclass
@@ -40,7 +47,7 @@ def split_into_function_groups(lines):
     return groups
 
 
-def parse_function_group(group):
+def parse_function_group(group, unreachables):
     """
     Parse a single function group.
     Returns (function_name, coverage_percentage, non_zero_bbs, total_bbs) or None.
@@ -48,6 +55,7 @@ def parse_function_group(group):
 
     assert group[0].startswith("pgo-view-raw-counts: ")
     func_name = group[0].split("pgo-view-raw-counts: ", 1)[1]
+    unreachableBBs = unreachables[func_name]
 
     assert group[1].startswith("Dump Function")
 
@@ -57,25 +65,35 @@ def parse_function_group(group):
     idx = 3
     # Parse BB lines
     bb_counts = []
+    unreachable_idxs = set()
     while idx < len(group):
         line = group[idx]
         if not line.startswith("BB: "):
             break
         idx += 1
 
-        if "FakeNode" in line:
-            assert "Index=0" in line
+        match = BB_REGEX.match(line)
+        assert match is not None, f"No match: {line}"
+
+        bb_name = match.group(1)
+        bb_idx = int(match.group(2))
+
+        if bb_name == "FakeNode":
+            assert bb_idx == 0
             continue
 
-        if "Count=" in line:
-            count_part = line.split("Count=", 1)[1].strip()
-            count = int(count_part)
-            bb_counts.append(count)
-        else:
-            bb_counts.append(0)
+        count = int(match.group(3))
+
+        if bb_name in unreachableBBs:
+            unreachable_idxs.add(bb_idx)
+            continue
+
+        bb_counts.append(count)
 
     # -1 for the FakeNode we skipped
-    assert len(bb_counts) == num_bbs - 1, f"unmatched counts {num_bbs} {bb_counts}"
+    assert len(bb_counts) == num_bbs - 1 - len(unreachableBBs), (
+        f"unmatched counts {num_bbs} {len(bb_counts)} {len(unreachableBBs)}"
+    )
 
     non_zero_bbs = sum(1 for c in bb_counts if c > 0)
     total_bbs = len(bb_counts)
@@ -94,15 +112,22 @@ def parse_function_group(group):
         if not line.startswith("Edge "):
             break
 
-        # Skip fakenode wich has index 0
-        if " 0-->" in line:
+        match = EDGE_REGEX.match(line)
+        if match is None:
+            assert "-*c" in line, f"No match not removed: {line}"
             continue
-        if "Count=" in line:
-            count_part = line.split("Count=", 1)[1].strip()
-            count = int(count_part)
-            edge_counts.append(count)
-        else:
-            edge_counts.append(0)
+
+        frm = int(match.group(1))
+        to = int(match.group(2))
+        count = int(match.group(3))
+
+        # Skip fakenode wich has index 0
+        if frm == 0:
+            continue
+        if frm in unreachable_idxs or to in unreachable_idxs:
+            continue
+
+        edge_counts.append(count)
 
     non_zero_edges = sum(1 for c in edge_counts if c > 0)
     total_edges = len(edge_counts)
@@ -116,7 +141,7 @@ def parse_function_group(group):
     )
 
 
-def parse_coverage_file(filepath):
+def parse_coverage_file(filepath, unreachables):
     """
     Parse the coverage file.
     Returns a list of (function_name, coverage_percentage) tuples.
@@ -128,25 +153,54 @@ def parse_coverage_file(filepath):
     functions = []
 
     for group in groups:
-        result = parse_function_group(group)
+        result = parse_function_group(group, unreachables)
         if result:
             functions.append(result)
 
     return functions
 
 
+def parse_unreachables(file):
+    with open(file, "r") as f:
+        lines = f.readlines()
+
+    unreachable = re.compile(r" *unreachable| *call void @unreachable\(")
+    label = re.compile(r"([^ ]+):")
+    func = re.compile(r"define .* @(.*)\(")
+
+    unreachables = {}
+
+    currentFunc = None
+    currentLabel = None
+    for line in lines:
+        if match := label.match(line):
+            currentLabel = match.group(1)
+        if match := func.match(line):
+            currentFunc = match.group(1)
+            unreachables[currentFunc] = set()
+        if unreachable.match(line):
+            unreachables[currentFunc].add(currentLabel)
+
+    return unreachables
+
+
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python parse_coverage.py <coverage.txt>")
+    if len(sys.argv) != 3:
+        print("Usage: python parse_coverage.py <coverage.txt> <bootstrap.ll>")
         sys.exit(1)
 
-    filepath = sys.argv[1]
+    coverage_file = sys.argv[1]
+    ir_file = sys.argv[2]
 
     try:
-        functions = parse_coverage_file(filepath)
+        unreachables = parse_unreachables(ir_file)
+        functions = parse_coverage_file(coverage_file, unreachables)
 
         # Sort by coverage percentage (descending)
-        functions.sort(key=lambda x: x.get_coverage(), reverse=True)
+        functions.sort(
+            key=lambda x: 100 * (x.total_bbs - x.covered_bbs)
+            + (x.total_edges - x.covered_edges)
+        )
 
         header = f"{'Function':<32} {'BBs':<7} {'Edges':<7} {'Coverage':<6}"
 
@@ -185,7 +239,7 @@ def main():
             sys.exit(1)
 
     except FileNotFoundError:
-        print(f"Error: File '{filepath}' not found")
+        print(f"Error: File '{coverage_file}' not found")
         sys.exit(1)
     except Exception as e:
         print(f"Error parsing file: {e}")

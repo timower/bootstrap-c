@@ -1,5 +1,10 @@
 import libc;
 
+func unreachable(msg: i8*) {
+  printf("UNREACHABLE: %s\n", msg);
+  exit(3);
+}
+
 func getEscaped(c: i8) -> i8 {
   switch (c as i32) {
     case 'n':
@@ -43,7 +48,8 @@ func readFile(name: i8*) -> [i8] {
   }
 
   if (lseek(fd, 0, SEEK_SET) == -1) {
-    fprintf(getStderr(), "seek failed!\n");
+    // The first one would've failed, so this seems unreachable.
+    unreachable("seek failed!");
     return nullBuf();
   }
 
