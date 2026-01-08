@@ -202,9 +202,10 @@ func instantiateGeneric(state: SemaState*, generic: GenericInst*) {
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   let fileName = decl->location->fileName;
 
-  if (state->jmpBuf == null) {
-    state->jmpBuf = newJmpBuf();
-    if (setjmp(state->jmpBuf) != 0) {
+  let root = getRoot(state);
+  if (root->jmpBuf == null) {
+    root->jmpBuf = newJmpBuf();
+    if (setjmp(root->jmpBuf) != 0) {
       return null;
     }
   }

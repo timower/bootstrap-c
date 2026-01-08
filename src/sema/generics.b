@@ -254,23 +254,27 @@ func monomorphizeDecls(decl: DeclAST*, typeMap: TypeMap*) -> DeclAST* {
     return null;
   }
 
-  let varKind = decl->kind as DeclKind::Var*;
-  if (varKind == null) {
-    printLoc(decl->location);
-    fprintf(getStderr(), "TODO: monomorphizeDecls for non var kinds");
-    exit(1);
+  let result: DeclAST* = null;
+  switch (decl->kind) {
+    case DeclKind::Var as var:
+      result = newDecl(DeclKind::Var {
+        init = monomorphizeExpr(var.init, typeMap),
+        isExtern = var.isExtern,
+      });
+
+    case DeclKind::Const as cst:
+      result = newDecl(DeclKind::Const {
+        init = monomorphizeExpr(cst.init, typeMap),
+      });
+    default:
+      unreachable("Non var decl in function?");
   }
 
-  let result = newDecl(DeclKind::Var {
-    init = monomorphizeExpr(varKind->init, typeMap),
-    isExtern = varKind->isExtern,
-  });
   result->name = decl->name;
   result->location = decl->location;
   result->endLocation = decl->endLocation;
 
   result->type = substituteTypeWithMapping(decl->type, typeMap);
-
   result->next = monomorphizeDecls(decl->next, typeMap);
   return result;
 }

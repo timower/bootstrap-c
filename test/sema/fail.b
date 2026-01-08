@@ -9,7 +9,8 @@
 // RUN: not %bootstrap %t/only_len2.b 2>&1 | grep "Only 'len' member"
 //
 // RUN: not %bootstrap %t/no_type.b 2>&1 | grep "Unknown type for scope expr"
-// RUN: not %bootstrap %t/sizeof_unknown.b 2>&1 | grep "Unkown type to get size of"
+// RUN: not %bootstrap %t/sizeof_unknown1.b 2>&1 | grep "Unkown type to get size of"
+// RUN: not %bootstrap %t/sizeof_unknown2.b 2>&1 | grep "Unkown type to get size of"
 // RUN: not %bootstrap %t/import1.b 2>&1 | grep "Error in import"
 // RUN: not %bootstrap %t/import2.b 2>&1 | grep "Failed to import file"
 // RUN: not %bootstrap %t/missing_import.b 2>&1 | grep "Couldn't find file"
@@ -67,6 +68,15 @@
 // RUN: not %bootstrap %t/arg_type.b 2>&1 | grep "Arg type mismatch"
 // RUN: not %bootstrap %t/if_let.b 2>&1 | grep "Expected bool"
 //
+// RUN: not %bootstrap %t/const_assign.b 2>&1 | grep "Assign expression not supported"
+//
+// RUN: not %bootstrap %t/recursive_type.b 2>&1 | grep "Recursive type declaration!"
+//
+// RUN: not %bootstrap %t/not_union.b 2>&1 | grep " Can't resolve type tags, unknown sub type"
+// RUN: not %bootstrap %t/not_array.b 2>&1 | grep "Expected array init for array declaration"
+// RUN: not %bootstrap %t/not_ptr.b 2>&1 | grep "Expected pointer init for pointer declaration"
+// RUN: not %bootstrap %t/broken_for.b 2>&1 | grep "For condition must be a boolean expression"
+//
 //--- var.b
 let x = y;
 
@@ -115,8 +125,12 @@ func a(x: i8[2]) -> i32 {
 let x = Foo::A;
 
 
-//--- sizeof_unknown.b
+//--- sizeof_unknown1.b
 let x = sizeof(struct Foo);
+
+
+//--- sizeof_unknown2.b
+let x = sizeof(union Foo);
 
 
 //--- import1.b
@@ -372,4 +386,45 @@ func foo() -> i32 {
     return x;
   }
   return 0;
+}
+
+
+//--- const_assign.b
+const broken = 1 <<= 2;
+
+
+//--- recursive_type.b
+struct Point {
+  d: Point;
+}
+
+union e {
+  e {
+    t: Point;
+  }
+}
+
+
+//--- not_union.b
+enum Foo {
+}
+
+func c(x: Foo::B) {
+
+}
+
+
+//--- not_array.b
+let r: i64[] = 1;
+
+
+//--- not_ptr.b
+let r: i64[]* = 1;
+
+
+//--- broken_for.b
+func a() {
+  for (1; ; 1) {
+
+  }
 }

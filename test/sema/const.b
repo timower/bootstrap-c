@@ -22,6 +22,8 @@ const j = true || false;
 
 const k = false || false;
 
+const l = (1, 2);
+
 func main() -> i32 {
   const z = a + b + c + d + e + f + g + h + i + j + k;
 

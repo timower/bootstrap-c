@@ -72,7 +72,8 @@ func array[T]() -> T {
 }
 
 func getArray[T]() -> T[2] {
-  return [ 1 as T, 2 as T ];
+  const x: T = 1;
+  return [ x, 2 as T ];
 }
 
 

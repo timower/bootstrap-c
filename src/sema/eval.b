@@ -25,6 +25,13 @@ func evalConstant(state: SemaState*, expr: ExprAST*) -> ExprAST* {
         unreachable("Eval expected ints");
       }
 
+      if (isAssign(binary.op)) {
+        failSemaExpr(
+            state,
+            expr,
+            "Assign expression not supported in const context");
+      }
+
       let result: i32 = 0;
       switch (binary.op.kind) {
         case TokenKind::PLUS:
@@ -72,6 +79,8 @@ func evalConstant(state: SemaState*, expr: ExprAST*) -> ExprAST* {
           result = (lhsInt->value != 0) && (rhsInt->value != 0) ? 1 : 0;
         case TokenKind::OR_OP:
           result = (lhsInt->value != 0) || (rhsInt->value != 0) ? 1 : 0;
+        case TokenKind::COMMA:
+          result = rhsInt->value;
 
         default:
           unreachable("Not a binop");

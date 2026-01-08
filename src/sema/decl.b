@@ -16,7 +16,7 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
     case DeclKind::Union as unionKind:
       let maxSize = 0;
       for (let tag = unionKind.subTypes; tag != null; tag = tag->next) {
-        let size = getStructDeclSize(state, tag->decl);
+        let size = getStructDeclSize(state, tag->decl, null);
         if (size > maxSize) {
           maxSize = size;
         }

@@ -110,7 +110,6 @@ func findSubType(
     idxOut: i32*
 ) -> DeclAST* {
   if (unionKind == null) {
-    unreachable("Expected union");
     return null;
   }
   let res = findTypeIdx(unionKind->subTypes, tag, idxOut);
@@ -146,15 +145,24 @@ func getPointerToArray(type: Type*) -> TypeKind::Array* {
 }
 
 
-func getStructDeclSize(state: SemaState*, decl: DeclAST*) -> i32 {
+func getStructDeclSize(state: SemaState*, decl: DeclAST*, parents: DeclList*) -> i32 {
+  for (let cur = parents; cur != null; cur = cur->next) {
+    if (cur->decl == decl) {
+      failSemaDecl(state, decl, "Recursive type declaration!");
+    }
+  }
+
+  let newParents = newDeclList(decl);
+  newParents->next = parents;
+
   let size = 0;
   for (let field = (&decl->kind as DeclKind::Struct*)->fields; field != null; field = field->next) {
-    size += getSize(state, field->type);
+    size += getSize(state, field->type, newParents);
   }
   return size == 0 ? 1 : size;
 }
 
-func getSize(state: SemaState*, type: Type*) -> i32 {
+func getSize(state: SemaState*, type: Type*, parents: DeclList*) -> i32 {
   switch (type->kind) {
     case TypeKind::Void:
       return 0;
@@ -179,7 +187,7 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
       if (arr.size < 0) {
         failSemaType(state, type, "Unsized array in sizeof");
       }
-      return arr.size * getSize(state, arr.element);
+      return arr.size * getSize(state, arr.element, parents);
 
     // TODO: padding
     case TypeKind::Struct as s:
@@ -188,13 +196,17 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
         failSemaType(state, type, "Unkown type to get size of");
       }
 
-      return getStructDeclSize(state, decl);
+      return getStructDeclSize(state, decl, parents);
 
     case TypeKind::Union as u:
       let maxSize = 0;
       let decl = lookupType(state, u.tag);
+      if (decl == null) {
+        failSemaType(state, type, "Unkown type to get size of");
+      }
+
       for (let sub = (&decl->kind as DeclKind::Union*)->subTypes; sub != null; sub = sub->next) {
-        let size = getStructDeclSize(state, sub->decl);
+        let size = getStructDeclSize(state, sub->decl, parents);
         if (size > maxSize) {
           maxSize = size;
         }
@@ -216,6 +228,9 @@ func sizeArrayTypes(state: SemaState*, declType: Type*, initType: Type*) {
   switch (declType->kind) {
     case TypeKind::Array as array:
       let initArray = initType->kind as TypeKind::Array*;
+      if (initArray == null) {
+        failSemaType(state, declType, "Expected array init for array declaration");
+      }
       array.size = initArray->size;
       if (array.size < 0) {
         unreachable("Couldn't infer array size");
@@ -224,6 +239,9 @@ func sizeArrayTypes(state: SemaState*, declType: Type*, initType: Type*) {
 
     case TypeKind::Pointer as ptr:
       let ptrInit = initType->kind as TypeKind::Pointer*;
+      if (ptrInit == null) {
+        failSemaType(state, declType, "Expected pointer init for pointer declaration");
+      }
       sizeArrayTypes(state, ptr.pointee, ptrInit->pointee);
     default:
       break;

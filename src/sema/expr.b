@@ -841,7 +841,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
     case ExprKind::Sizeof as sizeofExpr:
       resolveTypeTags(state, sizeofExpr.typeArg);
-      sizeofExpr.value = getSize(state, sizeofExpr.typeArg);
+      sizeofExpr.value = getSize(state, sizeofExpr.typeArg, null);
 
       expr->kind = ExprKind::Int {
         value = sizeofExpr.value,

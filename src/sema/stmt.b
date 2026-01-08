@@ -294,6 +294,9 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
 
       // cond must be expr stmt.
       let condExpr = (&forStmt.cond->kind as StmtKind::Expr*)->expr;
+      if (condExpr == null) {
+        failSemaStmt(state, forStmt.cond, "For condition must be a boolean expression");
+      }
       semaExpr(&subState, condExpr);
       checkBool(state, condExpr);
       semaExpr(&subState, forStmt.update);
