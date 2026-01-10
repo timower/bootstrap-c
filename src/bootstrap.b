@@ -15,12 +15,12 @@ func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
   if (args->inPlace) {
     if (args->readFromStdin) {
       puts("Cannot use -i with stdin input");
-      exit(-1);
+      exit(1);
       return null;
     }
     if (args->outputFile != null) {
       puts("Cannot use both -i and -o");
-      exit(-1);
+      exit(1);
       return null;
     }
 
@@ -43,7 +43,7 @@ func finishInPlace(args: CommandLineArgs*, fileName: i8*, file: void*) {
     // The opening of the output, or reading of the input would fail before
     // this fails.
     unreachable("Failed to replace original file");
-    exit(-1);
+    exit(1);
   }
 }
 
@@ -58,7 +58,7 @@ func main(argc: i32, argv: i8**) -> i32 {
 
   if (&buf[0] == null) {
     puts("Failed to read input");
-    return -1;
+    return 1;
   }
 
   let parseOpts = ParseOptions {
@@ -68,7 +68,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   let decls = parseBufOpts(name, buf, parseOpts);
   if (decls == null) {
     puts("Failed to parse file");
-    return -1;
+    return 1;
   }
 
   if (args.mode == Mode::Format) {
@@ -98,16 +98,19 @@ func main(argc: i32, argv: i8**) -> i32 {
 
   debug("Begin irgen");
   let module = genModule(decls, args.target);
+  if (module == null) {
+    return 1;
+  }
   debug("End irgen");
 
   outFile = getOutFile(args.outputFile);
 
   if (args.outputKind == OutputKind::LLVM) {
     debug("Begin print ir");
-    printModule(&module);
+    printModule(module);
   } else {
     debug("Begin emit");
-    emitAsm(&module, args.target);
+    emitAsm(module, args.target);
   }
   return 0;
 }

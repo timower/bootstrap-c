@@ -1,5 +1,7 @@
 import parse;
 import sema;
+import irgen;
+import ir.print;
 
 func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
   let parseOpts = ParseOptions {
@@ -11,12 +13,16 @@ func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
   let buf = bufPtr[:size];
 
   initTokenSystem();
+
   printFile = getStdout();
+  outFile = getStdout();
 
   let decls = parseBufOpts("fuzz", buf, parseOpts);
   if (decls == null) {
-    return 0;
+    return -1;
   }
+
+  printTopLevel(decls);
 
   let target = Target {
     triple = "foo",
@@ -27,5 +33,13 @@ func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
 
   let state = initSemaState(target, false);
   decls = semaTopLevel(&state, decls);
+
+  let module = genModule(decls, target);
+  if (module == null) {
+    return 0;
+  }
+
+  printModule(module);
+
   return 0;
 }

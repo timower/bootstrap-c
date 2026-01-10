@@ -1,7 +1,7 @@
 import ir;
 
 struct IRGenState {
-  module: Module;
+  module: Module*;
 
   curFunc: Function*;
   curBB: BasicBlock*;
@@ -10,6 +10,8 @@ struct IRGenState {
   scope: Scope*;
 
   intrinsics: Intrinsics;
+
+  jmpBuf: JmpBuf*;
 }
 
 struct Scope {
@@ -32,9 +34,9 @@ struct Intrinsics {
   trap: Function*;
 }
 
-func failIRGen(msg: i8*) {
+func failIRGen(state: IRGenState*, msg: i8*) {
   fprintf(getStderr(), "irgen fail: %s\n", msg);
-  exit(1);
+  longjmp(state->jmpBuf, 1);
 }
 
 func newScope(state: IRGenState*) {

@@ -196,7 +196,7 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
 
     case StmtKind::Break:
       if (state->scope->breakBB == null) {
-        failIRGen("Break outside loop");
+        failIRGen(state, "Break outside loop");
       }
       addInstr(state, null, InstrKind::Branch {
         bb = state->scope->breakBB,
@@ -204,7 +204,7 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
 
     case StmtKind::Continue:
       if (state->scope->continueBB == null) {
-        failIRGen("Continue outside loop");
+        failIRGen(state, "Continue outside loop");
       }
       addInstr(state, null, InstrKind::Branch {
         bb = state->scope->continueBB,
@@ -344,7 +344,7 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
 
       case StmtKind::Default as defKind:
         if (defaultBB != null) {
-          failIRGen("Multiple default");
+          failIRGen(state, "Multiple default");
         }
         defaultBB = addBasicBlock(state, "switch.default");
         state->curBB = defaultBB;

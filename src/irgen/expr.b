@@ -46,7 +46,7 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::SliceIndex as sliceIdx:
       let slice = genConstant(state, sliceIdx.slice);
       if (sliceIdx.end == null || sliceIdx.start != null) {
-        failIRGen("Constant GEP not supported yet");
+        failIRGen(state, "Constant GEP not supported yet");
       }
       let values = (calloc(2, sizeof(Value)) as Value*)[:2];
       values[0] = slice;
@@ -114,7 +114,7 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
 
   printExpr(expr);
   printf("\n");
-  failIRGen("TODO: constant exprs");
+  failIRGen(state, "TODO: constant exprs");
   return Value::Zero {};
 }
 
@@ -195,7 +195,7 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
   }
 
   printLoc(expr->location);
-  failIRGen("Expr can't be used as lvalue");
+  failIRGen(state, "Expr can't be used as lvalue");
   printExpr(expr);
   printf("\n");
   return Value::InstrPtr {};
@@ -299,7 +299,7 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
 func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
   let slice = expr->kind as ExprKind::SliceIndex*;
 
-  let iptrType = getIPtr(&state->module.target);
+  let iptrType = getIPtr(&state->module->target);
 
   let sliceType = expr->type;
   let sliceKind = sliceType->kind as TypeKind::Slice*;

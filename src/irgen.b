@@ -6,9 +6,16 @@ import irgen.state;
 import irgen.expr;
 import irgen.stmt;
 
-func genModule(decls: DeclAST*, target: Target) -> Module {
+func genModule(decls: DeclAST*, target: Target) -> Module* {
   let state = IRGenState {};
-  state.module.target = target;
+  state.module = calloc(1, sizeof(Module)) as Module*;
+
+  state.jmpBuf = newJmpBuf();
+  if (setjmp(state.jmpBuf) != 0) {
+    return null;
+  }
+
+  state.module->target = target;
 
   newScope(&state);
   createIntrinsics(&state);
@@ -82,8 +89,8 @@ func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
     global->isExtern = true;
   }
 
-  global->next = state->module.globals;
-  state->module.globals = global;
+  global->next = state->module->globals;
+  state->module->globals = global;
 
   return Value::GlobalPtr {
     ptr = global,
@@ -95,8 +102,8 @@ func addFunc(state: IRGenState*, decl: DeclAST*) -> Value {
   fn->name = getDeclIRName(decl->name.data);
   fn->type = decl->type;
 
-  fn->next = state->module.functions;
-  state->module.functions = fn;
+  fn->next = state->module->functions;
+  state->module->functions = fn;
 
   return Value::FuncPtr {
     ptr = fn,
@@ -113,8 +120,8 @@ func addStruct(state: IRGenState*, decl: DeclAST*) {
     typePtr = &field->type->next;
   }
 
-  irStruct->next = state->module.types;
-  state->module.types = irStruct;
+  irStruct->next = state->module->types;
+  state->module->types = irStruct;
 }
 
 func addUnion(state: IRGenState*, decl: DeclAST*) {
@@ -135,8 +142,8 @@ func addUnion(state: IRGenState*, decl: DeclAST*) {
   });
   irStruct->fields->next = tagBuffer;
 
-  irStruct->next = state->module.types;
-  state->module.types = irStruct;
+  irStruct->next = state->module->types;
+  state->module->types = irStruct;
 }
 
 func createIntrinsics(state: IRGenState*) {
@@ -154,8 +161,8 @@ func createIntrinsics(state: IRGenState*) {
     isVarargs = false,
   });
 
-  fnCpy->next = state->module.functions;
-  state->module.functions = fnCpy;
+  fnCpy->next = state->module->functions;
+  state->module->functions = fnCpy;
   state->intrinsics.memcpy = fnCpy;
 
   let fnTrap = newFunction();
@@ -165,8 +172,8 @@ func createIntrinsics(state: IRGenState*) {
     isVarargs = false,
   });
 
-  fnTrap->next = state->module.functions;
-  state->module.functions = fnTrap;
+  fnTrap->next = state->module->functions;
+  state->module->functions = fnTrap;
   state->intrinsics.trap = fnTrap;
 
   // slice type
@@ -174,8 +181,8 @@ func createIntrinsics(state: IRGenState*) {
 
   irStruct->name = "%slice";
   irStruct->fields = getPtrType();
-  irStruct->fields->next = getIPtr(&state->module.target);
+  irStruct->fields->next = getIPtr(&state->module->target);
 
-  irStruct->next = state->module.types;
-  state->module.types = irStruct;
+  irStruct->next = state->module->types;
+  state->module->types = irStruct;
 }
