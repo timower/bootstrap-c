@@ -83,10 +83,29 @@ func process[T](data: [T], callback: func*(T) -> bool) -> bool {
       return false;
     }
   }
-  while (false) {
-    return false;
-  }
   return true;
+}
+
+func find1[T](data: [T], val: T) -> i32 {
+  let idx = 0;
+  while (idx < data.len) {
+    if (data[idx] == val) {
+      break;
+    }
+    idx++;
+  }
+  return idx;
+}
+
+func find2[T](data: [T], val: T) -> i32 {
+  for (let idx = 0; idx < data.len; idx++) {
+    if (data[idx] != val) {
+      continue;
+    }
+
+    return idx;
+  }
+  return -1;
 }
 
 
@@ -157,6 +176,16 @@ func main() -> i32 {
   let false_data = [ 1, -2, 3 ];
   if (!process:[i32](true_data[:], &isPositive:[i32])) {
     return 1;
+  }
+
+  let twoIdx = find1:[i32](true_data[:], 2);
+  if (twoIdx != 1) {
+    return 1;
+  }
+
+  let threeIdx = find2:[i32](true_data[:], 3);
+  if (threeIdx != 2) {
+    return threeIdx;
   }
 
   if (process:[i32](false_data[:], &isPositive:[i32])) {

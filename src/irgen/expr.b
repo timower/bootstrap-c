@@ -91,7 +91,8 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
       }
       let var = findName(state, varExpr->identifier);
       if (var == null) {
-        break;
+        // sema should fail here.
+        unreachable("No variable in scope");
       }
 
       if (let globalPtr = var as Value::GlobalPtr*) {
@@ -101,6 +102,9 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
       if (let funcPtr = var as Value::FuncPtr*) {
         return *var;
       }
+
+      // There's no way to get here, alll addLocal calls are funcs or globals
+      unreachable("Non func or global at globall scope");
 
     // Binary expressions are now handled in sema via evalConstant
     // genConstant should only receive pre-evaluated constant expressions

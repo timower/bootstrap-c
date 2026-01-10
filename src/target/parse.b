@@ -109,6 +109,7 @@ func parseTriple(triple: [i8]) -> Target {
       abi = ABI::None,
     };
   }
+
   if (strcmp(&triple[0], "windows") == 0) {
     return Target {
       triple = "x86_64-w64-mingw32",

@@ -4,6 +4,6 @@
 // RUN: %if system-linux %{ \
 // RUN: not %bootstrap /proc/self/comm 2>&1 | grep "seek failed" \
 // RUN: %} %else %{ \
-// RUN: not %bootstrap /dev/tty 2>&1 | grep "seek failed" \
+// RUN: not %bootstrap /dev/ttyub 2>&1 | grep "seek failed" \
 // RUN: %}
 

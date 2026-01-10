@@ -250,10 +250,11 @@ func getCases(
       return cse;
 
     case ExprKind::Binary as binary:
-      if (binary.op.kind == TokenKind::COMMA) {
-        let lhsCases = getCases(state, binary.lhs, unionAddr, cases, bb);
-        return getCases(state, binary.rhs, unionAddr, lhsCases, bb);
+      if (binary.op.kind != TokenKind::COMMA) {
+        unreachable("Only comma expression supported in case");
       }
+      let lhsCases = getCases(state, binary.lhs, unionAddr, cases, bb);
+      return getCases(state, binary.rhs, unionAddr, lhsCases, bb);
 
     case ExprKind::Int as intExpr:
       let cse = newCase(cases, bb);
@@ -279,11 +280,9 @@ func getCases(
       return cse;
 
     default:
-      break;
+      unreachable("Unsupported case expr");
+      return null;
   }
-
-  unreachable("Unsupported case expr");
-  return null;
 }
 
 func genSwitch(state: IRGenState*, stmt: StmtAST*) {
@@ -336,29 +335,27 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
       case StmtKind::Case as cs:
         let caseBB = addBasicBlock(state, "switch.case");
         state->curBB = caseBB;
+
         cases = getCases(state, cs.expr, unionAddrPtr, cases, caseBB);
 
-      case StmtKind::Default:
+        for (let cur = cs.body; cur != null; cur = cur->next) {
+          genStmt(state, cur);
+        }
+
+      case StmtKind::Default as defKind:
         if (defaultBB != null) {
           failIRGen("Multiple default");
         }
         defaultBB = addBasicBlock(state, "switch.default");
         state->curBB = defaultBB;
 
+        for (let cur = defKind.body; cur != null; cur = cur->next) {
+          genStmt(state, cur);
+        }
+
       default:
         // parseSwitch doesn't make anything else
         unreachable("Unsupported switch stmt");
-    }
-
-    // Generate case body
-    if (let caseKind = &caseStmt->kind as StmtKind::Case*) {
-      for (let cur = caseKind->body; cur != null; cur = cur->next) {
-        genStmt(state, cur);
-      }
-    } else if (let defaultKind = &caseStmt->kind as StmtKind::Default*) {
-      for (let cur = defaultKind->body; cur != null; cur = cur->next) {
-        genStmt(state, cur);
-      }
     }
 
     popScope(state);
@@ -370,7 +367,17 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
   }
 
   if (defaultBB == null) {
-    defaultBB = contBB;
+    defaultBB = addBasicBlock(state, "switch.default.trap");
+    state->curBB = defaultBB;
+    addInstr(state, null, InstrKind::Call {
+      fnType = state->intrinsics.trap->type,
+      fn = Value::FuncPtr {
+        ptr = state->intrinsics.trap,
+      },
+    });
+    addInstr(state, null, InstrKind::Branch {
+      bb = contBB,
+    });
   }
 
   // Generate switch instruction

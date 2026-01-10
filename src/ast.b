@@ -462,10 +462,12 @@ func getExprPrecedence(expr: ExprAST*) -> i32 {
 
 func isGeneric(decl: DeclAST*) -> bool {
   if (let funcKind = decl->kind as DeclKind::Func*) {
-    if (let funcType = decl->type->kind as TypeKind::Func*) {
-      if (funcType->typeArgs != null) {
-        return true;
-      }
+    let funcType = decl->type->kind as TypeKind::Func*;
+    if (funcType == null) {
+      unreachable("Func decl without func type");
+    }
+    if (funcType->typeArgs != null) {
+      return true;
     }
   }
   return false;

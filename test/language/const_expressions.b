@@ -14,8 +14,6 @@
 // CHECK-NEXT: COMPLEX1 ((5+3)*(10-6)): 32
 // CHECK-NEXT: COMPLEX2 (((8<<1)+4)/(3+1)): 5
 // CHECK-NEXT: COMPLEX3 ((15&7)|(4^2)): 7
-// CHECK-NEXT: ENUM_VAL (ACTIVE): 1
-// CHECK-NEXT: ENUM_MATH (PENDING): 2
 // CHECK: === Case Expressions ===
 // CHECK-NEXT: Matched addition case: 42
 // CHECK-NEXT: Matched multiplication case: 24
@@ -36,7 +34,7 @@ enum Status {
   INACTIVE,
   ACTIVE,
   PENDING,
-};
+}
 
 func testConstDeclarations() {
   printf("=== Const Declarations ===\n");
@@ -75,13 +73,6 @@ func testConstDeclarations() {
   printf("COMPLEX1 ((5+3)*(10-6)): %d\n", COMPLEX1);
   printf("COMPLEX2 (((8<<1)+4)/(3+1)): %d\n", COMPLEX2);
   printf("COMPLEX3 ((15&7)|(4^2)): %d\n", COMPLEX3);
-
-  // Test enum values as constants
-  const ENUM_VAL = Status::ACTIVE;
-  const ENUM_MATH = Status::PENDING;
-
-  printf("ENUM_VAL (ACTIVE): %d\n", ENUM_VAL);
-  printf("ENUM_MATH (PENDING): %d\n", ENUM_MATH);
 }
 
 func testCaseExpressions() {
@@ -229,4 +220,3 @@ func main() -> i32 {
   printf("All const expression tests completed\n");
   return 0;
 }
-

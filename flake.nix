@@ -61,9 +61,11 @@
           inputsFrom = [ bootstrap-checked ];
           packages = with pkgs; [
             gopls
+            lldb
+            ruff
           ];
           shellHook = ''
-            export PARENT_STAGE="${nixpkgs.lib.getExe parent-bootstrap}"
+            # export PARENT_STAGE="${nixpkgs.lib.getExe parent-bootstrap}"
           '';
         };
 

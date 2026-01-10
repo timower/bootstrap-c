@@ -52,13 +52,16 @@ func failEmit(msg: i8*) {
 func freeRegister(instrName: i32, state: EmitState*) {
   // When we reach a definition walking backwards, we can free its register
   // for reuse by earlier instructions (later in execution)
-  if (instrName < state->instrToReg.len) {
-    let reg = getInstrReg(instrName, state);
-    if (reg != -1 && reg > 0) {
-      // Don't free w0 (reserved for returns)
-      state->usedRegs[reg] = false;
-    }
+  if (instrName >= state->instrToReg.len) {
+    unreachable("Freeing unallocated register");
   }
+  let reg = getInstrReg(instrName, state);
+  if (reg == -1) {
+    unreachable("Freeing unallocated register");
+  }
+
+  // Don't free w0 (reserved for returns)
+  state->usedRegs[reg] = false;
 }
 
 func getPhysicalReg(instrName: i32, state: EmitState*) -> i32 {
@@ -79,6 +82,8 @@ func allocateNextRegister(state: EmitState*) -> i32 {
       return reg;
     }
   }
+
+  unreachable("Impossible with the supported binops");
   return -1;  // No more registers available
 }
 
@@ -90,6 +95,8 @@ func allocateRegistersBackwards(fn: Function*, state: EmitState*) {
     for (let instr = bb->begin; instr != null; instr = instr->next) {
       if (instr->name > maxInstrName) {
         maxInstrName = instr->name;
+      } else {
+        unreachable("Instruction counter is always increasing during irgen");
       }
     }
   }
@@ -140,19 +147,21 @@ func processUsesBackwards(instr: Instruction*, state: EmitState*) {
 func markAsLive(val: Value, state: EmitState*) {
   switch (val) {
     case Value::InstrPtr as p:
-      if ((p.ptr)->name < state->instrToReg.len) {
-        let reg = getInstrReg((p.ptr)->name, state);
-        if (reg == -1) {
-          reg = allocateNextRegister(state);
-          if (reg == -1) {
-            // Currently unreachable with the supported expressions.
-            unreachable("Function needs too many registers for allocation");
-          }
-          setInstrReg((p.ptr)->name, reg, state);
-        }
-
-        state->usedRegs[reg] = true;
+      if (p.ptr->name >= state->instrToReg.len) {
+        unreachable("Register out of range");
       }
+      let reg = getInstrReg(p.ptr->name, state);
+      if (reg != -1) {
+        unreachable("Instruction already alive");
+      }
+
+      reg = allocateNextRegister(state);
+      if (reg == -1) {
+        unreachable("Function needs too many registers for allocation");
+      }
+      setInstrReg(p.ptr->name, reg, state);
+
+      state->usedRegs[reg] = true;
 
     default:
       // Constants, globals, etc. don't need physical registers
@@ -178,9 +187,11 @@ func emitAsm(module: Module*, target: Target) {
 
 func emitFunction(fn: Function*, useUnderscore: bool) {
   let name = fn->name;
-  if (name[0] == '@') {
-    name = name[1:];
+  if (name[0] != '@') {
+    unreachable("All ir functions should start with @");
   }
+  name = name[1:];
+
   if (useUnderscore) {
     fprintf(outFile, "_%s:\n", &name[0]);
   } else {

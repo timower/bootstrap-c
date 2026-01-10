@@ -67,6 +67,7 @@ func findName(state: IRGenState*, name: Token) -> Value* {
       }
     }
   }
+  unreachable("IRGen name not found, probably sema bug?");
   return null;
 }
 

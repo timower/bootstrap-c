@@ -6,6 +6,11 @@ func swap[T](a: T*, b: T*) {
   *b = temp;
 }
 
+// CHECK: func noGeneric(x: i32) -> i32 {
+func noGeneric[](x: i32) -> i32 {
+  return x;
+}
+
 
 // CHECK: func swap[T](a: T*, b: T*) {
 // CHECK-NEXT:   let temp = *a;

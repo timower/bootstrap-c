@@ -1,7 +1,6 @@
 import parse.internal;
 
 func parseBufOpts(name: i8*, buf: [i8], options: ParseOptions) -> DeclAST* {
-  // clang-format off
   let parseState = ParseState {
     options = options,
     buf = buf,
@@ -14,7 +13,6 @@ func parseBufOpts(name: i8*, buf: [i8], options: ParseOptions) -> DeclAST* {
     return null;
   }
 
-  // clang-format on
   return parseTopLevel(&parseState);
 }
 

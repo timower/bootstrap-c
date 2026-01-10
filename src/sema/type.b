@@ -17,8 +17,7 @@ func typeEq(one: Type*, two: Type*) -> bool {
 
     case TypeKind::Array as ar1:
       if (let ar2 = two->kind as TypeKind::Array*) {
-        return (ar1.size < 0 || ar2->size < 0 || ar1.size == ar2->size)
-            && typeEq(ar1.element, ar2->element);
+        return ar1.size == ar2->size && typeEq(ar1.element, ar2->element);
       }
       return false;
 
@@ -76,21 +75,21 @@ func typeEq(one: Type*, two: Type*) -> bool {
 
         return arg1 == null && arg2 == null;
       }
+
       return false;
     case TypeKind::Tag as tag:
       unreachable("Type tag not resolved before eq");
+      return true;
     case TypeKind::Typeof as t:
       unreachable("Typeof not resolved before eq");
+      return true;
   }
-
-  return true;
 }
 
 func findTypeIdx(types: DeclList*, tag: Token, idxOut: i32*) -> DeclAST* {
-  let idx = 0;
-  for (; types != null; types = types->next, idx++) {
+  for (let idx = 0; types != null; types = types->next, idx++) {
     let typeTag = getTypeTag(types->decl->type);
-    if (typeTag != null && tokCmp(tag, *typeTag)) {
+    if (tokCmp(tag, *typeTag)) {
       if (idxOut != null) {
         *idxOut = idx;
       }
@@ -202,11 +201,12 @@ func getSize(state: SemaState*, type: Type*) -> i32 {
       }
       return maxSize + 4;      // i32 tag.
 
-    case TypeKind::Typeof, TypeKind::Tag:
-      break;
+    case TypeKind::Typeof:
+      unreachable("Typeof not resolved before getSize");
+    case TypeKind::Tag:
+      unreachable("Type not resolved before getSize");
   }
 
-  unreachable("Type not resolved before getSize");
   return 0;
 }
 

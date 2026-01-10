@@ -10,10 +10,13 @@
 //
 // RUN: not %bootstrap %t/unknown_tok.b 2>&1 | grep "Unknown token"
 //
-// RUN: not %bootstrap %t/invalid_hex.b 2>&1 | grep "Expected: ;"
+// RUN: not %bootstrap %t/invalid_hex1.b 2>&1 | grep "Expected: ;"
+// RUN: not %bootstrap %t/invalid_hex2.b 2>&1 | grep "Expected: ;"
 // RUN: not %bootstrap %t/invalid_int.b 2>&1 | grep "Invalid integer"
 //
 // RUN: not %bootstrap %t/unknown_decl.b 2>&1 | grep "Unknown declaration"
+//
+// RUN: echo -n '#foo' | not %bootstrap - 2>&1 | grep 'Failed to parse file'
 //
 //--- unknown.b
 func foo() {
@@ -45,8 +48,11 @@ extern let x = 1;
 //--- unknown_tok.b
 @test = 12;
 
-//--- invalid_hex.b
+//--- invalid_hex1.b
 let x = 0xABCDEFG;
+
+//--- invalid_hex2.b
+let x = 0xabcdefg;
 
 //--- invalid_int.b
 let x = 12b34;

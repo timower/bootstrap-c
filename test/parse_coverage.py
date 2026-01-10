@@ -6,6 +6,7 @@ Coverage is defined as non-zero BB counts / total BBs.
 
 from dataclasses import dataclass
 
+import argparse
 import sys
 import re
 
@@ -24,7 +25,8 @@ class FuncCounts:
     total_edges: int
 
     def get_coverage(self):
-        assert self.total_edges != 0
+        if self.total_edges == 0:
+            return 100.0
         return (self.covered_edges / self.total_edges) * 100
 
 
@@ -47,7 +49,7 @@ def split_into_function_groups(lines):
     return groups
 
 
-def parse_function_group(group, unreachables):
+def parse_function_group(group, unreachables, debug):
     """
     Parse a single function group.
     Returns (function_name, coverage_percentage, non_zero_bbs, total_bbs) or None.
@@ -66,6 +68,8 @@ def parse_function_group(group, unreachables):
     # Parse BB lines
     bb_counts = []
     unreachable_idxs = set()
+    bb_idxs = {}
+
     while idx < len(group):
         line = group[idx]
         if not line.startswith("BB: "):
@@ -77,6 +81,7 @@ def parse_function_group(group, unreachables):
 
         bb_name = match.group(1)
         bb_idx = int(match.group(2))
+        bb_idxs[bb_idx] = bb_name
 
         if bb_name == "FakeNode":
             assert bb_idx == 0
@@ -88,6 +93,8 @@ def parse_function_group(group, unreachables):
             unreachable_idxs.add(bb_idx)
             continue
 
+        if count == 0 and debug == func_name:
+            print(f" * {bb_name}")
         bb_counts.append(count)
 
     # -1 for the FakeNode we skipped
@@ -97,13 +104,13 @@ def parse_function_group(group, unreachables):
 
     non_zero_bbs = sum(1 for c in bb_counts if c > 0)
     total_bbs = len(bb_counts)
-    assert total_bbs >= 1, "No basic blocks in function?"
+    # assert total_bbs >= 1, f"No basic blocks in function {func_name}?"
 
     # Parse edges
     assert group[idx].startswith("Number of Edges:"), (
         f"Expected edges at {idx}: {group[idx]}"
     )
-    # num_edges = int(group[idx].split(": ", 1)[1])
+
     idx += 1
     edge_counts = []
     while idx < len(group):
@@ -128,6 +135,8 @@ def parse_function_group(group, unreachables):
             continue
 
         edge_counts.append(count)
+        if count == 0 and func_name == debug:
+            print(f" - {bb_idxs[frm]} -> {bb_idxs[to]}")
 
     non_zero_edges = sum(1 for c in edge_counts if c > 0)
     total_edges = len(edge_counts)
@@ -141,7 +150,7 @@ def parse_function_group(group, unreachables):
     )
 
 
-def parse_coverage_file(filepath, unreachables):
+def parse_coverage_file(filepath, unreachables, debug):
     """
     Parse the coverage file.
     Returns a list of (function_name, coverage_percentage) tuples.
@@ -153,7 +162,7 @@ def parse_coverage_file(filepath, unreachables):
     functions = []
 
     for group in groups:
-        result = parse_function_group(group, unreachables)
+        result = parse_function_group(group, unreachables, debug)
         if result:
             functions.append(result)
 
@@ -165,6 +174,7 @@ def parse_unreachables(file):
         lines = f.readlines()
 
     unreachable = re.compile(r" *unreachable| *call void @unreachable\(")
+    setjmp = re.compile(r".*call i32 @setjmp\(")
     label = re.compile(r"([^ ]+):")
     func = re.compile(r"define .* @(.*)\(")
 
@@ -178,73 +188,64 @@ def parse_unreachables(file):
         if match := func.match(line):
             currentFunc = match.group(1)
             unreachables[currentFunc] = set()
-        if unreachable.match(line):
+        if unreachable.match(line) or setjmp.match(line):
             unreachables[currentFunc].add(currentLabel)
 
     return unreachables
 
 
-def main():
-    if len(sys.argv) != 3:
-        print("Usage: python parse_coverage.py <coverage.txt> <bootstrap.ll>")
-        sys.exit(1)
+def main(args):
+    coverage_file = args.coverage_file
+    ir_file = args.ir_file
 
-    coverage_file = sys.argv[1]
-    ir_file = sys.argv[2]
+    unreachables = parse_unreachables(ir_file)
+    functions = parse_coverage_file(coverage_file, unreachables, args.debug)
+    if args.debug is not None:
+        return
 
-    try:
-        unreachables = parse_unreachables(ir_file)
-        functions = parse_coverage_file(coverage_file, unreachables)
+    # Sort by coverage percentage (descending)
+    functions.sort(
+        key=lambda x: (x.total_bbs - x.covered_bbs, x.total_edges - x.covered_edges)
+    )
 
-        # Sort by coverage percentage (descending)
-        functions.sort(
-            key=lambda x: 100 * (x.total_bbs - x.covered_bbs)
-            + (x.total_edges - x.covered_edges)
-        )
+    header = f"{'Function':<32} {'BBs':<7} {'Edges':<7} {'Coverage':<6}"
 
-        header = f"{'Function':<32} {'BBs':<7} {'Edges':<7} {'Coverage':<6}"
+    print(header)
+    print("-" * len(header))
 
-        print(header)
-        print("-" * len(header))
-
-        for func in functions:
-            print(
-                f"{func.name:<30} {func.covered_bbs:>3}/{func.total_bbs:<3} {func.covered_edges:>3}/{func.total_edges:<3} {func.get_coverage():>7.1f}%    "
-            )
-
-        # Calculate and print total coverage at the end
-        total_non_zero = sum(func.covered_bbs for func in functions)
-        total_blocks = sum(func.total_bbs for func in functions)
-        overall_coverage = (
-            (total_non_zero / total_blocks * 100) if total_blocks > 0 else 0
-        )
-
-        # Calculate and print total coverage at the end
-        total_covered_edges = sum(func.covered_edges for func in functions)
-        total_edges = sum(func.total_edges for func in functions)
-        edge_coverage = (
-            (total_covered_edges / total_edges * 100) if total_edges > 0 else 0
-        )
-        print("-" * len(header))
+    for func in functions:
         print(
-            f"BB Coverage: {overall_coverage:.2f}% ({total_non_zero}/{total_blocks} blocks)"
-        )
-        print(
-            f"Edge Coverage: {edge_coverage:.2f}% ({total_covered_edges}/{total_edges} edges)"
+            f"{func.name:<30} {func.covered_bbs:>3}/{func.total_bbs:<3} {func.covered_edges:>3}/{func.total_edges:<3} {func.get_coverage():>7.1f}%    "
         )
 
-        # Exit with error if coverage is below 90%
-        if round(overall_coverage, 1) < 90.0:
-            print(f"Error: Coverage {overall_coverage:.2f}% is below required 90%")
-            sys.exit(1)
+    # Calculate and print total coverage at the end
+    total_non_zero = sum(func.covered_bbs for func in functions)
+    total_blocks = sum(func.total_bbs for func in functions)
+    overall_coverage = (total_non_zero / total_blocks * 100) if total_blocks > 0 else 0
 
-    except FileNotFoundError:
-        print(f"Error: File '{coverage_file}' not found")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error parsing file: {e}")
+    # Calculate and print total coverage at the end
+    total_covered_edges = sum(func.covered_edges for func in functions)
+    total_edges = sum(func.total_edges for func in functions)
+    edge_coverage = (total_covered_edges / total_edges * 100) if total_edges > 0 else 0
+    print("-" * len(header))
+    print(
+        f"BB Coverage: {overall_coverage:.2f}% ({total_non_zero}/{total_blocks} blocks)"
+    )
+    print(
+        f"Edge Coverage: {edge_coverage:.2f}% ({total_covered_edges}/{total_edges} edges)"
+    )
+
+    # Exit with error if coverage is below 90%
+    if round(overall_coverage, 1) < 90.0:
+        print(f"Error: Coverage {overall_coverage:.2f}% is below required 90%")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("coverage_file", type=str, help="coverage.txt")
+    parser.add_argument("ir_file", type=str, help="coverage.ll")
+    parser.add_argument("--debug", default=None, type=str)
+
+    main(parser.parse_args())

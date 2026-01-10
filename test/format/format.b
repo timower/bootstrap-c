@@ -35,6 +35,8 @@ union Baz {
   B {}
 }
 
+union Empty {}
+
 
 extern func foo(
     x: Foo,
@@ -43,6 +45,12 @@ extern func foo(
 );
 
 const x = 12;
+
+func test(x: bool) {
+  if (x) {
+    return;
+  }
+}
 
 
 // comment
@@ -56,6 +64,18 @@ func foo(x: Foo) -> typeof(printf) {
   // comment
   let verylonglet =
       12;
+}
+
+func generic0() {
+
+}
+
+func generic1[T](x: T) -> T {
+
+}
+
+func generic2[T, U](x: T) -> U {
+
 }
 
 func bar(str: const i8*, b: Bar::Void) {
@@ -92,6 +112,10 @@ enum Enum {
 
 func main() -> i32 {
   let v = Bar::Void {} as Bar;
+
+  generic0:[]();
+  generic1:[Enum]();
+  generic2:[Bar]();
 
   v = Bar::X {
     y = (3 + 2)

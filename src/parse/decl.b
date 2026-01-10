@@ -33,7 +33,7 @@ func parseNameTypePair(state: ParseState*) -> DeclAST* {
   expect(state, TokenKind::COLON);
   getNextToken(state);
 
-  decl->type = parseType(state);
+  decl->type = parseType(state, false);
   decl->endLocation = state->curToken.location;
 
   return decl;
@@ -268,7 +268,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
 
   if (match(state, TokenKind::PTR_OP)) {
     getNextToken(state);    // eat ->
-    funcType->result = parseType(state);
+    funcType->result = parseType(state, false);
   } else {
     funcType->result = newType(TypeKind::Void {});
   }

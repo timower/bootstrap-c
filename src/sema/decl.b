@@ -43,15 +43,10 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
           errorSema(state, decl->location, "Not all paths return");
         }
       }
-    case DeclKind::Var:
+    case DeclKind::Var, DeclKind::Const:
       semaVarDecl(state, decl);
-    case DeclKind::Const:
-      semaVarDecl(state, decl);
-    case DeclKind::Enum:
-      // Nothing to do for enums
-      break;
-    case DeclKind::Import:
-      // Nothing to do for imports
+    case DeclKind::Enum, DeclKind::Import:
+      // Nothing to do for enums and imports
       break;
     case DeclKind::EnumField:
       unreachable("Enum field at top level?");

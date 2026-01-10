@@ -180,11 +180,10 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 
   // semaTopLevel will return a combined list of decls from the file and the
   // extraDecls.
-  let hadFail = state->failed;
   let extras = semaTopLevel(state, fileDecls);
   if (extras != null) {
     state->extraDecls = extras;
-  } else if (!hadFail) {
+  } else {
     failSemaDecl(state, decl, "Error in import");
   }
 }
@@ -243,6 +242,10 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
     }
   }
 
+  if (state->failed) {
+    return null;
+  }
+
   // Add extra decls
   if (state->extraDecls != null) {
     let last = state->extraDecls;
@@ -251,10 +254,8 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
     }
     last->next = decl;
     decl = state->extraDecls;
-  }
-
-  if (state->failed) {
-    return null;
+  } else {
+    unreachable("missing _TARGET_ decl");
   }
 
   // Sema successful, report LSP info in case

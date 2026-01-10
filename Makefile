@@ -61,7 +61,8 @@ mutated: $(BUILD_DIR)/mutated.o ## Build mutated version for testing
 
 bootstrap-coverage: bootstrap ## Build bootstrap with coverage instrumentation
 	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) | \
-	  opt -S -p simplifycfg -o $(BUILD_DIR)/coverage.ll
+		sed 's/declare void @exit(i32 %arg0)/declare void @exit(i32 %arg0) noreturn/' | \
+	  opt -S -p 'function-attrs,function(simplifycfg)' -o $(BUILD_DIR)/coverage.ll
 	opt -S $(BUILD_DIR)/coverage.ll -p pgo-instr-gen,instrprof | \
 	  clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
 

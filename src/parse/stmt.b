@@ -196,11 +196,15 @@ func parseCaseOrDefault(state: ParseState*) -> StmtAST* {
   }
 
   // Set the parsed statements as the body of the case/default
-  if (let caseKind = &stmt->kind as StmtKind::Case*) {
-    caseKind->body = firstStmt;
-  } else if (let defaultKind = &stmt->kind as StmtKind::Default*) {
-    defaultKind->body = firstStmt;
+  switch (stmt->kind) {
+    case StmtKind::Case as caseKind:
+      caseKind.body = firstStmt;
+    case StmtKind::Default as defaultKind:
+      defaultKind.body = firstStmt;
+    default:
+      unreachable("Only case or default statements expected");
   }
+
   stmt->endLocation = cur->endLocation;
 
   return stmt;

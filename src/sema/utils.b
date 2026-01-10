@@ -16,7 +16,7 @@ func findField(
     case DeclKind::Enum as enumKind:
       fields = enumKind.fields;
     default:
-      break;
+      unreachable("Unsupported type to get field of");
   }
   for (let field = fields; field != null;
        field = field->next, idx++) {
@@ -40,11 +40,12 @@ func lookupStruct(state: SemaState*, type: TypeKind::Struct*) -> DeclAST* {
   if (type->parent != null) {
     let tag = getTypeTag(type->parent);
     if (tag == null) {
-      return null;
+      unreachable("Parent without tag?");
     }
     let unionDecl = lookupType(state, *tag);
     if (unionDecl == null) {
-      return null;
+      // Resolving type tags should fail before this.
+      unreachable("Couldn't find union");
     }
 
     return findType((&unionDecl->kind as DeclKind::Union*)->subTypes, type->tag);

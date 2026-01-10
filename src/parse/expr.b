@@ -92,7 +92,7 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
       let firstTypeArg: Type* = null;
       let curTypeArg: Type* = null;
       while (!match(state, TokenKind::CLOSE_BRACKET)) {
-        let typeArg = parseType(state);
+        let typeArg = parseType(state, false);
 
         if (firstTypeArg == null) {
           firstTypeArg = typeArg;
@@ -391,7 +391,7 @@ func parseUnary(state: ParseState*) -> ExprAST* {
     expect(state, TokenKind::OPEN_PAREN);
     getNextToken(state);
 
-    let typeArg = parseType(state);
+    let typeArg = parseType(state, false);
     let expr = newLocExpr(loc, ExprKind::Sizeof {
       typeArg = typeArg,
       value = 0,
@@ -416,7 +416,7 @@ func parseCast(state: ParseState*) -> ExprAST* {
   }
 
   let loc = getNextToken(state).location;
-  let castType = parseType(state);
+  let castType = parseType(state, false);
   let expr = newLocExpr(loc, ExprKind::Cast {
     expr = lhs,
     castKind = CastKind::Noop,
@@ -573,7 +573,7 @@ func parseVarDecl(state: ParseState*) -> DeclAST* {
 
   if (match(state, TokenKind::COLON)) {
     getNextToken(state);
-    decl->type = parseType(state);
+    decl->type = parseType(state, true);
   } else {
     // Without type we need an init.
     expect(state, TokenKind::EQ);
@@ -627,7 +627,7 @@ func parseAssignment(state: ParseState*) -> ExprAST* {
 // base_type := int2 | 'void' | 'struct' ident | 'enum' ident
 //            | ident | 'func' '(' type* ')' ('->' type)?
 // type := const? base_type ('*' | '[' int? ']' )*
-func parseType(state: ParseState*) -> Type* {
+func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
   let type = newType(TypeKind::Void {});
 
   let fnType: TypeKind::Func* = null;
@@ -719,7 +719,7 @@ func parseType(state: ParseState*) -> Type* {
   } else if (match(state, TokenKind::OPEN_BRACKET)) {
     getNextToken(state);
     type->kind = TypeKind::Slice {
-      element = parseType(state),
+      element = parseType(state, allowUnsized),
     };
 
     expect(state, TokenKind::CLOSE_BRACKET);
@@ -740,21 +740,26 @@ func parseType(state: ParseState*) -> Type* {
     } else if (match(state, TokenKind::OPEN_BRACKET)) {
       getNextToken(state);
 
-      let size = -1;
-      if (match(state, TokenKind::CONSTANT)) {
-        size = parseInteger(state, state->curToken);
+      if (allowUnsized && match(state, TokenKind::CLOSE_BRACKET)) {
+        getNextToken(state);
+        type = newType(TypeKind::Array {
+          size = -1,
+          element = type,
+        });
+      } else {
+        // TODO: allow any constant expression.
+        expect(state, TokenKind::CONSTANT);
+        let size = parseInteger(state, state->curToken);
+        getNextToken(state);
+
+        type = newType(TypeKind::Array {
+          size = size,
+          element = type,
+        });
+
+        expect(state, TokenKind::CLOSE_BRACKET);
         getNextToken(state);
       }
-
-      let arrayType = newType(TypeKind::Array {
-        size = size,
-        element = type,
-      });
-
-      expect(state, TokenKind::CLOSE_BRACKET);
-      getNextToken(state);
-
-      type = arrayType;
     } else {
       break;
     }
@@ -775,7 +780,7 @@ func parseType(state: ParseState*) -> Type* {
       getNextToken(state);
       isVarargs = true;
     } else {
-      args = parseType(state);
+      args = parseType(state, allowUnsized);
       let currentArg = args;
 
       while (match(state, TokenKind::COMMA)) {
@@ -787,7 +792,7 @@ func parseType(state: ParseState*) -> Type* {
           break;
         }
 
-        let nextArg = parseType(state);
+        let nextArg = parseType(state, allowUnsized);
         currentArg->next = nextArg;
         currentArg = nextArg;
       }
@@ -800,7 +805,7 @@ func parseType(state: ParseState*) -> Type* {
   let returnType = newType(TypeKind::Void {});
   if (match(state, TokenKind::PTR_OP)) {
     getNextToken(state);
-    returnType = parseType(state);
+    returnType = parseType(state, allowUnsized);
   }
 
   fnType->result = returnType;

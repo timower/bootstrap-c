@@ -34,6 +34,9 @@ union Value {
 }
 
 func main() -> i32 {
+  // CHECK: store i64 0, ptr %alloc{{.*}}
+  let size_void = sizeof(void);
+
   // Test sizeof with primitive types
   // CHECK: store i64 1, ptr %alloc{{.*}}
   let size_i8 = sizeof(i8);

@@ -120,21 +120,27 @@ func printIndent(indent: i32) {
 
 
 func printLet(decl: DeclAST*, indent: i32) {
+  let isConst = false;
   let isExtern = false;
   let init: ExprAST* = null;
 
-  if (let varKind = &decl->kind as DeclKind::Var*) {
-    isExtern = varKind->isExtern;
-    init = varKind->init;
-  } else if (let constKind = &decl->kind as DeclKind::Const*) {
-    init = constKind->init;
+  switch (decl->kind) {
+    case DeclKind::Var as varKind:
+      isExtern = varKind.isExtern;
+      init = varKind.init;
+    case DeclKind::Const as constKind:
+      isConst = true;
+      init = constKind.init;
+
+    default:
+      unreachable("Let shold be var or const");
   }
 
   if (isExtern) {
     fprintf(printFile, "extern ");
   }
 
-  if (&decl->kind as DeclKind::Const* != null) {
+  if (isConst) {
     fprintf(printFile, "const ");
   } else {
     fprintf(printFile, "let ");
@@ -417,7 +423,10 @@ func printStmtIndent(stmt: StmtAST*, indent: i32, breakCompound: bool) {
       fprintf(printFile, "{\n");
       printStmtList(compStmt.stmt, indent + indent_width);
       fprintf(printFile, "\n");
-      trailing = printComments(trailing, indent + indent_width, stmt->endLocation->line);
+      trailing = printComments(
+          trailing,
+          indent + indent_width,
+          stmt->endLocation->line);
       printIndent(indent);
       fprintf(printFile, "}");
     case StmtKind::Expr as exprStmt:
@@ -561,8 +570,8 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
   switch (decl->kind) {
     case DeclKind::Struct as structKind:
       printType(decl->type);
-
       trailing = printStructBody(decl, indent, trailing);
+
     case DeclKind::Enum as enumKind:
       printType(decl->type);
       fprintf(printFile, " {\n");
@@ -582,6 +591,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
       }
       trailing = printComments(trailing, indent + indent_width, decl->endLocation->line);
       fprintf(printFile, "}");
+
     case DeclKind::Union as unionKind:
       printType(decl->type);
       fprintf(printFile, " {");
@@ -623,12 +633,15 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
           indent + indent_width,
           decl->endLocation->line);
       fprintf(printFile, "}");
+
     case DeclKind::Var:
       printLet(decl, indent);
       fprintf(printFile, ";");
+
     case DeclKind::Const:
       printLet(decl, indent);
       fprintf(printFile, ";");
+
     case DeclKind::Func as funcKind:
       if (funcKind.isExtern) {
         fprintf(printFile, "extern ");

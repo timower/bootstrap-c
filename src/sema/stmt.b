@@ -16,7 +16,7 @@ func getFieldCount(decl: DeclAST*) -> i32 {
         count++;
       }
     default:
-      break;
+      unreachable("Unsupported type for field count");
   }
 
   return count;

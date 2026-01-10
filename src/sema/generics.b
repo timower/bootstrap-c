@@ -9,6 +9,7 @@ func getTypeTag(type: Type*) -> Token* {
     case TypeKind::Enum as e:
       return &e.tag;
     default:
+      unreachable("Type doesn't have a tag");
       return null;
   }
 }
@@ -42,9 +43,7 @@ func lookupTypeMap(map: TypeMap*, tag: TypeKind::Tag*) -> Type* {
 func lookupTagTypeMap(map: TypeMap*, tag: Token) -> Token {
   for (let cur = map; cur != null; cur = cur->next) {
     if (tokCmp(cur->tag->tag, tag)) {
-      if (let newTag = getTypeTag(cur->value)) {
-        return *newTag;
-      }
+      return *getTypeTag(cur->value);
     }
   }
   return tag;
@@ -92,8 +91,13 @@ func substituteTypeWithMapping(type: Type*, mapping: TypeMap*) -> Type* {
         typeArgs = substituteTypeWithMapping(funcType.typeArgs, mapping),
       };
 
+    case TypeKind::Typeof as typeOf:
+      result = TypeKind::Typeof {
+        expr = monomorphizeExpr(typeOf.expr, mapping),
+      };
+
     case TypeKind::Void, TypeKind::Bool, TypeKind::Int, TypeKind::Enum,
-         TypeKind::Struct, TypeKind::Union, TypeKind::Typeof:
+         TypeKind::Struct, TypeKind::Union:
       break;
   }
 
@@ -104,6 +108,7 @@ func substituteTypeWithMapping(type: Type*, mapping: TypeMap*) -> Type* {
 
 func getTypeMap(fnType: TypeKind::Func*, callTypeArgs: Type*) -> TypeMap* {
   if (fnType == null || callTypeArgs == null) {
+    unreachable("Null fnType or callTypeArgs");
     return null;
   }
 
@@ -328,8 +333,11 @@ func monomorphizeStmt(stmt: StmtAST*, typeMap: TypeMap*) -> StmtAST* {
         body = monomorphizeStmt(d.body, typeMap),
       };
 
-    case StmtKind::Break, StmtKind::Continue:
-      break;
+    case StmtKind::Continue:
+      resultKind = StmtKind::Continue {};
+
+    case StmtKind::Break:
+      resultKind = StmtKind::Break {};
   }
 
   let result = newStmt(resultKind);
@@ -359,6 +367,7 @@ func monomorphize(function: DeclAST*, typeMap: TypeMap*, name: Token) -> DeclAST
   let newFuncKind = newFunc->kind as DeclKind::Func*;
   let funcKind = function->kind as DeclKind::Func*;
   if (newFuncKind == null || funcKind == null) {
+    unreachable("Expected function declaration and type");
     return null;
   }
 

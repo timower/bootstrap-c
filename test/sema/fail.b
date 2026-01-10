@@ -2,8 +2,6 @@
 //
 // RUN: not %bootstrap %t/var.b 2>&1 | grep "Couldn't find variable"
 // RUN: not %bootstrap %t/noend.b 2>&1 | grep "Pointer to slice requires end"
-// RUN: not %bootstrap %t/generics1.b 2>&1 | grep "Failed to instantiate"
-// RUN: not %bootstrap %t/generics2.b 2>&1 | grep "Failed to find function"
 // RUN: not %bootstrap %t/cond.b 2>&1 | grep "lhs and rhs should have same type"
 // RUN: not %bootstrap %t/noparent.b 2>&1 | grep "Parent type not found"
 //
@@ -22,6 +20,7 @@
 // RUN: not %bootstrap %t/eval3.b 2>&1 | grep "Modulo by zero"
 //
 // RUN: not %bootstrap %t/non_struct.b 2>&1 | grep "Expected struct type"
+// RUN: not %bootstrap %t/no_struct.b 2>&1 | grep "Expected struct type"
 // RUN: not %bootstrap %t/slice1.b 2>&1 | grep "Start expression must be integer"
 // RUN: not %bootstrap %t/slice2.b 2>&1 | grep "End expression must be integer"
 // RUN: not %bootstrap %t/array.b 2>&1 | grep "Init must have consistent type"
@@ -55,12 +54,18 @@
 // RUN: not %bootstrap %t/index2.b 2>&1 | grep "Can't index with non integer"
 //
 // RUN: not %bootstrap %t/no_ptr_member.b 2>&1 | grep "Expected pointer for ->"
-// RUN: not %bootstrap %t/not_generic.b 2>&1 | grep "Expected generic function type"
+//
+// RUN: not %bootstrap %t/generics1.b 2>&1 | grep "Failed to instantiate"
+// RUN: not %bootstrap %t/generics2.b 2>&1 | grep "Couldn't find variable in scope"
+// RUN: not %bootstrap %t/not_generic1.b 2>&1 | grep "Expected generic function type"
+// RUN: not %bootstrap %t/not_generic2.b 2>&1 | grep "Expected function declaration"
+//
 // RUN: not %bootstrap %t/no_init.b 2>&1 | grep "Let expression must have an init"
 //
 // RUN: not %bootstrap %t/no_union.b 2>&1 | grep "Expected union type"
 // RUN: not %bootstrap %t/wrong_slice.b 2>&1 | grep "Expected slice or array"
 // RUN: not %bootstrap %t/arg_type.b 2>&1 | grep "Arg type mismatch"
+// RUN: not %bootstrap %t/if_let.b 2>&1 | grep "Expected bool"
 //
 //--- var.b
 let x = y;
@@ -156,6 +161,12 @@ const x = 8 % 0;
 union Foo {}
 
 let x = Foo {};
+
+
+//--- no_struct.b
+func foo() {
+  let x = Foo {};
+}
 
 
 //--- slice1.b
@@ -303,10 +314,18 @@ let x = Struct {};
 let y = x->a;
 
 
-//--- not_generic.b
+//--- not_generic1.b
 func foo() {
 
 }
+
+func bar() {
+  foo:[i32]();
+}
+
+
+//--- not_generic2.b
+let foo = 12;
 
 func bar() {
   foo:[i32]();
@@ -344,4 +363,13 @@ func foo(x: bool) {
 
 func bar() {
   foo(null);
+}
+
+
+//--- if_let.b
+func foo() -> i32 {
+  if (let x = 12) {
+    return x;
+  }
+  return 0;
 }

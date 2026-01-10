@@ -16,10 +16,12 @@ func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
     if (args->readFromStdin) {
       puts("Cannot use -i with stdin input");
       exit(-1);
+      return null;
     }
     if (args->outputFile != null) {
       puts("Cannot use both -i and -o");
       exit(-1);
+      return null;
     }
 
     let tempFile = malloc((args->inputFile.len + 20) as uptr);

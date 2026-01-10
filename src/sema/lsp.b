@@ -33,6 +33,6 @@ func dumpDecl(decl: DeclAST*) {
       }
 
     default:
-      break;
+      unreachable("Non dumpable declaration");
   }
 }

@@ -36,6 +36,11 @@ func test1() -> i32 {
   return slice[1] - 2;
 }
 
+func test3(x: i32[3]*) -> i32 {
+  let slice = x[:1];
+  return slice[0];
+}
+
 func useSlice[T](slice: [T]) -> [T] {
   printf("len: %d\n", slice.len);
   for (let i = 0; i < slice.len; i++) {
@@ -67,5 +72,10 @@ func test2() -> i32 {
 }
 
 func main() -> i32 {
-  return test1() + test2() + sizeof([i8]) - sizeof([i32]) + emptySlice:[i8]().len as i32;
+  return test1()
+      + test2()
+      + test3(&array) - 1
+      + sizeof([i8])
+      - sizeof([i32])
+      + emptySlice:[i8]().len as i32;
 }

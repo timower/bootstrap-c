@@ -63,11 +63,17 @@ TODO
     * array or pointer to it? can be converted to slice implicitly
  - [x] continue statement.
 
- - [ ] Remove array to pointer decay, make strings slices.
+ - [x] Remove array to pointer decay, make strings slices.
    * Will `puts("foo")` still work?
      `puts(&"foo"[0])` or `puts("foo".ptr)` or allow implicit slice -> ptr decay.
    * Clean `doDecay`, decay array to slice?
    * Allow slice global expressions in `genConst`.
+
+ - [ ] 100% branch coverage.
+ - [ ] Fuzz testing targets.
+
+ - [ ] allow array lvalues?
+ - [ ] Add function attributes, mainly `noreturn` for exits.
 
  - [ ] Dedup generic instantiations.
  - [ ] Generic function inference

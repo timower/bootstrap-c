@@ -75,6 +75,9 @@ func convertType(type: Type*) -> [i8] {
       return buf[:len];
 
     case TypeKind::Array as arr:
+      if (arr.size < 0) {
+        unreachable("Unsized array in ir gen");
+      }
       let buf = malloc(32) as i8*;
       let len = sprintf(buf, "[%d x %s]", arr.size, &convertType(arr.element)[0]);
       return buf[:len];
