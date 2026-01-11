@@ -107,11 +107,6 @@ func substituteTypeWithMapping(type: Type*, mapping: TypeMap*) -> Type* {
 }
 
 func getTypeMap(fnType: TypeKind::Func*, callTypeArgs: Type*) -> TypeMap* {
-  if (fnType == null || callTypeArgs == null) {
-    unreachable("Null fnType or callTypeArgs");
-    return null;
-  }
-
   let fnTypeArgs = fnType->typeArgs;
 
   let typeMapping: TypeMap* = null;

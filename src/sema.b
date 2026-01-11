@@ -81,7 +81,7 @@ func getImportExprName(expr: ExprAST*) -> Token {
       return varExpr.identifier;
     case ExprKind::Member as memberExpr:
       let lhsToken = getImportExprName(memberExpr.object);
-      let res = newInternalToken(512);
+      let res = newInternalToken((lhsToken.data.len + memberExpr.identifier.data.len + 10) as uptr);
       let len = sprintf(
           &res.data[0],
           "%.*s/%.*s",

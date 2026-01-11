@@ -185,7 +185,7 @@ func getSize(state: SemaState*, type: Type*, parents: DeclList*) -> i32 {
 
     case TypeKind::Array as arr:
       if (arr.size < 0) {
-        failSemaType(state, type, "Unsized array in sizeof");
+        unreachable("Unsized array in sizeof");
       }
       return arr.size * getSize(state, arr.element, parents);
 
@@ -220,6 +220,19 @@ func getSize(state: SemaState*, type: Type*, parents: DeclList*) -> i32 {
   }
 
   return 0;
+}
+
+func isUnsized(type: Type*) -> bool {
+  switch (type->kind) {
+    case TypeKind::Array as array:
+      return array.size < 0 || isUnsized(array.element);
+    case TypeKind::Pointer as ptr:
+      return isUnsized(ptr.pointee);
+    case TypeKind::Slice as sl:
+      return isUnsized(sl.element);
+    default:
+      return false;
+  }
 }
 
 

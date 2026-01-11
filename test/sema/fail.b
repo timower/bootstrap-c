@@ -44,9 +44,11 @@
 // RUN: not %bootstrap %t/no_void.b 2>&1 | grep "Return type should be void"
 // RUN: not %bootstrap %t/ret_mismatch.b 2>&1 | grep "Return type mismatch"
 //
-// RUN: not %bootstrap %t/bin_ptr.b 2>&1 | grep "Pointer arith"
+// RUN: not %bootstrap %t/bin_ptr.b 2>&1 | grep "Only integers"
 // RUN: not %bootstrap %t/bin_types1.b 2>&1 | grep "Binary op on different types"
-// RUN: not %bootstrap %t/bin_types2.b 2>&1 | grep "type mismatch"
+// RUN: not %bootstrap %t/bin_types2.b 2>&1 | grep "Only integers"
+// RUN: not %bootstrap %t/bin_types3.b 2>&1 | grep "Unsupported type for compare"
+// RUN: not %bootstrap %t/bin_types4.b 2>&1 | grep "type mismatch"
 // RUN: not %bootstrap %t/wrong_assign.b 2>&1 | grep "Assign doesn't match"
 //
 // RUN: not %bootstrap %t/type_redef.b 2>&1 | grep "Type redef"
@@ -76,6 +78,10 @@
 // RUN: not %bootstrap %t/not_array.b 2>&1 | grep "Expected array init for array declaration"
 // RUN: not %bootstrap %t/not_ptr.b 2>&1 | grep "Expected pointer init for pointer declaration"
 // RUN: not %bootstrap %t/broken_for.b 2>&1 | grep "For condition must be a boolean expression"
+//
+// RUN: not %bootstrap %t/uninst_generic.b 2>&1 | grep "Uninstantiated generic expression"
+//
+// RUN: not %bootstrap %t/unsized.b 2>&1 | grep "Decl with unsized type must have init"
 //
 //--- var.b
 let x = y;
@@ -294,6 +300,18 @@ func foo(y: struct Foo) {
 }
 
 
+//--- bin_types3.b
+func foo(x: struct Foo, y: struct Foo) -> bool {
+  return x == y;
+}
+
+
+//--- bin_types4.b
+func foo(x: i32, y: bool) -> i32 {
+  return x + y;
+}
+
+
 //--- wrong_assign.b
 func foo(x: bool) {
   let y: void* = null;
@@ -428,3 +446,17 @@ func a() {
 
   }
 }
+
+
+//--- uninst_generic.b
+func retVoid[T]() {
+
+}
+
+func a() {
+  retVoid;
+}
+
+
+//--- unsized.b
+let x: [i32[]]*;

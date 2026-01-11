@@ -98,7 +98,7 @@ func _getName(value: Value) -> [i8] {
       let tok = s.value;
       let len = tok.data.len as iptr;
       let data = tok.data;
-      let buf = newBuf((len + 16) as iptr);
+      let buf = newBuf((len * 2) + 16 as iptr);
 
       let offset = sprintf(&buf[0], "c\"");      // %.*s\\00\"", len, tok.data);
 

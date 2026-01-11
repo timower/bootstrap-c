@@ -210,10 +210,10 @@ func getToken(state: ParseState*) -> Token {
     if (len <= rest.len) {
       let match = token.data[0] == rest[0];
       if (len > 1) {
-        match &= (token.data[1] == rest[1]);
+        match = match && (token.data[1] == rest[1]);
       }
       if (len > 2) {
-        match &= (token.data[2] == rest[2]);
+        match = match && (token.data[2] == rest[2]);
       }
 
       if (match) {

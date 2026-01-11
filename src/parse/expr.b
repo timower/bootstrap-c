@@ -574,45 +574,52 @@ func parseInitializer(state: ParseState*) -> ExprAST* {
 
 // let_decl := 'let' identifier [':' type] ['=' initializer]
 //           | 'const' identifier [':' type] '=' initializer
-func parseVarDecl(state: ParseState*) -> DeclAST* {
+func parseVarDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   let isConst = match(state, TokenKind::CONST);
-  let decl: DeclAST* = null;
-  if (isConst) {
-    decl = newLocDecl(state, DeclKind::Const {});
-  } else {
-    decl = newLocDecl(state, DeclKind::Var {});
-  }
-  getNextToken(state);  // eat let or const
+  let loc = getNextToken(state).location;  // eat let or const
 
   expect(state, TokenKind::IDENTIFIER);
-  decl->name = getNextToken(state);
+  let name = getNextToken(state);
 
+  let type: Type* = null;
   if (match(state, TokenKind::COLON)) {
     getNextToken(state);
-    decl->type = parseType(state, true);
+    type = parseType(state, !isExtern);
   } else {
     // Without type we need an init.
     expect(state, TokenKind::EQ);
   }
 
+  let init: ExprAST* = null;
   if (match(state, TokenKind::EQ)) {
     getNextToken(state);
-    let init = parseInitializer(state);
-    if (isConst) {
-      (&decl->kind as DeclKind::Const*)->init = init;
-    } else {
-      (&decl->kind as DeclKind::Var*)->init = init;
-    }
+    init = parseInitializer(state);
   }
 
+  let decl: DeclAST* = null;
+  if (isConst) {
+    decl = newLocDecl(state, DeclKind::Const {
+      init = init,
+    });
+  } else {
+    decl = newLocDecl(state, DeclKind::Var {
+      init = init,
+      isExtern = isExtern,
+    });
+  }
+
+  decl->type = type;
+  decl->name = name;
+  decl->location = loc;
   decl->endLocation = state->curToken.location;
+
   return decl;
 }
 
 
 // let_expr := 'let' identifier (':' type)? '=' assignment
 func parseLetExpr(state: ParseState*) -> ExprAST* {
-  let decl = parseVarDecl(state);
+  let decl = parseVarDecl(state, false);
   return newLocExpr(decl->location, ExprKind::Let {
     decl = decl,
   });
@@ -766,6 +773,9 @@ func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
         // TODO: allow any constant expression.
         expect(state, TokenKind::CONSTANT);
         let size = parseInteger(state, state->curToken);
+        if (size < 0) {
+          failParse(state, "Expected positive size");
+        }
         getNextToken(state);
 
         type = newType(TypeKind::Array {
@@ -796,7 +806,7 @@ func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
       getNextToken(state);
       isVarargs = true;
     } else {
-      args = parseType(state, allowUnsized);
+      args = parseType(state, false);
       let currentArg = args;
 
       while (match(state, TokenKind::COMMA)) {
@@ -808,7 +818,7 @@ func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
           break;
         }
 
-        let nextArg = parseType(state, allowUnsized);
+        let nextArg = parseType(state, false);
         currentArg->next = nextArg;
         currentArg = nextArg;
       }
@@ -821,7 +831,7 @@ func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
   let returnType = newType(TypeKind::Void {});
   if (match(state, TokenKind::PTR_OP)) {
     getNextToken(state);
-    returnType = parseType(state, allowUnsized);
+    returnType = parseType(state, false);
   }
 
   fnType->result = returnType;

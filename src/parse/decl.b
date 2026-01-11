@@ -321,7 +321,7 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
 }
 
 func parseLetDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
-  let decl = parseVarDecl(state);
+  let decl = parseVarDecl(state, isExtern);
   if (let varKind = &decl->kind as DeclKind::Var*) {
     varKind->isExtern = isExtern;
     if (isExtern && varKind->init != null) {

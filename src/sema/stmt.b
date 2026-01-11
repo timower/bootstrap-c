@@ -174,7 +174,7 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
         for (let cur = caseKind.body; cur != null; cur = cur->next) {
           semaStmt(&subState, cur);
         }
-        allReturn &= subState.returns;
+        allReturn = allReturn && subState.returns;
 
       case StmtKind::Default as defaultKind:
         fieldBitSet = -1;
@@ -183,7 +183,7 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
         for (let cur = defaultKind.body; cur != null; cur = cur->next) {
           semaStmt(&subState, cur);
         }
-        allReturn &= subState.returns;
+        allReturn = allReturn && subState.returns;
 
       default:
         // The parse shouldn't prodduce anything else.

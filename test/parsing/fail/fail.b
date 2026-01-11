@@ -16,6 +16,9 @@
 //
 // RUN: not %bootstrap %t/unknown_decl.b 2>&1 | grep "Unknown declaration"
 //
+// RUN: not %bootstrap %t/negative_size.b 2>&1 | grep "Expected positive size"
+// RUN: not %bootstrap %t/no_size.b 2>&1 | grep "Expected"
+//
 // RUN: echo -n '#foo' | not %bootstrap - 2>&1 | grep 'Failed to parse file'
 //
 //--- unknown.b
@@ -59,3 +62,9 @@ let x = 12b34;
 
 //--- unknown_decl.b
 foo;
+
+//--- negative_size.b
+let x: i32[-1] = [];
+
+//--- no_size.b
+extern let x: i8[];

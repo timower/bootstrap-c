@@ -396,19 +396,27 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
 
   let lhsTypePtr = binExpr->lhs->type->kind as TypeKind::Pointer*;
   let lhsTypeInt = binExpr->lhs->type->kind as TypeKind::Int*;
+  let lhsTypeEnum = binExpr->lhs->type->kind as TypeKind::Enum*;
+  let lhsTypeBool = binExpr->lhs->type->kind as TypeKind::Bool*;
 
-  let rhsTypePtr = binExpr->rhs->type->kind as TypeKind::Pointer*;
-  let rhsTypeInt = binExpr->rhs->type->kind as TypeKind::Int*;
-
+  // let rhsTypePtr = binExpr->rhs->type->kind as TypeKind::Pointer*;
+  // let rhsTypeInt = binExpr->rhs->type->kind as TypeKind::Int*;
   // Handle special cases
   switch (binExpr->op.kind) {
     case TokenKind::COMMA:
       expr->type = binExpr->rhs->type;
       return;
 
+    case TokenKind::EQ:
+      break;
+
     // comparision results in i32.
     case TokenKind::LESS, TokenKind::GREATER, TokenKind::LE_OP,
          TokenKind::GE_OP, TokenKind::EQ_OP, TokenKind::NE_OP:
+      if (lhsTypeInt == null && lhsTypePtr == null
+          && lhsTypeEnum == null && lhsTypeBool == null) {
+        failSemaExpr(state, expr, "Unsupported type for compare");
+      }
       if (!typeEq(binExpr->lhs->type, binExpr->rhs->type)) {
         let lhsConv = doConvert(state, binExpr->lhs, binExpr->rhs->type);
 
@@ -425,10 +433,9 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
       expr->type = getBool();
       return;
 
-    case TokenKind::MINUS, TokenKind::PLUS,
-         TokenKind::ADD_ASSIGN, TokenKind::SUB_ASSIGN:
-      if (lhsTypePtr != null || rhsTypePtr != null) {
-        failSemaExpr(state, expr, "Pointer arith");
+    default:
+      if (lhsTypeInt == null) {
+        failSemaExpr(state, expr, "Only integers supported");
       }
 
     case TokenKind::AND_OP, TokenKind::OR_OP:
@@ -436,9 +443,6 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
       checkBool(state, binExpr->rhs);
       expr->type = binExpr->lhs->type;
       return;
-
-    default:
-      break;
   }
 
   if (isAssign(binExpr->op)) {
@@ -704,6 +708,12 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(state, expr, "Couldn't find variable in scope");
       }
 
+      if (let type = local->type->kind as TypeKind::Func*) {
+        if (type->typeArgs != null) {
+          failSemaExpr(state, expr, "Uninstantiated generic expression");
+        }
+      }
+
       // enum value, transform this expr to an i32.
       switch (local->kind) {
         case DeclKind::EnumField as enumFieldKind:
@@ -928,6 +938,8 @@ func semaVarDecl(state: SemaState*, decl: DeclAST*) {
     }
   } else if (&decl->kind as DeclKind::Const* != null) {
     failSemaDecl(state, decl, "Const decl must have an init");
+  } else if (isUnsized(decl->type)) {
+    failSemaDecl(state, decl, "Decl with unsized type must have init");
   }
 
   addLocalDecl(state, decl);

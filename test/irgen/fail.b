@@ -6,7 +6,6 @@
 // RUN: not %bootstrap %t/lvalue2.b 2>&1 | grep "Expr can't be used as lvalue"
 // RUN: not %bootstrap %t/lvalue3.b 2>&1 | grep "Expr can't be used as lvalue"
 //
-// RUN: not %bootstrap %t/sizeof_unsized.b 2>&1 | grep "Unsized array in sizeof"
 // RUN: not %bootstrap %t/sizeof_unknown.b 2>&1 | grep "Unkown type"
 // RUN: not %bootstrap %t/break.b 2>&1 | grep "Break outside loop"
 // RUN: not %bootstrap %t/continue.b 2>&1 | grep "Continue outside loop"
@@ -50,11 +49,6 @@ let u = [ 1, 2, 3 ];
 
 let y = (&u)[1:];
 
-
-//--- sizeof_unsized.b
-extern let v: i8[];
-
-let a = sizeof(typeof(v));
 
 
 //--- slice_end.b
