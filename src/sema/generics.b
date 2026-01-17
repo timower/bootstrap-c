@@ -2,14 +2,18 @@ import ast;
 
 func getTypeTag(type: Type*) -> Token* {
   switch (type->kind) {
+    // opt: The type tags are at the same address
     case TypeKind::Struct as s:
       return &s.tag;
+
+    // opt: The type tags are at the same address
     case TypeKind::Union as u:
       return &u.tag;
+
+    // opt: The type tags are at the same address
     case TypeKind::Enum as e:
       return &e.tag;
     default:
-      unreachable("Type doesn't have a tag");
       return null;
   }
 }
@@ -43,7 +47,10 @@ func lookupTypeMap(map: TypeMap*, tag: TypeKind::Tag*) -> Type* {
 func lookupTagTypeMap(map: TypeMap*, tag: Token) -> Token {
   for (let cur = map; cur != null; cur = cur->next) {
     if (tokCmp(cur->tag->tag, tag)) {
-      return *getTypeTag(cur->value);
+      let tag = getTypeTag(cur->value);
+      if (tag != null) {
+        return *tag;
+      }
     }
   }
   return tag;
@@ -61,10 +68,16 @@ func substituteTypeWithMapping(type: Type*, mapping: TypeMap*) -> Type* {
   let result: TypeKind = type->kind;
   switch (type->kind) {
     case TypeKind::Tag as tag:
-      // Use findType to look up this tag in our mapping
-      let foundType = lookupTypeMap(mapping, &tag);
-      if (foundType != null) {
-        result = foundType->kind;
+      if (tag.parent.kind != TokenKind::TOK_EOF) {
+        result = TypeKind::Tag {
+          parent = lookupTagTypeMap(mapping, tag.parent),
+          tag = tag.tag,
+        };
+      } else {
+        let foundType = lookupTypeMap(mapping, &tag);
+        if (foundType != null) {
+          result = foundType->kind;
+        }
       }
 
     case TypeKind::Pointer as ptr:

@@ -4,6 +4,7 @@ import utils;
 import eval;
 import generics;
 
+const max_sema_depth = 200;
 
 func doConvertBase(state: SemaState*, expr: ExprAST*, to: Type*, isConstStr: bool) -> ExprAST* {
   let from = expr->type;
@@ -472,6 +473,10 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
 }
 
 func semaExpr(state: SemaState*, expr: ExprAST*) {
+  if (state->depth++ > max_sema_depth) {
+    failSemaExpr(state, expr, "Too deep!");
+  }
+
   switch (expr->kind) {
     case ExprKind::Struct as structExpr:
       let typeDecl: DeclAST* = null;
@@ -557,7 +562,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
             value = a.size,
           };
           expr->type = getIPtr(&state->target);
-          return;
 
         case TypeKind::Slice:
           if (!tokCmpStr(memberExpr.identifier, "len")) {
@@ -567,7 +571,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
           // (ptr, len) so index 1
           memberExpr.fieldIndex = 1;
           expr->type = getIPtr(&state->target);
-          return;
 
         case TypeKind::Struct as structType:
           let structDecl = lookupStruct(state, &structType);
@@ -581,7 +584,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
           }
 
           expr->type = fieldDecl->type;
-          return;
 
         default:
           failSemaExpr(state, expr, ": Expected struct type for member access");
@@ -735,7 +737,6 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       if (expr->type == null) {
         unreachable("Expected int type to be set during parsing.");
       }
-      return;
 
     case ExprKind::Binary:
       semaBinExpr(state, expr);
@@ -822,7 +823,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         expr->type = newType(TypeKind::Pointer {
           pointee = unaryExpr.prefix->type,
         });
-        return;
+        break;
       }
 
       if (unaryExpr.postfix != null) {
@@ -890,6 +891,9 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
   if (expr->type == null) {
     unreachable("Type should always be set");
   }
+
+  // TODO: defer
+  state->depth--;
 }
 
 func semaVarDecl(state: SemaState*, decl: DeclAST*) {

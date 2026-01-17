@@ -3,6 +3,8 @@ import ast;
 import state;
 import sema.lsp;
 
+import debug;
+
 func typeEq(one: Type*, two: Type*) -> bool {
   switch (one->kind) {
     case TypeKind::Void:
@@ -260,4 +262,55 @@ func sizeArrayTypes(state: SemaState*, declType: Type*, initType: Type*) {
     default:
       break;
   }
+}
+
+func addGenericInst(
+    state: SemaState*,
+    function: DeclAST*,
+    mapping: TypeMap*
+) -> Token {
+  let root = getRoot(state);
+
+  // Check if an identical instance already exists.
+  for (let inst = root->genericInstances; inst != null; inst = inst->next) {
+    if (inst->function != function) {
+      continue;
+    }
+
+    // Type maps have a consistent order, so we can just loop & compare.
+    let curMap = mapping;
+    let instMap = inst->typeMap;
+    for (; instMap != null && curMap != null;
+         instMap = instMap->next, curMap = curMap->next) {
+      if (!typeEq(curMap->value, instMap->value)) {
+        break;
+      }
+    }
+
+    // Check if we broke out early.
+    if (curMap != null || instMap != null) {
+      continue;
+    }
+
+    return inst->name;
+  }
+
+  let inst = calloc(1, sizeof(GenericInst)) as GenericInst*;
+  inst->function = function;
+  inst->typeMap = mapping;
+
+  let newName = newInternalToken(128);
+  let len = sprintf(
+      &newName.data[0],
+      "%.*s_%d",
+      function->name.data.len,
+      &function->name.data[0],
+      root->instanceCounter++);
+  newName.data = newName.data[:len];
+  inst->name = newName;
+
+  inst->next = root->genericInstances;
+  root->genericInstances = inst;
+
+  return inst->name;
 }

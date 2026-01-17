@@ -57,6 +57,9 @@ struct SemaState {
   // Used to check all paths in a function return.
   returns: bool;
 
+  // Depth tracker, to prevent infinite generic instantiations.
+  depth: i32;
+
   jmpBuf: JmpBuf*;
 }
 
@@ -165,32 +168,4 @@ func initSemaState(target: Target, lspMode: bool) -> SemaState {
     semaLspMode = lspMode,
     extraDecls = targetDecl,
   };
-}
-
-func addGenericInst(
-    state: SemaState*,
-    function: DeclAST*,
-    mapping: TypeMap*
-) -> Token {
-  let root = getRoot(state);
-
-  // TODO: remove duplicates
-  let inst = calloc(1, sizeof(GenericInst)) as GenericInst*;
-  inst->function = function;
-  inst->typeMap = mapping;
-
-  let newName = newInternalToken(128);
-  let len = sprintf(
-      &newName.data[0],
-      "%.*s_%d",
-      function->name.data.len,
-      &function->name.data[0],
-      root->instanceCounter++);
-  newName.data = newName.data[:len];
-  inst->name = newName;
-
-  inst->next = root->genericInstances;
-  root->genericInstances = inst;
-
-  return inst->name;
 }

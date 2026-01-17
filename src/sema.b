@@ -244,13 +244,14 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   }
 
   // sema instantiated generic functions.
-  while (state->genericInstances != null) {
-    let cur = state->genericInstances;
-    state->genericInstances = null;
-
-    for (; cur != null; cur = cur->next) {
+  let newInstances = state->genericInstances;
+  let prevInstances: GenericInst* = null;
+  while (newInstances != prevInstances) {
+    for (let cur = newInstances; cur != prevInstances; cur = cur->next) {
       instantiateGeneric(state, cur);
     }
+    prevInstances = newInstances;
+    newInstances = state->genericInstances;
   }
 
   if (state->failed) {
