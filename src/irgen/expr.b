@@ -95,16 +95,14 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
         unreachable("No variable in scope");
       }
 
-      if (let globalPtr = var as Value::GlobalPtr*) {
-        return *var;
-      }
+      switch (*var) {
+        case Value::GlobalPtr, Value::FuncPtr:
+          return *var;
 
-      if (let funcPtr = var as Value::FuncPtr*) {
-        return *var;
+        default:
+          // There's no way to get here, alll addLocal calls are funcs or globals
+          unreachable("Non func or global at global scope");
       }
-
-      // There's no way to get here, alll addLocal calls are funcs or globals
-      unreachable("Non func or global at globall scope");
 
     // Binary expressions are now handled in sema via evalConstant
     // genConstant should only receive pre-evaluated constant expressions
@@ -158,9 +156,11 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
       });
 
     case ExprKind::Member as memberExpr:
-      let agg = memberExpr.op.kind == TokenKind::DOT
-           ? genAddr(state, memberExpr.object)
-           : genExpr(state, memberExpr.object);
+      // Should technically be, but the genExpr skips the load for aggregates
+      // let agg = memberExpr.op.kind == TokenKind::DOT
+      //      ? genAddr(state, memberExpr.object)
+      //      : genExpr(state, memberExpr.object);
+      let agg = genExpr(state, memberExpr.object);
 
       let aggType: Type* = null;
       if (memberExpr.op.kind == TokenKind::DOT) {
@@ -278,6 +278,7 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
         case DeclKind::Const as constKind:
           // Const expressions are handled during sema.
           return genExpr(state, constKind.init);
+
         default:
           // Parsing doesn't allow this to happen.
           unreachable("Invalid decl kind in let expression");

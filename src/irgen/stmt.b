@@ -239,14 +239,11 @@ func getCases(
   switch (expr->kind) {
     case ExprKind::Scope as scopeExpr:
       let cse = newCase(cases, bb);
-      if (unionAddr != null) {
-        cse->val = Value::IntConstant {
-          value = scopeExpr.enumValue,
-          type = getInt32(),
-        };
-      } else {
-        cse->val = genConstant(state, expr);
-      }
+      cse->val = Value::IntConstant {
+        value = scopeExpr.enumValue,
+        type = getInt32(),
+      };
+
       return cse;
 
     case ExprKind::Binary as binary:

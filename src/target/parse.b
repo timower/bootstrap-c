@@ -1,17 +1,15 @@
 import target;
 import util;
 
-func cmpTriplePart(str: [i8]*, target: i8*) -> bool {
-  let targetSlice = target[:strlen(target)];
-
+func cmpTriplePart(str: [i8]*, target: [i8]) -> bool {
   let i = 0;
-  for (; i < str->len && i < targetSlice.len; i++) {
-    if ((*str)[i] != targetSlice[i]) {
+  for (; i < str->len && i < target.len; i++) {
+    if ((*str)[i] != target[i]) {
       return false;
     }
   }
 
-  if (i == targetSlice.len && (i == str->len || (*str)[i] == '-')) {
+  if (i == target.len && (i == str->len || (*str)[i] == '-')) {
     *str = (*str)[i:];
     return true;
   }

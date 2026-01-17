@@ -78,6 +78,8 @@ func readStdin() -> [i8] {
   let remaining = mem;
   while (res = read(0, &remaining[0], (remaining.len as iptr) as uptr), res > 0) {
     offset += res;
+
+    // opt: Only realloc if needed.
     if (offset + 128 > mem.len as iptr) {
       mem = reallocBuf(mem, (mem.len * 2) as iptr);
     }

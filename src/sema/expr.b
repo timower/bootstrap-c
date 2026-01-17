@@ -76,8 +76,12 @@ func doConvertBase(state: SemaState*, expr: ExprAST*, to: Type*, isConstStr: boo
 
         // Pointer to arrays can be convert to pointers to the first element.
         // This is a no-op for code gen?
-        if (let fromArray = fromPtr->pointee->kind as TypeKind::Array*) {
-          if (isConstStr && typeEq(fromArray->element, toPtr.pointee)) {
+        if (isConstStr) {
+          let fromArray = fromPtr->pointee->kind as TypeKind::Array*;
+          if (fromArray == null) {
+            unreachable("Expected array for string expressions");
+          }
+          if (typeEq(fromArray->element, toPtr.pointee)) {
             return expr;
           }
         }
@@ -389,6 +393,23 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   };
 }
 
+func convertTypes(
+    state: SemaState*,
+    expr: ExprAST*,
+    binExpr: ExprKind::Binary*
+) {
+  let lhsConv = doConvert(state, binExpr->lhs, binExpr->rhs->type);
+  if (lhsConv == null) {
+    let rhsConv = doConvert(state, binExpr->rhs, binExpr->lhs->type);
+    if (rhsConv == null) {
+      failSemaExpr(state, expr, ": Binary op on different types");
+    }
+    binExpr->rhs = rhsConv;
+  } else {
+    binExpr->lhs = lhsConv;
+  }
+}
+
 func semaBinExpr(state: SemaState*, expr: ExprAST*) {
   let binExpr = expr->kind as ExprKind::Binary*;
   semaExpr(state, binExpr->lhs);
@@ -417,19 +438,9 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
           && lhsTypeEnum == null && lhsTypeBool == null) {
         failSemaExpr(state, expr, "Unsupported type for compare");
       }
-      if (!typeEq(binExpr->lhs->type, binExpr->rhs->type)) {
-        let lhsConv = doConvert(state, binExpr->lhs, binExpr->rhs->type);
 
-        if (lhsConv == null) {
-          let rhsConv = doConvert(state, binExpr->rhs, binExpr->lhs->type);
-          if (rhsConv == null) {
-            failSemaExpr(state, expr, ": Binary op on different types");
-          }
-          binExpr->rhs = rhsConv;
-        } else {
-          binExpr->lhs = lhsConv;
-        }
-      }
+      convertTypes(state, expr, binExpr);
+
       expr->type = getBool();
       return;
 
@@ -455,18 +466,7 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
     return;
   }
 
-  if (!typeEq(binExpr->lhs->type, binExpr->rhs->type)) {
-    let lhsConv = doConvert(state, binExpr->lhs, binExpr->rhs->type);
-    if (lhsConv == null) {
-      let rhsConv = doConvert(state, binExpr->rhs, binExpr->lhs->type);
-      if (rhsConv == null) {
-        failSemaExpr(state, expr, ": type mismatch");
-      }
-      binExpr->rhs = rhsConv;
-    } else {
-      binExpr->lhs = lhsConv;
-    }
-  }
+  convertTypes(state, expr, binExpr);
 
   expr->type = binExpr->lhs->type;
 }
@@ -660,8 +660,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         }
       }
 
-      let isValidVararg = funType->isVarargs && curArgTy == null;
-      if (!isValidVararg && ((curArgTy == null) != (cur == null))) {
+      if (((curArgTy == null) != (cur == null))) {
         errorSema(state, expr->location, "Function call arg length mismatch");
       }
       expr->type = funType->result;
@@ -846,7 +845,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       }
 
       if (unaryExpr.op.kind == TokenKind::BANG) {
-        expr->type = getBool();
+        checkBool(state, expr);
       }
 
     case ExprKind::Sizeof as sizeofExpr:
@@ -869,19 +868,20 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       expr->type = parenExpr.expr->type;
 
     case ExprKind::Let as letExpr:
-      let init: ExprAST* = null;
       switch (letExpr.decl->kind) {
         case DeclKind::Var as varKind:
-          init = varKind.init;
+          if (varKind.init == null) {
+            failSemaExpr(state, expr, "Let expression must have an init");
+          }
         case DeclKind::Const as constKind:
-          init = constKind.init;
+          if (constKind.init == null) {
+            failSemaExpr(state, expr, "Const expression must have an init");
+          }
         default:
           // The parser doesn't allow this.
           unreachable("Only let expressions allowed");
       }
-      if (init == null) {
-        failSemaExpr(state, expr, "Let expression must have an init");
-      }
+
       resolveTypeTags(state, letExpr.decl->type);
       semaVarDecl(state, letExpr.decl);
       expr->type = letExpr.decl->type;

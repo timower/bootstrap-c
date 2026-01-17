@@ -69,8 +69,11 @@ TODO
    * Clean `doDecay`, decay array to slice?
    * Allow slice global expressions in `genConst`.
 
- - [ ] 100% branch coverage.
- - [ ] Fuzz testing targets.
+ - [x] 100% branch coverage.
+ - [x] Fuzz testing targets.
+ - [ ] Mutation testing fixes.
+ - [ ] `defer` keyword
+ - [ ] `free` memory in stages, verify leak free-ness.
 
  - [ ] allow array lvalues?
  - [ ] Add function attributes, mainly `noreturn` for exits.

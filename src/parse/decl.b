@@ -17,6 +17,7 @@ func addTrailingCommentsDecl(state: ParseState*, decl: DeclAST*) {
   let comments = getLineComments(state, decl->endLocation->line);
   if (comments == null) {
     return;
+    // opt: appendComments will work with a null arg, but this is faster.
   }
 
   decl->comments = appendComments(decl->comments, comments);

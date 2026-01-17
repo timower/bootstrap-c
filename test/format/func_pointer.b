@@ -1,5 +1,5 @@
 // RUN: %bootstrap -format %s -o %t
-// RUN: diff %s %t
+// RUN: cmp %s %t
 func foo() -> i32 {
   return 12;
 }

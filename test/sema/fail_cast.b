@@ -19,6 +19,9 @@
 //
 // RUN: not %bootstrap %t/cant_cast8.b 2>&1 | grep "Cannot cast union"
 //
+// RUN: not %bootstrap %t/cant_cast9.b 2>&1 | FileCheck %s
+// CHECK-NOT: Can't cast struct to unrelated union
+//
 //--- unrelated_union.b
 union Foo {
   A {}
@@ -142,4 +145,12 @@ union Bar {
 
 func foo(x: Foo*) {
   let y = x as Bar::A*;
+}
+
+
+//--- cant_cast9.b
+struct Foo {}
+
+func foo(x: Foo) {
+  let y = x as i32;
 }

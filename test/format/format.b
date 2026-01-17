@@ -1,13 +1,13 @@
 // RUN: %bootstrap -format %s -o %t
-// RUN: diff %t %s
+// RUN: cmp %t %s
 //
 // RUN: printf '\n\n' >> %t
-// RUN: not diff %t %s
+// RUN: not cmp %t %s
 // RUN: %bootstrap -format -i %t
-// RUN: diff %t %s
+// RUN: cmp %t %s
 //
 // RUN: cat %s | %bootstrap -format - -o %t
-// RUN: diff %t %s
+// RUN: cmp %t %s
 import a.b;
 
 extern func printf(format: i8*, ...) -> i32;
@@ -54,10 +54,17 @@ func test(x: bool) {
   if (x) {
     return;
   }
+  return;  // test
 }
 
 
-// comment
+// Does the AST transform of a string expression.
+//
+// A string constant like "foo" is turned into a global static array:
+//  let str.0: i8[3] = ['f', 'o', 'o', 0];
+// The expression itself is then replaced with `&str.0`
+//
+// Note: the array init length is one more than the type due to the 0 terminator.
 func foo(x: Foo) -> typeof(printf) {
   const cst = 12;
 
@@ -239,3 +246,5 @@ func main() -> i32 {
 
   return 1 * (3 + 5) / 6;
 }
+// one EOF comment
+// two EOF comments

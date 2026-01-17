@@ -14,10 +14,11 @@ func printRawToken(token: Token) {
 }
 
 func printToken(token: Token) {
-  if (token.kind != TokenKind::IDENTIFIER) {
-    fprintf(printFile, "%s", tokens[(token.kind as i32)]);
-    return;
-  }
+  // We store ranges for all tokens
+  // if (token.kind != TokenKind::IDENTIFIER) {
+  //   fprintf(printFile, "%s", tokens[(token.kind as i32)]);
+  //   return;
+  // }
   printRawToken(token);
 }
 
@@ -566,6 +567,7 @@ func printStructBody(
 
 func printDeclIndent(decl: DeclAST*, indent: i32) {
   let trailing = printComments(decl->comments, indent, decl->location->line);
+  let commentSep = '\n';
 
   switch (decl->kind) {
     case DeclKind::Struct as structKind:
@@ -711,6 +713,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         printStmt(funcKind.body);
       } else {
         fprintf(printFile, ";");
+        commentSep = ' ';
       }
 
     case DeclKind::Import as importKind:
@@ -723,7 +726,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
   }
 
   if (trailing != null) {
-    fprintf(printFile, " ");
+    fprintf(printFile, "%c", commentSep);
     printComments(trailing, indent, 0);
   }
 }

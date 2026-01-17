@@ -178,8 +178,8 @@ struct ExprAST {
 
 union DeclKind {
   Var {
-    init: ExprAST*;
     isExtern: bool;
+    init: ExprAST*;
   }
   Const {
     init: ExprAST*;
@@ -418,47 +418,6 @@ func getBinOpPrecedence(tok: Token) -> i32 {
   }
 }
 
-func getExprPrecedence(expr: ExprAST*) -> i32 {
-  switch (expr->kind) {
-    case ExprKind::Binary as binary:
-      if (isAssign(binary.op)) {
-        return 5;
-      }
-      if (binary.op.kind == TokenKind::COMMA) {
-        return 1;
-      }
-      return getBinOpPrecedence(binary.op);
-
-    case ExprKind::Unary as unary:
-      // Unary postfix
-      if (unary.prefix == null) {
-        return 120;
-      }
-      return 110;
-
-    case ExprKind::Call,
-         ExprKind::GenericInstantiation,
-         ExprKind::Index,
-         ExprKind::SliceIndex,
-         ExprKind::Member,
-         ExprKind::Struct,
-         ExprKind::Array:
-      return 120;
-    case ExprKind::Cast,
-         ExprKind::Sizeof:
-      return 110;
-    case ExprKind::Conditional:
-      return 9;
-
-    case ExprKind::Int,
-         ExprKind::Str,
-         ExprKind::Variable,
-         ExprKind::Scope,
-         ExprKind::Paren,
-         ExprKind::Let:
-      return 200;
-  }
-}
 
 func isGeneric(decl: DeclAST*) -> bool {
   if (let funcKind = decl->kind as DeclKind::Func*) {

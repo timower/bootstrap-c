@@ -1,6 +1,5 @@
-// RUN: not %bootstrap -sema %s
-// Test that generic function instantiation failures are properly caught
-// Generic function that expects a pointer
+// RUN: not %bootstrap -sema %s 2>&1 | FileCheck %s
+// CHECK: Expected pointer type for *
 func deref[T](ptr: T) -> T {
   return *ptr;
 }

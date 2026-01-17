@@ -341,10 +341,6 @@ func parsePostfix(state: ParseState*) -> ExprAST* {
   let expr = parsePrimary(state);
 
   while (true) {
-    if (expr == null) {
-      return expr;
-    }
-
     switch (state->curToken.kind) {
       case TokenKind::OPEN_BRACKET:
         expr = parseIndex(state, expr);
@@ -460,6 +456,8 @@ func parseBinOpRhs(
     let rhs = parseCast(state);
 
     let nextPred = getBinOpPrecedence(state->curToken);
+
+    // opt:
     if (curPred < nextPred) {
       rhs = parseBinOpRhs(state, curPred + 1, rhs);
     }

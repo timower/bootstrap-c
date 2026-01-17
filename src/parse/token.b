@@ -51,6 +51,7 @@ func is_alnum(c: i32) -> bool {
 }
 
 func newLocation(state: ParseState*, start: i32) -> SourceLoc* {
+  // opt: Only allocate if the slab is empty.
   if (state->sourceSlabs.len == 0) {
     let slabs = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
     state->sourceSlabs = slabs[:source_slab_size];
@@ -89,10 +90,6 @@ func getToken(state: ParseState*) -> Token {
     lastChar = nextChar(state);
   }
 
-  if (lastChar == -1) {
-    return makeEof(state, tokenStart);
-  }
-
   // identifier [a-zA-Z][a-zA-Z0-9]*
   if (is_alpha(lastChar) || lastChar == '_') {
     while (is_alnum(peekChar(state)) || peekChar(state) == '_') {
@@ -108,6 +105,7 @@ func getToken(state: ParseState*) -> Token {
       return token;
     }
 
+    // opt: The if above is an early return optimization
     for (let i = TokenKind::CONTINUE as i32; i <= TokenKind::AS as i32; i++) {
       if (tokenHashes[i].hash == tokenHash) {
         token.kind = i as enum TokenKind;
@@ -179,20 +177,13 @@ func getToken(state: ParseState*) -> Token {
     return token;
   }
 
-  // pre-processor
-  if (lastChar == '#') {
-    while (!iseol(peekChar(state)) && peekChar(state) != -1) {
-      nextChar(state);
-    }
-    return getToken(state);
-  }
-
   // Comments //
   if (lastChar == '/' && peekChar(state) == '/') {
     while (!iseol(peekChar(state)) && peekChar(state) != -1) {
       nextChar(state);
     }
 
+    // opt: Don't parse comment tokens if concrete is false.
     if (state->options.concrete) {
       let token = makeToken(state, tokenStart);
       token.kind = TokenKind::COMMENT;

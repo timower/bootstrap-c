@@ -180,6 +180,7 @@ func initTokenSystem() {
 func tokCmp(one: Token, two: Token) -> bool {
   if (one.kind != two.kind) {
     return false;
+    // opt: Comparing kind first is an optimization.
   }
 
   if (one.data.len != two.data.len) {

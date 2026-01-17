@@ -2,4 +2,4 @@
 // RUN: clang %t.1.ll -o %t.bin
 // RUN: %t.bin %root_dir/src/bootstrap.b -o %t.2.ll
 //
-// RUN: diff %t.1.ll %t.2.ll
+// RUN: cmp %t.1.ll %t.2.ll

@@ -2,6 +2,18 @@ import ast;
 import type;
 import lsp;
 
+func getFields(decl: DeclAST*) -> DeclAST* {
+  switch (decl->kind) {
+    case DeclKind::Struct as structKind:
+      return structKind.fields;
+    case DeclKind::Enum as enumKind:
+      return enumKind.fields;
+    default:
+      unreachable("Unsupported type to get field of");
+      return null;
+  }
+}
+
 func findField(
     state: SemaState*,
     structDecl: DeclAST*,
@@ -9,17 +21,8 @@ func findField(
     idxOut: i32*
 ) -> DeclAST* {
   let idx = 0;
-  let fields: DeclAST* = null;
-  switch (structDecl->kind) {
-    case DeclKind::Struct as structKind:
-      fields = structKind.fields;
-    case DeclKind::Enum as enumKind:
-      fields = enumKind.fields;
-    default:
-      unreachable("Unsupported type to get field of");
-  }
-  for (let field = fields; field != null;
-       field = field->next, idx++) {
+  let fields = getFields(structDecl);
+  for (let field = fields; field != null; field = field->next, idx++) {
     if (tokCmp(name, field->name)) {
       *idxOut = idx;
 

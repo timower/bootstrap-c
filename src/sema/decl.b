@@ -6,13 +6,6 @@ import stmt;
 
 func semaDecl(state: SemaState*, decl: DeclAST*) {
   switch (decl->kind) {
-    case DeclKind::Struct as structKind:
-      for (let field = structKind.fields; field != null; field = field->next) {
-        if (&field->kind as DeclKind::Var* == null) {
-          // parser doesn't allow this.
-          unreachable("Only var decls allowed in struct");
-        }
-      }
     case DeclKind::Union as unionKind:
       let maxSize = 0;
       for (let tag = unionKind.subTypes; tag != null; tag = tag->next) {
@@ -45,11 +38,12 @@ func semaDecl(state: SemaState*, decl: DeclAST*) {
       }
     case DeclKind::Var, DeclKind::Const:
       semaVarDecl(state, decl);
-    case DeclKind::Enum, DeclKind::Import:
-      // Nothing to do for enums and imports
-      break;
     case DeclKind::EnumField:
       unreachable("Enum field at top level?");
       return;
+
+    // Nothing to do for others
+    case DeclKind::Enum, DeclKind::Import, DeclKind::Struct:
+      break;
   }
 }

@@ -57,9 +57,10 @@ func getLineComments(state: ParseState*, line: i32) -> Comment* {
   }
 
   state->comments = lastComment->next;
-  if (lastComment->next == null) {
-    state->lastComment = null;
-  }
+
+  // Doesn't seem to be needed:
+  // if ( lastComment->next == null) {
+  state->lastComment = null;
   lastComment->next = null;
 
   return firstComment;
@@ -104,6 +105,7 @@ func newLocDecl(state: ParseState*, kind: DeclKind) -> DeclAST* {
   let res = newDecl(kind);
   res->location = state->curToken.location;
 
+  // opt: Only parse comments if concrete is enabled.
   if (state->options.concrete) {
     res->comments = state->comments;
     state->comments = null;
@@ -129,6 +131,7 @@ func newLocStmt(state: ParseState*, kind: StmtKind) -> StmtAST* {
   let res = newStmt(kind);
   res->location = state->curToken.location;
 
+  // opt: Only parse comments if concrete is enabled.
   if (state->options.concrete) {
     res->comments = state->comments;
     state->comments = null;

@@ -1,7 +1,14 @@
-// RUN: %bootstrap -sema -debug %s 2>&1 | FileCheck %s
+// RUN: %bootstrap -sema  %s 2>&1 | FileCheck %s --allow-empty --check-prefix NODBG
+//
+// RUN: %bootstrap -sema -debug %s 2>&1 | FileCheck %s --check-prefix DBG
+// RUN: %bootstrap -sema-lsp -debug %s 2>&1 | FileCheck %s --check-prefix DBG
+//
 // Test debug flag functionality to increase coverage
-// CHECK: Begin sema
-// CHECK: End sema
+// NODBG-NOT: Begin sema
+//
+// DBG: Begin sema
+// DBG: End sema
+// DBG-NOT: Begin irgen
 func main() -> i32 {
   return 0;
 }

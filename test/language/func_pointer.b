@@ -10,15 +10,20 @@ func foo() -> i32 {
 struct Foo {
   bar: func*() -> i32;
   x: i32;
-};
+}
+
+
+// CHECK-DAG: @globPtr = global ptr @foo
+let globPtr = &foo;
+
 
 // CHECK-DAG: define i32 @main
 func main() -> i32 {
   // CHECK-DAG: store ptr @foo, ptr %alloc
   let x: func*() -> i32 = &foo;
-  let ptr: func**() -> i32= &x;
+  let ptr: func**() -> i32 = &x;
 
-  let array: func*[3]() -> i32 = { &foo, &foo, &foo };
+  let array: func*[3]() -> i32 = [ &foo, &foo, &foo ];
 
   let y = Foo {
     bar = array[1],

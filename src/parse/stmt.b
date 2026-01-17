@@ -9,6 +9,7 @@ func addTrailingCommentsStmt(state: ParseState*, stmt: StmtAST*) {
   let comments = getLineComments(state, stmt->endLocation->line);
   if (comments == null) {
     return;
+    // opt: appendComments will work with a null arg, but this is faster.
   }
 
   stmt->comments = appendComments(stmt->comments, comments);

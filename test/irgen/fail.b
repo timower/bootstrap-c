@@ -16,6 +16,10 @@
 // RUN: not %bootstrap %t/const_addr.b 2>&1 | grep "TODO"
 // RUN: not %bootstrap %t/const_struct.b 2>&1 | grep "TODO"
 //
+// RUN: not %bootstrap -debug %t/break.b 2>&1 | FileCheck %s
+// CHECK: Break outside loop
+// CHECK-NOT: End irgen
+//
 //--- no-const.b
 let x = 12;
 

@@ -38,7 +38,7 @@ func test1() -> i32 {
 
 func test3(x: i32[3]*) -> i32 {
   let slice = x[:1];
-  return slice[0];
+  return slice.len as i32;
 }
 
 func useSlice[T](slice: [T]) -> [T] {

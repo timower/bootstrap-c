@@ -48,7 +48,7 @@
 // RUN: not %bootstrap %t/bin_types1.b 2>&1 | grep "Binary op on different types"
 // RUN: not %bootstrap %t/bin_types2.b 2>&1 | grep "Only integers"
 // RUN: not %bootstrap %t/bin_types3.b 2>&1 | grep "Unsupported type for compare"
-// RUN: not %bootstrap %t/bin_types4.b 2>&1 | grep "type mismatch"
+// RUN: not %bootstrap %t/bin_types4.b 2>&1 | grep "Binary op on different types"
 // RUN: not %bootstrap %t/wrong_assign.b 2>&1 | grep "Assign doesn't match"
 //
 // RUN: not %bootstrap %t/type_redef.b 2>&1 | grep "Type redef"
@@ -63,12 +63,14 @@
 // RUN: not %bootstrap %t/not_generic1.b 2>&1 | grep "Expected generic function type"
 // RUN: not %bootstrap %t/not_generic2.b 2>&1 | grep "Expected function declaration"
 //
-// RUN: not %bootstrap %t/no_init.b 2>&1 | grep "Let expression must have an init"
+// RUN: not %bootstrap %t/no_init1.b 2>&1 | grep "Let expression must have an init"
+// RUN: not %bootstrap %t/no_init2.b 2>&1 | grep "Const expression must have an init"
 //
 // RUN: not %bootstrap %t/no_union.b 2>&1 | grep "Expected union type"
 // RUN: not %bootstrap %t/wrong_slice.b 2>&1 | grep "Expected slice or array"
 // RUN: not %bootstrap %t/arg_type.b 2>&1 | grep "Arg type mismatch"
 // RUN: not %bootstrap %t/if_let.b 2>&1 | grep "Expected bool"
+// RUN: not %bootstrap %t/if_not_let.b 2>&1 | grep "Expected bool"
 //
 // RUN: not %bootstrap %t/const_assign.b 2>&1 | grep "Assign expression not supported"
 //
@@ -82,6 +84,8 @@
 // RUN: not %bootstrap %t/uninst_generic.b 2>&1 | grep "Uninstantiated generic expression"
 //
 // RUN: not %bootstrap %t/unsized.b 2>&1 | grep "Decl with unsized type must have init"
+// RUN: not %bootstrap %t/not_bool.b 2>&1 | grep "Expected bool"
+// RUN: not %bootstrap %t/consistent_type.b 2>&1 | grep "Init must have consistent type"
 //
 //--- var.b
 let x = y;
@@ -123,7 +127,7 @@ func a(x: [i8]) -> i32 {
 
 //--- only_len2.b
 func a(x: i8[2]) -> i32 {
-  return x.foobar;
+  return x.lenbar;
 }
 
 
@@ -372,9 +376,15 @@ let x = A {};
 let y = x.a;
 
 
-//--- no_init.b
+//--- no_init1.b
 func foo() {
   let x: i32;
+}
+
+
+//--- no_init2.b
+func foo() {
+  const x: i32;
 }
 
 
@@ -401,6 +411,15 @@ func bar() {
 //--- if_let.b
 func foo() -> i32 {
   if (let x = 12) {
+    return x;
+  }
+  return 0;
+}
+
+
+//--- if_not_let.b
+func foo() -> i32 {
+  if (null) {
     return x;
   }
   return 0;
@@ -460,3 +479,11 @@ func a() {
 
 //--- unsized.b
 let x: [i32[]]*;
+
+
+//--- not_bool.b
+let x = !12;
+
+
+//--- consistent_type.b
+let x = [ 1 as i32, 2 as u32 ];

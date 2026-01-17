@@ -12,6 +12,7 @@
 //
 // RUN: not %bootstrap %t/invalid_hex1.b 2>&1 | grep "Expected: ;"
 // RUN: not %bootstrap %t/invalid_hex2.b 2>&1 | grep "Expected: ;"
+// RUN: not %bootstrap %t/invalid_hex3.b 2>&1 | grep "Expected: ;"
 // RUN: not %bootstrap %t/invalid_int.b 2>&1 | grep "Invalid integer"
 //
 // RUN: not %bootstrap %t/unknown_decl.b 2>&1 | grep "Unknown declaration"
@@ -20,6 +21,8 @@
 // RUN: not %bootstrap %t/no_size.b 2>&1 | grep "Expected"
 //
 // RUN: echo -n '#foo' | not %bootstrap - 2>&1 | grep 'Failed to parse file'
+// RUN: echo 'const x = 2#/1;' | not %bootstrap - 2>&1 | grep 'Unknown token'
+
 //
 //--- unknown.b
 func foo() {
@@ -56,6 +59,9 @@ let x = 0xABCDEFG;
 
 //--- invalid_hex2.b
 let x = 0xabcdefg;
+
+//--- invalid_hex3.b
+let x = 1xabcdefg;
 
 //--- invalid_int.b
 let x = 12b34;

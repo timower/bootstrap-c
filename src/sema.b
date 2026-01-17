@@ -8,6 +8,8 @@ import sema.expr;
 import sema.decl;
 import sema.lsp;
 
+import debug;
+
 func addTaggedType(state: SemaState*, decl: DeclAST*) {
   switch (decl->kind) {
     case DeclKind::Struct, DeclKind::Enum, DeclKind::Union:
@@ -110,7 +112,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   let cacheKey: i8* = malloc(512);
   let rootFile = strdup(decl->location->fileName);
   let rootDir = dirname(rootFile);
-  sprintf(cacheKey, "%s:%.*s", rootDir, name.data.len, &name.data[0]);
+  sprintf(cacheKey, "%s/%.*s", rootDir, name.data.len, &name.data[0]);
 
   // Check cache first for the resolved absolute path
   let cachedAbsPath = findCachedPath(state, cacheKey);
@@ -118,6 +120,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   let relPath: i8* = null;
 
   if (cachedAbsPath != null) {
+    debug("realpath cache hit!");
     absPath = cachedAbsPath;
     relPath = cachedAbsPath;    // Use absolute path for parsing too
   } else {

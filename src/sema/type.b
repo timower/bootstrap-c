@@ -154,9 +154,10 @@ func getStructDeclSize(state: SemaState*, decl: DeclAST*, parents: DeclList*) ->
 
   let newParents = newDeclList(decl);
   newParents->next = parents;
+  let structKind = decl->kind as DeclKind::Struct*;
 
   let size = 0;
-  for (let field = (&decl->kind as DeclKind::Struct*)->fields; field != null; field = field->next) {
+  for (let field = structKind->fields; field != null; field = field->next) {
     size += getSize(state, field->type, newParents);
   }
   return size == 0 ? 1 : size;

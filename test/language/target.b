@@ -9,6 +9,9 @@
 //
 // RUN: %bootstrap %t/bar.b -target darwin | grep 'arm64-apple-darwin'
 // RUN: %bootstrap %t/bar.b -target windows | grep 'x86_64-w64-mingw32'
+//
+// RUN: not %bootstrap %s -target arm64-apple-darwi 2>&1 | grep 'Failed to parse platform'
+//
 //--- bar.b
 import foo;
 

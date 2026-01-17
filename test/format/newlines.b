@@ -1,10 +1,10 @@
 // RUN: split-file %s %t
-// RUN: printf 'let x = 12;\nfunc foo() {}\n' | %bootstrap -format - | diff %t/mixed_kinds.b -
-// RUN: printf 'let x = 12;\nlet y = 13;\n' | %bootstrap -format - | diff %t/same_kinds.b -
-// RUN: printf 'import a;\nimport b;\nimport c;\n' | %bootstrap -format - | diff %t/imports.b -
+// RUN: printf 'import bar;\nfunc foo() {}\n' | %bootstrap -format - | cmp %t/mixed_kinds.b -
+// RUN: printf 'let x = 12;\nlet y = 13;\n' | %bootstrap -format - | cmp %t/same_kinds.b -
+// RUN: printf 'import a;\nimport b;\nimport c;\n\n\n\nimport d;\n\nimport e;' | %bootstrap -format - | cmp %t/imports.b -
 //
 //--- mixed_kinds.b
-let x = 12;
+import bar;
 
 func foo() {
 
@@ -17,3 +17,8 @@ let y = 13;
 import a;
 import b;
 import c;
+
+
+import d;
+
+import e;
