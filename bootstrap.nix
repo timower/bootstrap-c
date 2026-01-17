@@ -17,6 +17,7 @@
   go,
   tree-sitter,
   nodejs,
+  python3Packages,
 
   binutils,
 }:
@@ -34,6 +35,10 @@ let
       "${binutils}"/bin/ar r "$out"/lib/libgcc_eh.a
     '';
   };
+
+  lit-with-psutil = lit.overrideAttrs (old: {
+    propagatedBuildInputs = old.propagatedBuildInputs ++ [ python3Packages.psutil ];
+  });
 in
 llvmPackages_19.stdenv.mkDerivation {
   pname = "bootstrap";
@@ -59,8 +64,9 @@ llvmPackages_19.stdenv.mkDerivation {
       pkgsCross.armv7l-hf-multiplatform.buildPackages.gcc
     ]
     ++ [
-      lit
+      lit-with-psutil
       llvmPackages_19.clang
+      llvmPackages_19.lld
       tree-sitter
       nodejs
     ];

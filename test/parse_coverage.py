@@ -8,12 +8,8 @@ from dataclasses import dataclass
 
 import argparse
 import sys
-import re
 
-# group 1: BB name, group 2: Index, group 3: Count (opt)
-BB_REGEX = re.compile(r"BB: (\S*)  Index=(\d+)(?:  Count=(\d+))?")
-# group 1: from Index, group 2: to Index, group 3: Count
-EDGE_REGEX = re.compile(r"Edge \d+: (\d+)-->(\d+).*Count=(\d+)")
+from utils import BB_REGEX, EDGE_REGEX, get_unreachables
 
 
 @dataclass
@@ -172,26 +168,7 @@ def parse_coverage_file(filepath, unreachables, debug):
 def parse_unreachables(file):
     with open(file, "r") as f:
         lines = f.readlines()
-
-    unreachable = re.compile(r" *unreachable| *call void @unreachable\(")
-    setjmp = re.compile(r".*call i32 @setjmp\(")
-    label = re.compile(r"([^ ]+):")
-    func = re.compile(r"define .* @(.*)\(")
-
-    unreachables = {}
-
-    currentFunc = None
-    currentLabel = None
-    for line in lines:
-        if match := label.match(line):
-            currentLabel = match.group(1)
-        if match := func.match(line):
-            currentFunc = match.group(1)
-            unreachables[currentFunc] = set()
-        if unreachable.match(line) or setjmp.match(line):
-            unreachables[currentFunc].add(currentLabel)
-
-    return unreachables
+    return get_unreachables(lines)
 
 
 def main(args):
@@ -199,6 +176,7 @@ def main(args):
     ir_file = args.ir_file
 
     unreachables = parse_unreachables(ir_file)
+    print(f"Found {sum(len(bbs) for bbs in unreachables.values())} unreachables")
     functions = parse_coverage_file(coverage_file, unreachables, args.debug)
     if args.debug is not None:
         return
@@ -235,9 +213,9 @@ def main(args):
         f"Edge Coverage: {edge_coverage:.2f}% ({total_covered_edges}/{total_edges} edges)"
     )
 
-    # Exit with error if coverage is below 90%
-    if round(overall_coverage, 1) < 90.0:
-        print(f"Error: Coverage {overall_coverage:.2f}% is below required 90%")
+    # Exit with error if coverage is below 100%
+    if total_covered_edges != total_edges or total_non_zero != total_blocks:
+        print(f"Error: Coverage {overall_coverage:.2f}% is below required 100%")
         sys.exit(1)
 
 

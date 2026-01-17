@@ -1,7 +1,11 @@
 // RUN: %bootstrap -format %s -o %t
 // RUN: diff %t %s
+//
+// RUN: printf '\n\n' >> %t
+// RUN: not diff %t %s
 // RUN: %bootstrap -format -i %t
 // RUN: diff %t %s
+//
 // RUN: cat %s | %bootstrap -format - -o %t
 // RUN: diff %t %s
 import a.b;

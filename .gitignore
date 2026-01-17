@@ -14,3 +14,4 @@ mutated
 /bootstrap-lsp/bootstrap-lsp
 __pycache__/
 /corpus
+test/.inverted_test_times.txt

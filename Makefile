@@ -34,8 +34,6 @@ PARENT_STAGE ?= $(CACHE_DIR)/stage-$(PARENT_COMMMIT)
 ALL_SRC = $(shell find src/ -type f -name '*.b')
 LSP_SRC = $(shell find bootstrap-lsp/ -type f -name '*.go')
 
-XFAIL_TESTS = $(shell find test/ -name "*.b" | sed 's/^test\///' | tr '\n' ';')
-
 # We call the bootstrap compiler on the first source file.
 MAIN_SRC = src/bootstrap.b
 OBJ = $(BUILD_DIR)/bootstrap.o
@@ -56,13 +54,11 @@ bootstrap: $(OBJ) ## Build the bootstrap compiler
 self: bootstrap ## Compile the compiler with itself (verification)
 	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC)
 
-mutated: $(BUILD_DIR)/mutated.o ## Build mutated version for testing
-	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
 bootstrap-coverage: bootstrap ## Build bootstrap with coverage instrumentation
 	./bootstrap $(BOOTSTRAP_FLAGS) $(MAIN_SRC) | \
 		sed 's/declare void @exit(i32 %arg0)/declare void @exit(i32 %arg0) noreturn/' | \
-	  opt -S -p 'function-attrs,function(simplifycfg)' -o $(BUILD_DIR)/coverage.ll
+	  opt -S -p 'function-attrs,function(simplifycfg,instcombine<no-verify-fixpoint>,simplifycfg)' -o $(BUILD_DIR)/coverage.ll
 	opt -S $(BUILD_DIR)/coverage.ll -p pgo-instr-gen,instrprof | \
 	  clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
 
@@ -77,17 +73,17 @@ lit: bootstrap ## Run LLVM lit tests with current bootstrap compiler
 .PHONY: lit-stage%
 lit-stage%: stage%
 	rm -rf test/**/Output
-	env BOOTSTRAP=$< lit -v test/
+	lit -DBOOTSTRAP=$< -v test/
 
 .PHONY: lit-mutate
-lit-mutate: mutated ## Run lit tests with mutated compiler (expect failures)
+lit-mutate: bootstrap-coverage ## Run lit tests with mutated compiler
 	rm -rf test/**/Output
-	env BOOTSTRAP=mutated lit --xfail="$(XFAIL_TESTS)" -v test/
+	python3 ./test/mutation_test.py $(BUILD_DIR)/coverage.ll
 
 .PHONY: lit-coverage
 lit-coverage: bootstrap-coverage ## Run tests with coverage analysis
 	rm -f $(BUILD_DIR)/coverage/*
-	env BOOTSTRAP=$< lit -v test/
+	lit -DBOOTSTRAP=$< -v test/
 	llvm-profdata merge -o $(BUILD_DIR)/coverage/merged.profdata $(BUILD_DIR)/coverage
 	opt -p pgo-instr-use -o /dev/null $(BUILD_DIR)/coverage.ll \
 		-pgo-test-profile-file=$(BUILD_DIR)/coverage/merged.profdata \
