@@ -5,6 +5,6 @@ func foo() {
 
 func bar() {
   // CHECK: call void @foo
-  // CHECK-NEXT: ret void
+  // CHECK: ret void
   return foo();
 }

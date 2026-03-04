@@ -6,6 +6,10 @@ struct IRGenState {
   curFunc: Function*;
   curBB: BasicBlock*;
 
+  // Set per function on first defer.
+  cleanupSlot: Value;
+  cleanupCounter: i32;
+
   // Used for basic blocks.
   globalCounter: i32;
 
@@ -19,10 +23,28 @@ struct IRGenState {
   jmpBuf: JmpBuf*;
 }
 
+struct Cleanup {
+  bb: BasicBlock*;
+  stmt: StmtAST*;
+  cases: Case*;
+
+  next: Cleanup*;
+}
+
+struct JmpSlot {
+  bb: BasicBlock*;
+
+  // Scope this will jump to. Cleanups up to but not including are executed.
+  scope: Scope*;
+}
+
 struct Scope {
   locals: Local*;
-  breakBB: BasicBlock*;
-  continueBB: BasicBlock*;
+
+  breakSlot: JmpSlot;
+  continueSlot: JmpSlot;
+
+  cleanups: Cleanup*;
 
   parent: Scope*;
 }
@@ -47,16 +69,13 @@ func failIRGen(state: IRGenState*, msg: i8*) {
 func newScope(state: IRGenState*) {
   let scope = calloc(1, sizeof(struct Scope)) as Scope*;
   if (state->scope != null) {
-    scope->breakBB = state->scope->breakBB;
-    scope->continueBB = state->scope->continueBB;
+    scope->breakSlot = state->scope->breakSlot;
+    scope->continueSlot = state->scope->continueSlot;
   }
   scope->parent = state->scope;
   state->scope = scope;
 }
 
-func popScope(state: IRGenState*) {
-  state->scope = state->scope->parent;
-}
 
 func addLocal(state: IRGenState*, name: Token, value: Value) {
   let local = calloc(1, sizeof(struct Local)) as Local*;
@@ -82,6 +101,7 @@ func addAlloca(state: IRGenState*, type: Type*) -> Value {
   let res = calloc(1, sizeof(struct Alloca)) as Alloca*;
   res->name = state->counter++;
   res->type = type;
+  res->dbgName = "alloc";
 
   res->next = state->curFunc->allocs;
   state->curFunc->allocs = res;

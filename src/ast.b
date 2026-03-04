@@ -269,6 +269,9 @@ union StmtKind {
   Default {
     body: StmtAST*;
   }
+  Defer {
+    stmt: StmtAST*;
+  }
 }
 
 struct StmtAST {

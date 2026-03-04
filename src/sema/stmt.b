@@ -303,6 +303,10 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
 
       semaStmt(&subState, forStmt.body);
 
+    case StmtKind::Defer as deferStmt:
+      let subState = newState(state);
+      semaStmt(&subState, deferStmt.stmt);
+
     case StmtKind::Switch as switchStmt:
       semaSwitchStmt(state, stmt);
 

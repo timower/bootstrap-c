@@ -157,8 +157,14 @@ func _getName(value: Value) -> [i8] {
       return g.ptr->name;
 
     case Value::AllocaPtr as a:
-      let buf = malloc(32) as i8*;
-      let len = sprintf(buf, "%%alloc%d", a.ptr->name);
+      let nameLen = a.ptr->dbgName.len;
+      let buf = malloc(32 + nameLen as uptr) as i8*;
+      let len = sprintf(
+          buf,
+          "%%%.*s.%d",
+          nameLen,
+          &a.ptr->dbgName[0],
+          a.ptr->name);
       return buf[:len];
 
     case Value::Argument as a:
@@ -174,7 +180,7 @@ func _getName(value: Value) -> [i8] {
         return "zeroinitializer";
       }
       switch (z.type->kind) {
-        case TypeKind::Int:
+        case TypeKind::Int, TypeKind::Enum:
           return "0";
         case TypeKind::Bool:
           return "false";

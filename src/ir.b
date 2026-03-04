@@ -39,6 +39,8 @@ struct Alloca {
   name: i32;
   type: Type*;
 
+  dbgName: [i8];
+
   next: Alloca*;
 }
 

@@ -327,6 +327,10 @@ func monomorphizeStmt(stmt: StmtAST*, typeMap: TypeMap*) -> StmtAST* {
         cond = monomorphizeExpr(w.cond, typeMap),
         body = monomorphizeStmt(w.body, typeMap),
       };
+    case StmtKind::Defer as d:
+      resultKind = StmtKind::Defer {
+        stmt = monomorphizeStmt(d.stmt, typeMap),
+      };
 
     case StmtKind::Switch as s:
       resultKind = StmtKind::Switch {

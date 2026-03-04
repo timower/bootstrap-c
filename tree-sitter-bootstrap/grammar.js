@@ -160,6 +160,7 @@ module.exports = grammar({
       $.while_statement,
       $.break_statement,
       $.continue_statement,
+      $.defer_statement,
     ),
 
     for_statement: $ => seq(
@@ -207,6 +208,8 @@ module.exports = grammar({
       ':',
       repeat1($.statement),
     ),
+
+    defer_statement: $ => seq('defer', $.statement),
 
     case_statement: $ => seq(
       'case',

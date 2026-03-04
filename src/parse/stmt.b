@@ -319,5 +319,16 @@ func parseStmt(state: ParseState*) -> StmtAST* {
     return stmt;
   }
 
+  if (match(state, TokenKind::DEFER)) {
+    let loc = getNextToken(state).location;
+    let stmt = newStmt(StmtKind::Defer {
+      stmt = parseStmt(state),
+    });
+    stmt->location = loc;
+    stmt->endLocation = state->curToken.location;
+
+    return stmt;
+  }
+
   return parseExprStmt(state);
 }

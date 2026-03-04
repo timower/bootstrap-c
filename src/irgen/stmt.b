@@ -8,6 +8,7 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
 
   newScope(state);
 
+  state->cleanupSlot = Value::Zero {};
   state->curFunc = fn;
   state->curBB = addBasicBlock(state, "entry", decl->location);
 
@@ -26,6 +27,7 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
   }
 
   genStmt(state, (&decl->kind as DeclKind::Func*)->body);
+  popScope(state);
 
   let fnType = fn->type->kind as TypeKind::Func*;
   if (fnType->result->kind as TypeKind::Void* != null) {
@@ -43,9 +45,111 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
       },
     });
   }
-
-  popScope(state);
 }
+
+func hasCleanup(state: IRGenState*) -> bool {
+  return state->cleanupSlot as Value::Zero* == null;
+}
+
+func addCleanup(state: IRGenState*, deferStmt: StmtAST*) {
+  let res = calloc(1, sizeof(struct Cleanup)) as Cleanup*;
+  res->bb = addBasicBlock(state, "cleanup", deferStmt->location);
+  res->stmt = deferStmt;
+  res->next = state->scope->cleanups;
+  state->scope->cleanups = res;
+
+  if (!hasCleanup(state)) {
+    let val = addAlloca(state, getInt32());
+
+    let alloc = val as Value::AllocaPtr*;
+    alloc->ptr->dbgName = "cleanupslot";
+
+    state->cleanupSlot = val;
+  }
+}
+
+
+func genCleanup(state: IRGenState*) {
+  for (let cleanup = state->scope->cleanups;
+       cleanup != null; cleanup = cleanup->next) {
+    state->curBB = cleanup->bb;
+    genStmt(state, cleanup->stmt);
+
+    let v = addInstr(state, getInt32(), InstrKind::Load {
+      ptr = state->cleanupSlot,
+    });
+
+    addInstr(state, null, InstrKind::Switch {
+      cond = v,
+      defaultBB = state->curBB,
+      cases = cleanup->cases,
+    });
+  }
+}
+
+func popScope(state: IRGenState*) {
+  if (state->scope->cleanups != null) {
+    let targetBB = addBasicBlock(state, "cont", state->curBB->location);
+    genBranch(state, JmpSlot {
+      bb = targetBB,
+      scope = state->scope->parent,
+    });
+
+    genCleanup(state);
+    state->curBB = targetBB;
+  }
+
+  state->scope = state->scope->parent;
+}
+
+func genBranch(state: IRGenState*, target: JmpSlot) {
+  let firstCleanup: BasicBlock* = null;
+  let lastCleanup: Cleanup* = null;
+
+  let cleanupId = state->cleanupCounter;
+  let cleanupVal = Value::IntConstant {
+    value = cleanupId,
+    type = getInt32(),
+  };
+
+  for (let scope = state->scope; scope != target.scope; scope = scope->parent) {
+    for (let cleanup = scope->cleanups; cleanup != null; cleanup = cleanup->next) {
+      if (firstCleanup == null) {
+        firstCleanup = cleanup->bb;
+      }
+
+      if (lastCleanup != null) {
+        let newCase = newCase(lastCleanup->cases, cleanup->bb);
+        newCase->val = cleanupVal;
+        lastCleanup->cases = newCase;
+      }
+
+      lastCleanup = cleanup;
+    }
+  }
+
+  if (lastCleanup != null) {
+    let newCase = newCase(lastCleanup->cases, target.bb);
+    newCase->val = cleanupVal;
+    lastCleanup->cases = newCase;
+  }
+
+  if (firstCleanup == null) {
+    addInstr(state, null, InstrKind::Branch {
+      bb = target.bb,
+    });
+  } else {
+    addInstr(state, null, InstrKind::Store {
+      ptr = state->cleanupSlot,
+      val = cleanupVal,
+    });
+    addInstr(state, null, InstrKind::Branch {
+      bb = firstCleanup,
+    });
+    state->cleanupCounter++;
+  }
+}
+
 
 func genStmt(state: IRGenState*, stmt: StmtAST*) {
   switch (stmt->kind) {
@@ -59,13 +163,26 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       for (let cur = compStmt.stmt; cur != null; cur = cur->next) {
         genStmt(state, cur);
       }
+
       popScope(state);
 
     case StmtKind::Return as retStmt:
+      if (hasCleanup(state)) {
+        let retBB = addBasicBlock(state, "ret", stmt->location);
+        genBranch(state, JmpSlot {
+          bb = retBB,
+          scope = null,
+        });
+
+        state->curBB = retBB;
+      }
+
+      // TODO: single return BB?
       if (retStmt.expr == null) {
         addInstr(state, null, InstrKind::ReturnVoid {});
         return;
       }
+
       let v = genExpr(state, retStmt.expr);
       if (&retStmt.expr->type->kind as TypeKind::Void* != null) {
         addInstr(state, null, InstrKind::ReturnVoid {});
@@ -97,14 +214,18 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       });
 
       state->curBB = trueBB;
+      newScope(state);
       genStmt(state, ifStmt.thenStmt);
+      popScope(state);
       addInstr(state, null, InstrKind::Branch {
         bb = contBB,
       });
 
       if (falseBB != null) {
         state->curBB = falseBB;
+        newScope(state);
         genStmt(state, ifStmt.elseStmt);
+        popScope(state);
         addInstr(state, null, InstrKind::Branch {
           bb = contBB,
         });
@@ -128,18 +249,25 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
         falseBB = contBB,
       });
 
+      let oldScope = state->scope;
       newScope(state);
       state->curBB = bodyBB;
-      state->scope->breakBB = contBB;
-      state->scope->continueBB = condBB;
+      state->scope->breakSlot = JmpSlot {
+        bb = contBB,
+        scope = oldScope,
+      };
+      state->scope->continueSlot = JmpSlot {
+        bb = condBB,
+        scope = oldScope,
+      };
 
       genStmt(state, whileStmt.body);
+      popScope(state);
 
       addInstr(state, null, InstrKind::Branch {
         bb = condBB,
       });
 
-      popScope(state);
       state->curBB = contBB;
 
     case StmtKind::For as forStmt:
@@ -168,10 +296,17 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       });
 
       // Set up new scope for the loop body
+      let oldScope = state->scope;
       newScope(state);
       state->curBB = bodyBB;
-      state->scope->breakBB = contBB;
-      state->scope->continueBB = incrBB;
+      state->scope->breakSlot = JmpSlot {
+        bb = contBB,
+        scope = oldScope,
+      };
+      state->scope->continueSlot = JmpSlot {
+        bb = incrBB,
+        scope = oldScope,
+      };
 
       // Generate the loop body
       genStmt(state, forStmt.body);
@@ -185,30 +320,38 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       state->curBB = incrBB;
       genExpr(state, forStmt.update);
 
+      // Clean up
+      popScope(state);
+
       // Branch back to condition
       addInstr(state, null, InstrKind::Branch {
         bb = condBB,
       });
 
-      // Clean up
-      popScope(state);
       state->curBB = contBB;
 
+    case StmtKind::Defer as d:
+      addCleanup(state, d.stmt);
+
     case StmtKind::Break:
-      if (state->scope->breakBB == null) {
+      if (state->scope->breakSlot.bb == null) {
         failIRGen(state, "Break outside loop");
       }
-      addInstr(state, null, InstrKind::Branch {
-        bb = state->scope->breakBB,
-      });
+
+      //addInstr(state, null, InstrKind::Branch {
+      //  bb = state->scope->breakBB,
+      //});
+      genBranch(state, state->scope->breakSlot);
 
     case StmtKind::Continue:
-      if (state->scope->continueBB == null) {
+      if (state->scope->continueSlot.bb == null) {
         failIRGen(state, "Continue outside loop");
       }
-      addInstr(state, null, InstrKind::Branch {
-        bb = state->scope->continueBB,
-      });
+
+      // addInstr(state, null, InstrKind::Branch {
+      //   bb = state->scope->continueBB,
+      // });
+      genBranch(state, state->scope->continueSlot);
 
     case StmtKind::Switch:
       genSwitch(state, stmt);
@@ -288,8 +431,12 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
   let contBB = addBasicBlock(state, "switch.cont", stmt->endLocation);
 
   // Set up new scope for switch
+  let breakScope = state->scope;
   newScope(state);
-  state->scope->breakBB = contBB;
+  state->scope->breakSlot = JmpSlot {
+    bb = contBB,
+    scope = breakScope,
+  };
 
   let switchStmt = &stmt->kind as StmtKind::Switch*;
   let switchExpr = switchStmt->expr;

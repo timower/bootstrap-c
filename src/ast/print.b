@@ -501,6 +501,15 @@ func printStmtIndent(stmt: StmtAST*, indent: i32, breakCompound: bool) {
       printExprIndent(whileStmt.cond, indent);
       fprintf(printFile, ") ");
       printStmtIndent(whileStmt.body, indent, false);
+
+    case StmtKind::Defer as deferStmt:
+      printIndent(indent);
+      fprintf(printFile, "defer ");
+      if (deferStmt.stmt->kind as StmtKind::Compound* != null) {
+        printStmtIndent(deferStmt.stmt, indent, false);
+      } else {
+        printStmtIndent(deferStmt.stmt, 0, false);
+      }
   }
 
   printComments(trailing, indent, 0);

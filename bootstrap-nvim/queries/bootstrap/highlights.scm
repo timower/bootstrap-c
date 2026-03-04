@@ -1,6 +1,7 @@
 [
  "func"
  "let"
+ "defer"
 ] @keyword
 
 "return" @keyword.return
