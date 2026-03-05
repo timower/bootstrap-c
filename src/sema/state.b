@@ -10,12 +10,6 @@ struct ImportList {
   next: ImportList*;
 }
 
-struct PathCache {
-  importName: i8*;
-  resolvedPath: i8*;
-  next: PathCache*;
-}
-
 
 struct SemaState {
   target: Target;
@@ -44,9 +38,6 @@ struct SemaState {
 
   // List of files imported.
   imports: ImportList*;
-
-  // Cache of loaded paths to reduce realpath use.
-  pathCache: PathCache*;
 
   // Set to true to give LSP related output during sema.
   semaLspMode: bool;

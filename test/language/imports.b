@@ -1,8 +1,7 @@
 // RUN: rm -rf %t
 // RUN: split-file %s %t
 ///
-// RUN: %bootstrap -o %t.ll -debug  %t/main.b 2>&1 | FileCheck --check-prefix=DBG %s
-// DBG: DEBUG: realpath cache hit!
+// RUN: %bootstrap -o %t.ll -debug  %t/main.b
 //
 // RUN: lli %t.ll
 // RUN: FileCheck %s --input-file=%t.ll
