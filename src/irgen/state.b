@@ -3,6 +3,12 @@ import ir;
 struct IRGenState {
   module: Module*;
 
+  // Allocator for anything that will be returned as IR.
+  irAlloc: Allocator*;
+
+  // Allocator for local things (scopes, locals, ...).
+  localAlloc: Allocator*;
+
   curFunc: Function*;
   curBB: BasicBlock*;
 
@@ -67,7 +73,7 @@ func failIRGen(state: IRGenState*, msg: i8*) {
 }
 
 func newScope(state: IRGenState*) {
-  let scope = calloc(1, sizeof(struct Scope)) as Scope*;
+  let scope = alloc(state->localAlloc, sizeof(struct Scope)) as Scope*;
   if (state->scope != null) {
     scope->breakSlot = state->scope->breakSlot;
     scope->continueSlot = state->scope->continueSlot;
@@ -78,7 +84,7 @@ func newScope(state: IRGenState*) {
 
 
 func addLocal(state: IRGenState*, name: Token, value: Value) {
-  let local = calloc(1, sizeof(struct Local)) as Local*;
+  let local = alloc(state->localAlloc, sizeof(struct Local)) as Local*;
   local->name = name;
   local->value = value;
   local->next = state->scope->locals;
@@ -98,7 +104,7 @@ func findName(state: IRGenState*, name: Token) -> Value* {
 }
 
 func addAlloca(state: IRGenState*, type: Type*) -> Value {
-  let res = calloc(1, sizeof(struct Alloca)) as Alloca*;
+  let res = alloc(state->irAlloc, sizeof(struct Alloca)) as Alloca*;
   res->name = state->counter++;
   res->type = type;
   res->dbgName = "alloc";
@@ -117,7 +123,7 @@ func addBasicBlock(
     sourceLoc: SourceLoc*
 ) -> BasicBlock* {
   let fn = state->curFunc;
-  let res = calloc(1, sizeof(struct BasicBlock)) as BasicBlock*;
+  let res = alloc(state->irAlloc, sizeof(struct BasicBlock)) as BasicBlock*;
   res->label = label;
   res->name = state->globalCounter++;
   res->location = sourceLoc;
@@ -133,14 +139,14 @@ func addBasicBlock(
   return res;
 }
 
-func newInstr(kind: InstrKind) -> Instruction* {
-  let res = calloc(1, sizeof(struct Instruction)) as Instruction*;
+func newInstr(state: IRGenState*, kind: InstrKind) -> Instruction* {
+  let res = alloc(state->irAlloc, sizeof(struct Instruction)) as Instruction*;
   res->kind = kind;
   return res;
 }
 
 func addInstr(state: IRGenState*, type: Type*, kind: InstrKind) -> Value {
-  let res = newInstr(kind);
+  let res = newInstr(state, kind);
   res->type = type;
   res->name = state->counter++;
 

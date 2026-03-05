@@ -6,11 +6,22 @@ import irgen.state;
 import irgen.expr;
 import irgen.stmt;
 
-func genModule(decls: DeclAST*, target: Target) -> Module* {
-  let state = IRGenState {};
-  state.module = calloc(1, sizeof(Module)) as Module*;
+func genModule(
+    allocator: Allocator*,
+    decls: DeclAST*,
+    target: Target
+) -> Module* {
+  let localAlloc = Allocator {};
+  defer freeAll(&localAlloc);
+  let state = IRGenState {
+    irAlloc = allocator,
+    localAlloc = &localAlloc,
+  };
+
+  state.module = alloc(allocator, sizeof(Module)) as Module*;
 
   state.jmpBuf = newJmpBuf();
+  defer free(state.jmpBuf);
   if (setjmp(state.jmpBuf) != 0) {
     return null;
   }
@@ -66,16 +77,16 @@ func genModule(decls: DeclAST*, target: Target) -> Module* {
   return state.module;
 }
 
-func getDeclIRName(ident: [i8]) -> [i8] {
+func getDeclIRName(a: Allocator*, ident: [i8]) -> [i8] {
   let len = ident.len as i32;
-  let buf: i8* = malloc((len + 2) as uptr);
+  let buf: i8* = alloc(a, len + 2);
   len = sprintf(buf, "@%.*s", len, &ident[0]);
   return buf[:len];
 }
 
 func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
-  let global = newGlobal();
-  global->name = getDeclIRName(decl->name.data);
+  let global = newGlobal(state->irAlloc);
+  global->name = getDeclIRName(state->irAlloc, decl->name.data);
   global->type = decl->type;
 
   let varKind = &decl->kind as DeclKind::Var*;
@@ -98,8 +109,8 @@ func addGlobal(state: IRGenState*, decl: DeclAST*) -> Value {
 }
 
 func addFunc(state: IRGenState*, decl: DeclAST*) -> Value {
-  let fn = newFunction();
-  fn->name = getDeclIRName(decl->name.data);
+  let fn = newFunction(state->irAlloc);
+  fn->name = getDeclIRName(state->irAlloc, decl->name.data);
   fn->type = decl->type;
 
   fn->next = state->module->functions;
@@ -111,9 +122,9 @@ func addFunc(state: IRGenState*, decl: DeclAST*) -> Value {
 }
 
 func addStruct(state: IRGenState*, decl: DeclAST*) {
-  let irStruct = newIRStruct();
+  let irStruct = newIRStruct(state->irAlloc);
 
-  irStruct->name = convertType(decl->type);
+  irStruct->name = convertType(state->irAlloc, decl->type);
   let typePtr = &irStruct->fields;
   for (let field = (&decl->kind as DeclKind::Struct*)->fields; field != null; field = field->next) {
     *typePtr = field->type;
@@ -130,14 +141,14 @@ func addUnion(state: IRGenState*, decl: DeclAST*) {
     addStruct(state, tag->decl);
   }
 
-  let irStruct = newIRStruct();
+  let irStruct = newIRStruct(state->irAlloc);
 
-  irStruct->name = convertType(decl->type);
+  irStruct->name = convertType(state->irAlloc, decl->type);
 
   // Add type tag field
-  irStruct->fields = getInt32();
-  let tagBuffer = newType(TypeKind::Array {
-    element = getCharType(),
+  irStruct->fields = getInt32(state->irAlloc);
+  let tagBuffer = newType(state->irAlloc, TypeKind::Array {
+    element = getCharType(state->irAlloc),
     size = (&decl->kind as DeclKind::Union*)->maxSize,
   });
   irStruct->fields->next = tagBuffer;
@@ -148,15 +159,15 @@ func addUnion(state: IRGenState*, decl: DeclAST*) {
 
 func createIntrinsics(state: IRGenState*) {
   // memcpy
-  let args = getPtrType();
-  args->next = getPtrType();
-  args->next->next = getInt32();
-  args->next->next->next = getBool();
+  let args = getPtrType(state->irAlloc);
+  args->next = getPtrType(state->irAlloc);
+  args->next->next = getInt32(state->irAlloc);
+  args->next->next->next = getBool(state->irAlloc);
 
-  let fnCpy = newFunction();
+  let fnCpy = newFunction(state->irAlloc);
   fnCpy->name = "@llvm.memcpy.p0.p0.i32";
-  fnCpy->type = newType(TypeKind::Func {
-    result = newType(TypeKind::Void {}),
+  fnCpy->type = newType(state->irAlloc, TypeKind::Func {
+    result = newType(state->irAlloc, TypeKind::Void {}),
     args = args,
     isVarargs = false,
   });
@@ -165,10 +176,10 @@ func createIntrinsics(state: IRGenState*) {
   state->module->functions = fnCpy;
   state->intrinsics.memcpy = fnCpy;
 
-  let fnTrap = newFunction();
+  let fnTrap = newFunction(state->irAlloc);
   fnTrap->name = "@llvm.trap";
-  fnTrap->type = newType(TypeKind::Func {
-    result = newType(TypeKind::Void {}),
+  fnTrap->type = newType(state->irAlloc, TypeKind::Func {
+    result = newType(state->irAlloc, TypeKind::Void {}),
     isVarargs = false,
   });
 
@@ -177,12 +188,11 @@ func createIntrinsics(state: IRGenState*) {
   state->intrinsics.trap = fnTrap;
 
   // slice type
-  let irStruct = newIRStruct();
+  let irStruct = newIRStruct(state->irAlloc);
 
   irStruct->name = "%slice";
-  irStruct->fields = getPtrType();
-  irStruct->fields->next = getIPtr(&state->module->target);
-
+  irStruct->fields = getPtrType(state->irAlloc);
+  irStruct->fields->next = getIPtr(state->irAlloc, &state->module->target);
   irStruct->next = state->module->types;
   state->module->types = irStruct;
 }

@@ -92,7 +92,7 @@ func addLocalDecl(state: SemaState*, decl: DeclAST*) {
     fprintf(getStderr(), "decl: %p: %.*s\n", decl, name.data.len, &name.data[0]);
   }
 
-  let newLocal = newDeclList(decl);
+  let newLocal = newDeclList(&state->localAlloc, decl);
   newLocal->next = state->locals;
   state->locals = newLocal;
 }

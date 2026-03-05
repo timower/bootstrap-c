@@ -65,7 +65,8 @@
             ruff
           ];
           shellHook = ''
-            export ASAN_OPTIONS='detect_leaks=0'
+            export LDFLAGS='-fsanitize=address'
+            # export ASAN_OPTIONS='detect_leaks=0'
             # export PARENT_STAGE="${nixpkgs.lib.getExe parent-bootstrap}"
           '';
         };

@@ -11,7 +11,7 @@ import irgen;
 import ir.print;
 import cmdline;
 
-func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
+func getOutOrInplaceFileName(a: Allocator*, args: CommandLineArgs*) -> i8* {
   if (args->inPlace) {
     if (args->readFromStdin) {
       puts("Cannot use -i with stdin input");
@@ -24,7 +24,7 @@ func getOutOrInplaceFileName(args: CommandLineArgs*) -> i8* {
       return null;
     }
 
-    let tempFile = malloc((args->inputFile.len + 20) as uptr);
+    let tempFile = alloc(a, args->inputFile.len + 20);
     sprintf(tempFile, "%s.tmp.%d", args->inputFile, getpid());
     return tempFile;
   }
@@ -53,40 +53,48 @@ func main(argc: i32, argv: i8**) -> i32 {
   let args = parseOpts(argv[:argc]);
   printFile = getStdout();
 
+  let globalAlloc = Allocator {};
+  defer freeAll(&globalAlloc);
   let name: i8* = &args.inputFile[0];
-  let buf = args.readFromStdin ? readStdin() : readFile(name);
+  let buf = args.readFromStdin
+       ? readStdin(&globalAlloc) : readFile(&globalAlloc, name);
 
   if (&buf[0] == null) {
     puts("Failed to read input");
     return 1;
   }
 
-  let parseOpts = ParseOptions {
+  let parseState = ParseState {
     concrete = (args.mode == Mode::Format),
+    buf = buf,
+    fileName = name,
+    astAlloc = &globalAlloc,
   };
 
-  let decls = parseBufOpts(name, buf, parseOpts);
+  let decls = parse(&parseState);
   if (decls == null) {
     puts("Failed to parse file");
     return 1;
   }
 
   if (args.mode == Mode::Format) {
-    let outFileName = getOutOrInplaceFileName(&args);
+    let outFileName = getOutOrInplaceFileName(&globalAlloc, &args);
     printFile = getOutFile(outFileName);
     printTopLevel(decls);
     finishInPlace(&args, outFileName, printFile);
     return 0;
   }
 
-  let semaState = initSemaState(args.target, args.mode == Mode::SemaLsp);
-
-  debug("Begin sema");
-  decls = semaTopLevel(&semaState, decls);
-  if (decls == null) {
-    return 1;
+  {
+    let semaState = initSemaState(args.target, args.mode == Mode::SemaLsp, &globalAlloc);
+    defer freeSemaState(&semaState);
+    debug("Begin sema");
+    decls = semaTopLevel(&semaState, decls);
+    if (decls == null) {
+      return 1;
+    }
+    debug("End sema");
   }
-  debug("End sema");
 
   if (args.mode == Mode::SemaLsp) {
     return 0;
@@ -97,7 +105,7 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   debug("Begin irgen");
-  let module = genModule(decls, args.target);
+  let module = genModule(&globalAlloc, decls, args.target);
   if (module == null) {
     return 1;
   }
@@ -112,5 +120,6 @@ func main(argc: i32, argv: i8**) -> i32 {
     debug("Begin emit");
     emitAsm(module, args.target);
   }
+
   return 0;
 }

@@ -44,10 +44,9 @@ func parseSubStruct(state: ParseState*, decl: DeclAST*) {
   // (non)optional tag
   expect(state, TokenKind::IDENTIFIER);
 
-  decl->type = newType(TypeKind::Struct {
+  decl->type = newType(state->astAlloc, TypeKind::Struct {
     tag = getNextToken(state),
   });
-
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);  // eat {
 
@@ -94,10 +93,9 @@ func parseEnum(state: ParseState*) -> DeclAST* {
 
   expect(state, TokenKind::IDENTIFIER);
 
-  decl->type = newType(TypeKind::Enum {
+  decl->type = newType(state->astAlloc, TypeKind::Enum {
     tag = getNextToken(state),
   });
-
   expect(state, TokenKind::OPEN_BRACE);
   getNextToken(state);
 
@@ -109,7 +107,7 @@ func parseEnum(state: ParseState*) -> DeclAST* {
     expect(state, TokenKind::IDENTIFIER);
 
     let field = newLocDecl(state, DeclKind::EnumField {});
-    field->type = getInt32();
+    field->type = getInt32(state->astAlloc);
 
     field->name = getNextToken(state);
     (&field->kind as DeclKind::EnumField*)->enumValue = idx++;
@@ -145,7 +143,7 @@ func parseUnion(state: ParseState*) -> DeclAST* {
   getNextToken(state);  // eat 'union'
 
   expect(state, TokenKind::IDENTIFIER);
-  decl->type = newType(TypeKind::Union {
+  decl->type = newType(state->astAlloc, TypeKind::Union {
     tag = getNextToken(state),
   });
 
@@ -163,7 +161,7 @@ func parseUnion(state: ParseState*) -> DeclAST* {
     structType->parent = decl->type;
 
     // TODO: trailing comments?
-    let newList = newDeclList(tag);
+    let newList = newDeclList(state->astAlloc, tag);
     *declListPtr = newList;
     declListPtr = &newList->next;
   }
@@ -194,7 +192,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
     while (!match(state, TokenKind::CLOSE_BRACKET)) {
       expect(state, TokenKind::IDENTIFIER);
 
-      let param = newType(TypeKind::Tag {
+      let param = newType(state->astAlloc, TypeKind::Tag {
         tag = getNextToken(state),
         parent = Token {
           kind = TokenKind::TOK_EOF,
@@ -223,7 +221,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
     typeParams = firstParam;
   }
 
-  decl->type = newType(TypeKind::Func {});
+  decl->type = newType(state->astAlloc, TypeKind::Func {});
   let funcType = decl->type->kind as TypeKind::Func*;
   funcType->typeArgs = typeParams;
 
@@ -271,7 +269,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
     getNextToken(state);    // eat ->
     funcType->result = parseType(state, false);
   } else {
-    funcType->result = newType(TypeKind::Void {});
+    funcType->result = newType(state->astAlloc, TypeKind::Void {});
   }
 
   let funcKind = &decl->kind as DeclKind::Func*;
@@ -296,7 +294,7 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
   expect(state, TokenKind::IDENTIFIER);
 
   let ident = getNextToken(state);
-  let expr = newExpr(ExprKind::Variable {
+  let expr = newExpr(state->astAlloc, ExprKind::Variable {
     identifier = ident,
   });
 
@@ -304,7 +302,7 @@ func parseImportDecl(state: ParseState*) -> DeclAST* {
     let op = getNextToken(state);
     expect(state, TokenKind::IDENTIFIER);
     let identifier = getNextToken(state);
-    expr = newExpr(ExprKind::Member {
+    expr = newExpr(state->astAlloc, ExprKind::Member {
       object = expr,
       op = op,
       identifier = identifier,

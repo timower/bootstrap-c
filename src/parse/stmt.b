@@ -321,7 +321,7 @@ func parseStmt(state: ParseState*) -> StmtAST* {
 
   if (match(state, TokenKind::DEFER)) {
     let loc = getNextToken(state).location;
-    let stmt = newStmt(StmtKind::Defer {
+    let stmt = newStmt(state->astAlloc, StmtKind::Defer {
       stmt = parseStmt(state),
     });
     stmt->location = loc;

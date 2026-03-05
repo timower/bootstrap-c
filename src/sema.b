@@ -22,7 +22,7 @@ func addTaggedType(state: SemaState*, decl: DeclAST*) {
       }
 
       // Add the struct to the types.
-      let type = newDeclList(decl);
+      let type = newDeclList(&state->localAlloc, decl);
       type->next = state->types;
       state->types = type;
 
@@ -60,14 +60,15 @@ func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
   }
 }
 
-
-func getImportExprName(expr: ExprAST*) -> Token {
+func getImportExprName(state: SemaState*, expr: ExprAST*) -> Token {
   switch (expr->kind) {
     case ExprKind::Variable as varExpr:
       return varExpr.identifier;
     case ExprKind::Member as memberExpr:
-      let lhsToken = getImportExprName(memberExpr.object);
-      let res = newInternalToken((lhsToken.data.len + memberExpr.identifier.data.len + 10) as uptr);
+      let lhsToken = getImportExprName(state, memberExpr.object);
+      let res = newInternalToken(
+          &state->localAlloc,
+          (lhsToken.data.len + memberExpr.identifier.data.len + 10) as uptr);
       let len = sprintf(
           &res.data[0],
           "%.*s/%.*s",
@@ -90,14 +91,15 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
     unreachable("Import not allowed in local scope");
   }
 
-  let name = getImportExprName((&decl->kind as DeclKind::Import*)->path);
+  let name = getImportExprName(state, (&decl->kind as DeclKind::Import*)->path);
 
   // Create cache key from import name, target, and source directory
   let rootFile = strdup(decl->location->fileName);
+  defer free(rootFile);
   let rootDir = dirname(rootFile);
 
   // Not in cache, do full resolution
-  let relPath = malloc(4096);
+  let relPath = alloc(state->astAlloc, 4096);
   let lastLen = strlen(rootDir);
   while (true) {
     sprintf(relPath, "%s/%.*s.b", rootDir, name.data.len, &name.data[0]);
@@ -123,6 +125,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 
     // Check if 'rootDir' == '/'
     if (lastLen == newLen) {
+      free(rootFile);
       failSemaDecl(state, decl, "Couldn't find file");
       return;
     }
@@ -138,12 +141,19 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   }
 
   // Add to imports
-  let imports: ImportList* = calloc(1, sizeof(struct ImportList));
+  let imports: ImportList* = alloc(&state->localAlloc, sizeof(struct ImportList));
   imports->name = relPath;
   imports->next = state->imports;
   state->imports = imports;
 
-  let fileDecls = parseFile(relPath);
+  let fileBuf = readFile(state->astAlloc, relPath);
+  let parseState = ParseState {
+    buf = fileBuf,
+    fileName = relPath,
+    astAlloc = state->astAlloc,
+  };
+
+  let fileDecls = parse(&parseState);
   if (fileDecls == null) {
     failSemaDecl(state, decl, "Failed to import file");
   }
@@ -159,7 +169,11 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
 }
 
 func instantiateGeneric(state: SemaState*, generic: GenericInst*) {
-  let newFunc = monomorphize(generic->function, generic->typeMap, generic->name);
+  let newFunc = monomorphize(
+      state->astAlloc,
+      generic->function,
+      generic->typeMap,
+      generic->name);
 
   // printDecl(newFunc);
   resolveDeclTypeTags(state, newFunc);

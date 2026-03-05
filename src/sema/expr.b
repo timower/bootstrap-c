@@ -17,7 +17,7 @@ func doConvertBase(state: SemaState*, expr: ExprAST*, to: Type*, isConstStr: boo
     // Allow integer expression casting
     case TypeKind::Int as i:
       if (let intExpr = expr->kind as ExprKind::Int*) {
-        let res = newExpr(ExprKind::Int {
+        let res = newExpr(state->astAlloc, ExprKind::Int {
           value = intExpr->value,
           token = intExpr->token,
         });
@@ -34,7 +34,7 @@ func doConvertBase(state: SemaState*, expr: ExprAST*, to: Type*, isConstStr: boo
           break;
         }
 
-        let res = newExpr(ExprKind::Cast {
+        let res = newExpr(state->astAlloc, ExprKind::Cast {
           castKind = i.isSigned ? CastKind::Sext : CastKind::Zext,
           expr = expr,
         });
@@ -53,11 +53,11 @@ func doConvertBase(state: SemaState*, expr: ExprAST*, to: Type*, isConstStr: boo
         break;
       }
 
-      let sizeExpr = newExpr(ExprKind::Int {
+      let sizeExpr = newExpr(state->astAlloc, ExprKind::Int {
         value = fromArray->size,
       });
-      sizeExpr->type = getIPtr(&state->target);
-      let res = newExpr(ExprKind::SliceIndex {
+      sizeExpr->type = getIPtr(state->astAlloc, &state->target);
+      let res = newExpr(state->astAlloc, ExprKind::SliceIndex {
         slice = expr,
         end = sizeExpr,
       });
@@ -91,7 +91,7 @@ func doConvertBase(state: SemaState*, expr: ExprAST*, to: Type*, isConstStr: boo
     // A union member can be converted to the union type by inserting the kind.
     case TypeKind::Union as toUnion:
       if (let fromStruct = from->kind as TypeKind::Struct*) {
-        let castExpr = newExpr(ExprKind::Cast {
+        let castExpr = newExpr(state->astAlloc, ExprKind::Cast {
           expr = expr,
           castKind = CastKind::StructUnion,
         });
@@ -211,14 +211,14 @@ func semaCast(state: SemaState*, castExpr: ExprAST*) -> bool {
           }
 
           // Insert a deref expr.
-          let deref = newExpr(ExprKind::Unary {
+          let deref = newExpr(state->astAlloc, ExprKind::Unary {
             op = Token {
               kind = TokenKind::AND,
             },
             postfix = null,
             prefix = cast->expr,
           });
-          deref->type = newType(TypeKind::Pointer {
+          deref->type = newType(state->astAlloc, TypeKind::Pointer {
             pointee = cast->expr->type,
           });
           cast->expr = deref;
@@ -348,26 +348,26 @@ func getStringLength(tok: Token) -> i32 {
 func semaString(state: SemaState*, expr: ExprAST*) {
   let strExpr = expr->kind as ExprKind::Str*;
   let strLen = getStringLength(strExpr->identifier);
-  let init = newExpr(ExprKind::Str {
+  let init = newExpr(state->astAlloc, ExprKind::Str {
     identifier = strExpr->identifier,
   });
 
-  init->type = newType(TypeKind::Array {
-    element = getCharType(),
+  init->type = newType(state->astAlloc, TypeKind::Array {
+    element = getCharType(state->astAlloc),
     size = strLen,
   });
 
   // Add a global variable for the string.
   let root = getRoot(state);
-  let decl = newDecl(DeclKind::Var {
+  let decl = newDecl(state->astAlloc, DeclKind::Var {
     init = init,
   });
-  decl->type = newType(TypeKind::Array {
-    element = getCharType(),
+  decl->type = newType(state->astAlloc, TypeKind::Array {
+    element = getCharType(state->astAlloc),
     size = strLen - 1,
   });
 
-  let name = newInternalToken(32);
+  let name = newInternalToken(state->astAlloc, 32);
   let len = sprintf(&name.data[0], "str.%d", root->strCount++);
   name.data = name.data[:len];
 
@@ -375,13 +375,13 @@ func semaString(state: SemaState*, expr: ExprAST*) {
   decl->next = root->extraDecls;
   root->extraDecls = decl;
 
-  let ptrType = newType(TypeKind::Pointer {
+  let ptrType = newType(state->astAlloc, TypeKind::Pointer {
     pointee = decl->type,
   });
   expr->type = ptrType;
 
   // transmute expr into a address of expr.
-  let varRef = newExpr(ExprKind::Variable {
+  let varRef = newExpr(state->astAlloc, ExprKind::Variable {
     identifier = decl->name,
   });
 
@@ -442,7 +442,7 @@ func semaBinExpr(state: SemaState*, expr: ExprAST*) {
 
       convertTypes(state, expr, binExpr);
 
-      expr->type = getBool();
+      expr->type = getBool(state->astAlloc);
       return;
 
     default:
@@ -561,7 +561,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
             token = memberExpr.identifier,
             value = a.size,
           };
-          expr->type = getIPtr(&state->target);
+          expr->type = getIPtr(state->astAlloc, &state->target);
 
         case TypeKind::Slice:
           if (!tokCmpStr(memberExpr.identifier, "len")) {
@@ -570,7 +570,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
 
           // (ptr, len) so index 1
           memberExpr.fieldIndex = 1;
-          expr->type = getIPtr(&state->target);
+          expr->type = getIPtr(state->astAlloc, &state->target);
 
         case TypeKind::Struct as structType:
           let structDecl = lookupStruct(state, &structType);
@@ -608,12 +608,15 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(state, expr, "Expected generic function type");
       }
 
-      let mapping = getTypeMap(fnType, genericInst.typeArgs);
+      let mapping = getTypeMap(state->astAlloc, fnType, genericInst.typeArgs);
       if (mapping == null) {
         failSemaExpr(state, expr, "Failed to instantiate, incorrect number of type args");
       }
 
-      expr->type = substituteTypeWithMapping(local->type, mapping);
+      expr->type = substituteTypeWithMapping(
+          state->astAlloc,
+          local->type,
+          mapping);
       if (expr->type == null) {
         unreachable("Failed to instantiate");
       }
@@ -695,7 +698,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         size++;
       }
 
-      expr->type = newType(TypeKind::Array {
+      expr->type = newType(state->astAlloc, TypeKind::Array {
         size = size,
         element = elementType,
       });
@@ -772,10 +775,10 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
           let ptrToArray = getPointerToArray(slice.slice->type);
           if (ptrToArray != null) {
             if (slice.end == null) {
-              slice.end = newExpr(ExprKind::Int {
+              slice.end = newExpr(state->astAlloc, ExprKind::Int {
                 value = ptrToArray->size,
               });
-              slice.end->type = getIPtr(&state->target);
+              slice.end->type = getIPtr(state->astAlloc, &state->target);
             }
             elementType = ptrToArray->element;
           } else {
@@ -794,10 +797,10 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         if (slice.start->type->kind as TypeKind::Int* == null) {
           failSemaExpr(state, expr, "Start expression must be integer");
         }
-        slice.start = newExpr(ExprKind::Cast {
+        slice.start = newExpr(state->astAlloc, ExprKind::Cast {
           expr = slice.start,
         });
-        slice.start->type = getIPtr(&state->target);
+        slice.start->type = getIPtr(state->astAlloc, &state->target);
         semaCast(state, slice.start);
       }
 
@@ -806,21 +809,21 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         if (slice.end->type->kind as TypeKind::Int* == null) {
           failSemaExpr(state, expr, "End expression must be integer");
         }
-        slice.end = newExpr(ExprKind::Cast {
+        slice.end = newExpr(state->astAlloc, ExprKind::Cast {
           expr = slice.end,
         });
-        slice.end->type = getIPtr(&state->target);
+        slice.end->type = getIPtr(state->astAlloc, &state->target);
         semaCast(state, slice.end);
       }
 
-      expr->type = newType(TypeKind::Slice {
+      expr->type = newType(state->astAlloc, TypeKind::Slice {
         element = elementType,
       });
 
     case ExprKind::Unary as unaryExpr:
       if (unaryExpr.op.kind == TokenKind::AND) {
         semaExpr(state, unaryExpr.prefix);
-        expr->type = newType(TypeKind::Pointer {
+        expr->type = newType(state->astAlloc, TypeKind::Pointer {
           pointee = unaryExpr.prefix->type,
         });
         break;
@@ -856,7 +859,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       expr->kind = ExprKind::Int {
         value = sizeofExpr.value,
       };
-      expr->type = getUPtr(&state->target);
+      expr->type = getUPtr(state->astAlloc, &state->target);
 
     case ExprKind::Cast as castExpr:
       semaExpr(state, castExpr.expr);

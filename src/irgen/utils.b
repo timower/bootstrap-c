@@ -27,13 +27,13 @@ func genMemcpy(state: IRGenState*, addr: Value, val: Value, type: Type*) {
     ptr = state->intrinsics.memcpy,
   };
 
-  let args = (calloc(4, sizeof(union Value)) as Value*)[:4];
+  let args = (alloc(state->irAlloc, (4 * sizeof(union Value)) as iptr) as Value*)[:4];
   args[0] = addr;
   args[1] = val;
   args[2] = size;
   args[3] = Value::IntConstant {
     value = 0,
-    type = getBool(),
+    type = getBool(state->irAlloc),
   };
 
   addInstr(state, null, InstrKind::Call {
@@ -56,6 +56,6 @@ func genStore(state: IRGenState*, addr: Value, val: Value, type: Type*) {
 
 
 // This is fine as IR shouldn't use the type of pointers
-func getPtrType() -> Type* {
-  return newType(TypeKind::Pointer {});
+func getPtrType(allocator: Allocator*) -> Type* {
+  return newType(allocator, TypeKind::Pointer {});
 }

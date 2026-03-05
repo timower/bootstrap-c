@@ -1,22 +1,27 @@
 import parse.internal;
 
-func parseBufOpts(name: i8*, buf: [i8], options: ParseOptions) -> DeclAST* {
-  let parseState = ParseState {
-    options = options,
-    buf = buf,
-    fileName = name,
-    line = 1,
-    jmpBuf = newJmpBuf(),
-  };
+func parse(state: ParseState*) -> DeclAST* {
+  state->line = 1;
 
-  if (setjmp(parseState.jmpBuf) != 0) {
+  state->jmpBuf = newJmpBuf();
+
+  // TODO: defer free(state->jmpBuf);
+  if (setjmp(state->jmpBuf) != 0) {
+    free(state->jmpBuf);
     return null;
   }
 
-  return parseTopLevel(&parseState);
+  let res = parseTopLevel(state);
+  free(state->jmpBuf);
+  return res;
 }
 
-func parseFile(name: const i8*) -> DeclAST* {
-  let buf = readFile(name);
-  return parseBufOpts(name, buf, ParseOptions {});
+func parseFile(allocator: Allocator*, name: const i8*) -> DeclAST* {
+  let buf = readFile(allocator, name);
+  let state = ParseState {
+    buf = buf,
+    fileName = name,
+    concrete = false,
+  };
+  return parse(&state);
 }

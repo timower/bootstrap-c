@@ -12,7 +12,7 @@ func parseNumber(state: ParseState*) -> ExprAST* {
     value = value,
     token = token,
   });
-  result->type = getInt32();
+  result->type = getInt32(state->astAlloc);
 
   getNextToken(state);
   return result;
@@ -52,7 +52,7 @@ func parseStructInit(state: ParseState*) -> ExprAST* {
     let fieldExpr = parseConditional(state);
 
     // Create a FieldIndex entry (index will be set during sema)
-    let newField = newFieldIndex(fieldName, fieldExpr);
+    let newField = newFieldIndex(state->astAlloc, fieldName, fieldExpr);
     if (fieldIndex == null) {
       fieldIndex = newField;
       (&expr->kind as ExprKind::Struct*)->fieldIndices = fieldIndex;
@@ -115,7 +115,7 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
       expect(state, TokenKind::CLOSE_BRACKET);
       getNextToken(state);      // eat ]
 
-      return newLocExpr(loc, ExprKind::GenericInstantiation {
+      return newLocExpr(state, loc, ExprKind::GenericInstantiation {
         function = ident,
         typeArgs = firstTypeArg,
       });
@@ -127,7 +127,7 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
       let member = getNextToken(state);
 
       if (!match(state, TokenKind::OPEN_BRACE)) {
-        let result = newLocExpr(member.location, ExprKind::Scope {
+        let result = newLocExpr(state, member.location, ExprKind::Scope {
           parent = ident,
           identifier = member,
         });
@@ -141,7 +141,7 @@ func parseIdentifierExpr(state: ParseState*) -> ExprAST* {
       return res;
 
     default:
-      let result = newLocExpr(ident.location, ExprKind::Variable {
+      let result = newLocExpr(state, ident.location, ExprKind::Variable {
         identifier = ident,
       });
       return result;
@@ -162,7 +162,7 @@ func parseParen(state: ParseState*) -> ExprAST* {
   // if (!state->options.concrete) {
   //   return expr;
   // }
-  let res = newLocExpr(loc, ExprKind::Paren {
+  let res = newLocExpr(state, loc, ExprKind::Paren {
     expr = expr,
   });
   return res;
@@ -185,11 +185,11 @@ func parsePrimary(state: ParseState*) -> ExprAST* {
     case TokenKind::TRUE, TokenKind::FALSE:
       let token = getNextToken(state);
       let value = token.kind == TokenKind::TRUE ? 1 : 0;
-      res = newLocExpr(token.location, ExprKind::Int {
+      res = newLocExpr(state, token.location, ExprKind::Int {
         value = value,
         token = token,
       });
-      res->type = getBool();
+      res->type = getBool(state->astAlloc);
     case TokenKind::IDENTIFIER:
       res = parseIdentifierExpr(state);
     case TokenKind::CONSTANT:
@@ -224,7 +224,7 @@ func parseIndex(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
     if (!match(state, TokenKind::CLOSE_BRACKET)) {
       end = parseExpression(state);
     }
-    let expr = newLocExpr(loc, ExprKind::SliceIndex {
+    let expr = newLocExpr(state, loc, ExprKind::SliceIndex {
       slice = lhs,
       start = null,
       end = end,
@@ -245,7 +245,7 @@ func parseIndex(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
     if (!match(state, TokenKind::CLOSE_BRACKET)) {
       end = parseExpression(state);
     }
-    let expr = newLocExpr(loc, ExprKind::SliceIndex {
+    let expr = newLocExpr(state, loc, ExprKind::SliceIndex {
       slice = lhs,
       start = index,
       end = end,
@@ -257,7 +257,7 @@ func parseIndex(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
     return expr;
   }
 
-  let expr = newLocExpr(loc, ExprKind::Index {
+  let expr = newLocExpr(state, loc, ExprKind::Index {
     array = lhs,
     index = index,
   });
@@ -295,7 +295,7 @@ func parseCall(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
     }
   }
 
-  let expr = newLocExpr(loc, ExprKind::Call {
+  let expr = newLocExpr(state, loc, ExprKind::Call {
     function = lhs,
     args = args,
   });
@@ -315,7 +315,7 @@ func parseMember(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
   let identifier = state->curToken;
   getNextToken(state);
 
-  return newLocExpr(op.location, ExprKind::Member {
+  return newLocExpr(state, op.location, ExprKind::Member {
     object = lhs,
     identifier = identifier,
     op = op,
@@ -328,7 +328,7 @@ func parseMember(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
 func parseUnaryPostfix(state: ParseState*, lhs: ExprAST*) -> ExprAST* {
   let op = getNextToken(state);
 
-  return newLocExpr(op.location, ExprKind::Unary {
+  return newLocExpr(state, op.location, ExprKind::Unary {
     op = op,
     postfix = lhs,
     prefix = null,
@@ -389,7 +389,7 @@ func parseUnary(state: ParseState*) -> ExprAST* {
 
     let op = getNextToken(state);
     let prefix = parseUnary(state);
-    let expr = newLocExpr(op.location, ExprKind::Unary {
+    let expr = newLocExpr(state, op.location, ExprKind::Unary {
       op = op,
       postfix = null,
       prefix = prefix,
@@ -404,7 +404,7 @@ func parseUnary(state: ParseState*) -> ExprAST* {
     getNextToken(state);
 
     let typeArg = parseType(state, false);
-    let expr = newLocExpr(loc, ExprKind::Sizeof {
+    let expr = newLocExpr(state, loc, ExprKind::Sizeof {
       typeArg = typeArg,
       value = 0,
     });
@@ -429,7 +429,7 @@ func parseCast(state: ParseState*) -> ExprAST* {
 
   let loc = getNextToken(state).location;
   let castType = parseType(state, false);
-  let expr = newLocExpr(loc, ExprKind::Cast {
+  let expr = newLocExpr(state, loc, ExprKind::Cast {
     expr = lhs,
     castKind = CastKind::Noop,
     fieldIndex = -1,
@@ -462,7 +462,7 @@ func parseBinOpRhs(
       rhs = parseBinOpRhs(state, curPred + 1, rhs);
     }
 
-    let newLhs = newLocExpr(op.location, ExprKind::Binary {
+    let newLhs = newLocExpr(state, op.location, ExprKind::Binary {
       op = op,
       lhs = lhs,
       rhs = rhs,
@@ -495,7 +495,7 @@ func parseConditional(state: ParseState*) -> ExprAST* {
   getNextToken(state);
   let falseBranch = parseConditional(state);
 
-  let expr = newLocExpr(cond->location, ExprKind::Conditional {
+  let expr = newLocExpr(state, cond->location, ExprKind::Conditional {
     cond = cond,
     trueExpr = trueBranch,
     falseExpr = falseBranch,
@@ -511,7 +511,7 @@ func parseExpression(state: ParseState*) -> ExprAST* {
     let op = getNextToken(state);
     let rhs = parseAssignment(state);
 
-    expr = newLocExpr(op.location, ExprKind::Binary {
+    expr = newLocExpr(state, op.location, ExprKind::Binary {
       op = op,
       lhs = expr,
       rhs = rhs,
@@ -618,7 +618,7 @@ func parseVarDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
 // let_expr := 'let' identifier (':' type)? '=' assignment
 func parseLetExpr(state: ParseState*) -> ExprAST* {
   let decl = parseVarDecl(state, false);
-  return newLocExpr(decl->location, ExprKind::Let {
+  return newLocExpr(state, decl->location, ExprKind::Let {
     decl = decl,
   });
 }
@@ -637,7 +637,7 @@ func parseAssignment(state: ParseState*) -> ExprAST* {
 
   let op = getNextToken(state);
   let rhs = parseAssignment(state);
-  return newLocExpr(lhs->location, ExprKind::Binary {
+  return newLocExpr(state, lhs->location, ExprKind::Binary {
     op = op,
     lhs = lhs,
     rhs = rhs,
@@ -649,7 +649,7 @@ func parseAssignment(state: ParseState*) -> ExprAST* {
 //            | ident | 'func' '(' type* ')' ('->' type)?
 // type := const? base_type ('*' | '[' int? ']' )*
 func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
-  let type = newType(TypeKind::Void {});
+  let type = newType(state->astAlloc, TypeKind::Void {});
 
   let fnType: TypeKind::Func* = null;
 
@@ -754,7 +754,7 @@ func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
   while (true) {
     if (match(state, TokenKind::STAR)) {
       getNextToken(state);
-      let ptrType = newType(TypeKind::Pointer {
+      let ptrType = newType(state->astAlloc, TypeKind::Pointer {
         pointee = type,
       });
       type = ptrType;
@@ -763,7 +763,7 @@ func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
 
       if (allowUnsized && match(state, TokenKind::CLOSE_BRACKET)) {
         getNextToken(state);
-        type = newType(TypeKind::Array {
+        type = newType(state->astAlloc, TypeKind::Array {
           size = -1,
           element = type,
         });
@@ -776,11 +776,10 @@ func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
         }
         getNextToken(state);
 
-        type = newType(TypeKind::Array {
+        type = newType(state->astAlloc, TypeKind::Array {
           size = size,
           element = type,
         });
-
         expect(state, TokenKind::CLOSE_BRACKET);
         getNextToken(state);
       }
@@ -826,7 +825,7 @@ func parseType(state: ParseState*, allowUnsized: bool) -> Type* {
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state);
 
-  let returnType = newType(TypeKind::Void {});
+  let returnType = newType(state->astAlloc, TypeKind::Void {});
   if (match(state, TokenKind::PTR_OP)) {
     getNextToken(state);
     returnType = parseType(state, false);

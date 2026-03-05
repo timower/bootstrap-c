@@ -78,7 +78,7 @@ lit-stage%: stage%
 .PHONY: lit-mutate
 lit-mutate: bootstrap-coverage ## Run lit tests with mutated compiler
 	rm -rf test/**/Output
-	python3 ./test/mutation_test.py $(BUILD_DIR)/coverage.ll
+	env ASAN_OPTIONS=detect_leaks=1 python3 ./test/mutation_test.py $(BUILD_DIR)/coverage.ll
 
 .PHONY: lit-coverage
 lit-coverage: bootstrap-coverage ## Run tests with coverage analysis
@@ -134,7 +134,7 @@ $(BUILD_DIR)/fuzz-parser: $(BUILD_DIR)/fuzz.ll
 fuzz: $(BUILD_DIR)/fuzz-parser
 	mkdir -p corpus/
 	find test src -name '*.b' -exec cp {} corpus/ \;
-	$(BUILD_DIR)/fuzz-parser -fork=1 -ignore_ooms=1 -rss_limit_mb=0 -close_fd_mask=2 corpus/
+	env ASAN_OPTIONS=detect_leaks=1 $(BUILD_DIR)/fuzz-parser -fork=6 -close_fd_mask=2 corpus/
 
 .PHONY: clean
 clean: ## Remove build artifacts and binaries

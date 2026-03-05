@@ -13,6 +13,7 @@ extern func memcmp(s1: const void*, s2: const void*, n: uptr) -> i32;
 extern func strlen(s: const i8*) -> uptr;
 extern func malloc(size: uptr) -> void*;
 extern func calloc(count: uptr, size: uptr) -> void*;
+extern func free(ptr: void*);
 extern func realloc(ptr: void*, size: uptr) -> void*;
 extern func strtol(ptr: const i8*, end: i8**, base: i32) -> uptr; // ret long
 extern func lseek(fd: i32, offset: iptr, whence: i32) -> iptr;

@@ -52,14 +52,14 @@ func hasCleanup(state: IRGenState*) -> bool {
 }
 
 func addCleanup(state: IRGenState*, deferStmt: StmtAST*) {
-  let res = calloc(1, sizeof(struct Cleanup)) as Cleanup*;
+  let res = alloc(state->localAlloc, sizeof(struct Cleanup)) as Cleanup*;
   res->bb = addBasicBlock(state, "cleanup", deferStmt->location);
   res->stmt = deferStmt;
   res->next = state->scope->cleanups;
   state->scope->cleanups = res;
 
   if (!hasCleanup(state)) {
-    let val = addAlloca(state, getInt32());
+    let val = addAlloca(state, getInt32(state->irAlloc));
 
     let alloc = val as Value::AllocaPtr*;
     alloc->ptr->dbgName = "cleanupslot";
@@ -75,14 +75,14 @@ func genCleanup(state: IRGenState*) {
     state->curBB = cleanup->bb;
     genStmt(state, cleanup->stmt);
 
-    let v = addInstr(state, getInt32(), InstrKind::Load {
+    let v = addInstr(state, getInt32(state->irAlloc), InstrKind::Load {
       ptr = state->cleanupSlot,
     });
 
     addInstr(state, null, InstrKind::Switch {
       cond = v,
-      defaultBB = state->curBB,
-      cases = cleanup->cases,
+      defaultBB = cleanup->cases->bb,
+      cases = cleanup->cases->next,
     });
   }
 }
@@ -109,7 +109,7 @@ func genBranch(state: IRGenState*, target: JmpSlot) {
   let cleanupId = state->cleanupCounter;
   let cleanupVal = Value::IntConstant {
     value = cleanupId,
-    type = getInt32(),
+    type = getInt32(state->irAlloc),
   };
 
   for (let scope = state->scope; scope != target.scope; scope = scope->parent) {
@@ -119,7 +119,7 @@ func genBranch(state: IRGenState*, target: JmpSlot) {
       }
 
       if (lastCleanup != null) {
-        let newCase = newCase(lastCleanup->cases, cleanup->bb);
+        let newCase = newCase(state->irAlloc, lastCleanup->cases, cleanup->bb);
         newCase->val = cleanupVal;
         lastCleanup->cases = newCase;
       }
@@ -129,7 +129,7 @@ func genBranch(state: IRGenState*, target: JmpSlot) {
   }
 
   if (lastCleanup != null) {
-    let newCase = newCase(lastCleanup->cases, target.bb);
+    let newCase = newCase(state->irAlloc, lastCleanup->cases, target.bb);
     newCase->val = cleanupVal;
     lastCleanup->cases = newCase;
   }
@@ -365,8 +365,8 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
   }
 }
 
-func newCase(cases: Case*, bb: BasicBlock*) -> Case* {
-  let c = calloc(1, sizeof(struct Case)) as Case*;
+func newCase(allocator: Allocator*, cases: Case*, bb: BasicBlock*) -> Case* {
+  let c = alloc(allocator, sizeof(struct Case)) as Case*;
   c->next = cases;
   c->bb = bb;
   return c;
@@ -381,10 +381,10 @@ func getCases(
 ) -> Case* {
   switch (expr->kind) {
     case ExprKind::Scope as scopeExpr:
-      let cse = newCase(cases, bb);
+      let cse = newCase(state->irAlloc, cases, bb);
       cse->val = Value::IntConstant {
         value = scopeExpr.enumValue,
-        type = getInt32(),
+        type = getInt32(state->irAlloc),
       };
 
       return cse;
@@ -397,7 +397,7 @@ func getCases(
       return getCases(state, binary.rhs, unionAddr, lhsCases, bb);
 
     case ExprKind::Int as intExpr:
-      let cse = newCase(cases, bb);
+      let cse = newCase(state->irAlloc, cases, bb);
       cse->val = genConstant(state, expr);
       return cse;
 
@@ -405,17 +405,17 @@ func getCases(
       if (unionAddr == null) {
         unreachable("case as on non union type?");
       }
-      let val = addInstr(state, getPtrType(), InstrKind::StructGEP {
+      let val = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
         type = expr->type,
         ptr = *unionAddr,
         field = 1,
       });
       addLocal(state, memberExpr.identifier, val);
 
-      let cse = newCase(cases, bb);
+      let cse = newCase(state->irAlloc, cases, bb);
       cse->val = Value::IntConstant {
         value = memberExpr.fieldIndex,
-        type = getInt32(),
+        type = getInt32(state->irAlloc),
       };
       return cse;
 
@@ -450,12 +450,12 @@ func genSwitch(state: IRGenState*, stmt: StmtAST*) {
     let unionType = switchExpr->type;
 
     // Load discriminant (first field)
-    let gep = addInstr(state, getPtrType(), InstrKind::StructGEP {
+    let gep = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
       type = unionType,
       ptr = unionAddr,
       field = 0,
     });
-    expr = addInstr(state, getInt32(), InstrKind::Load {
+    expr = addInstr(state, getInt32(state->irAlloc), InstrKind::Load {
       ptr = gep,
     });
     unionAddrPtr = &unionAddr;

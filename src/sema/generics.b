@@ -56,11 +56,15 @@ func lookupTagTypeMap(map: TypeMap*, tag: Token) -> Token {
   return tag;
 }
 
-func newTypeMap() -> TypeMap* {
-  return calloc(1, sizeof(TypeMap)) as TypeMap*;
+func newTypeMap(allocator: Allocator*) -> TypeMap* {
+  return alloc(allocator, sizeof(TypeMap)) as TypeMap*;
 }
 
-func substituteTypeWithMapping(type: Type*, mapping: TypeMap*) -> Type* {
+func substituteTypeWithMapping(
+    allocator: Allocator*,
+    type: Type*,
+    mapping: TypeMap*
+) -> Type* {
   if (type == null) {
     return null;
   }
@@ -82,31 +86,31 @@ func substituteTypeWithMapping(type: Type*, mapping: TypeMap*) -> Type* {
 
     case TypeKind::Pointer as ptr:
       result = TypeKind::Pointer {
-        pointee = substituteTypeWithMapping(ptr.pointee, mapping),
+        pointee = substituteTypeWithMapping(allocator, ptr.pointee, mapping),
       };
 
     case TypeKind::Array as arr:
       result = TypeKind::Array {
-        element = substituteTypeWithMapping(arr.element, mapping),
+        element = substituteTypeWithMapping(allocator, arr.element, mapping),
         size = arr.size,
       };
 
     case TypeKind::Slice as s:
       result = TypeKind::Slice {
-        element = substituteTypeWithMapping(s.element, mapping),
+        element = substituteTypeWithMapping(allocator, s.element, mapping),
       };
 
     case TypeKind::Func as funcType:
       result = TypeKind::Func {
-        result = substituteTypeWithMapping(funcType.result, mapping),
-        args = substituteTypeWithMapping(funcType.args, mapping),
+        result = substituteTypeWithMapping(allocator, funcType.result, mapping),
+        args = substituteTypeWithMapping(allocator, funcType.args, mapping),
         isVarargs = funcType.isVarargs,
-        typeArgs = substituteTypeWithMapping(funcType.typeArgs, mapping),
+        typeArgs = substituteTypeWithMapping(allocator, funcType.typeArgs, mapping),
       };
 
     case TypeKind::Typeof as typeOf:
       result = TypeKind::Typeof {
-        expr = monomorphizeExpr(typeOf.expr, mapping),
+        expr = monomorphizeExpr(allocator, typeOf.expr, mapping),
       };
 
     case TypeKind::Void, TypeKind::Bool, TypeKind::Int, TypeKind::Enum,
@@ -114,12 +118,16 @@ func substituteTypeWithMapping(type: Type*, mapping: TypeMap*) -> Type* {
       break;
   }
 
-  let resultType = newType(result);
-  resultType->next = substituteTypeWithMapping(type->next, mapping);
+  let resultType = newType(allocator, result);
+  resultType->next = substituteTypeWithMapping(allocator, type->next, mapping);
   return resultType;
 }
 
-func getTypeMap(fnType: TypeKind::Func*, callTypeArgs: Type*) -> TypeMap* {
+func getTypeMap(
+    allocator: Allocator*,
+    fnType: TypeKind::Func*,
+    callTypeArgs: Type*
+) -> TypeMap* {
   let fnTypeArgs = fnType->typeArgs;
 
   let typeMapping: TypeMap* = null;
@@ -130,7 +138,7 @@ func getTypeMap(fnType: TypeKind::Func*, callTypeArgs: Type*) -> TypeMap* {
   while (fnParam != null && callArg != null) {
     let fnParamTag = &fnParam->kind as TypeKind::Tag*;
 
-    let pair = newTypeMap();
+    let pair = newTypeMap(allocator);
     pair->tag = fnParamTag;
     pair->value = callArg;
     pair->next = typeMapping;
@@ -149,7 +157,11 @@ func getTypeMap(fnType: TypeKind::Func*, callTypeArgs: Type*) -> TypeMap* {
   return typeMapping;
 }
 
-func monomorphizeExpr(expr: ExprAST*, typeMap: TypeMap*) -> ExprAST* {
+func monomorphizeExpr(
+    allocator: Allocator*,
+    expr: ExprAST*,
+    typeMap: TypeMap*
+) -> ExprAST* {
   if (expr == null) {
     return null;
   }
@@ -174,41 +186,41 @@ func monomorphizeExpr(expr: ExprAST*, typeMap: TypeMap*) -> ExprAST* {
     case ExprKind::GenericInstantiation as g:
       resultKind = ExprKind::GenericInstantiation {
         function = g.function,
-        typeArgs = substituteTypeWithMapping(g.typeArgs, typeMap),
+        typeArgs = substituteTypeWithMapping(allocator, g.typeArgs, typeMap),
       };
 
     case ExprKind::Sizeof as s:
       resultKind = ExprKind::Sizeof {
-        typeArg = substituteTypeWithMapping(s.typeArg, typeMap),
+        typeArg = substituteTypeWithMapping(allocator, s.typeArg, typeMap),
         value = s.value,
       };
 
     // Trivial cases
     case ExprKind::Array as a:
       resultKind = ExprKind::Array {
-        elements = monomorphizeExpr(a.elements, typeMap),
+        elements = monomorphizeExpr(allocator, a.elements, typeMap),
       };
     case ExprKind::Call as c:
       resultKind = ExprKind::Call {
-        function = monomorphizeExpr(c.function, typeMap),
-        args = monomorphizeExpr(c.args, typeMap),
+        function = monomorphizeExpr(allocator, c.function, typeMap),
+        args = monomorphizeExpr(allocator, c.args, typeMap),
       };
     case ExprKind::Index as i:
       resultKind = ExprKind::Index {
-        array = monomorphizeExpr(i.array, typeMap),
-        index = monomorphizeExpr(i.index, typeMap),
+        array = monomorphizeExpr(allocator, i.array, typeMap),
+        index = monomorphizeExpr(allocator, i.index, typeMap),
       };
 
     case ExprKind::SliceIndex as i:
       resultKind = ExprKind::SliceIndex {
-        slice = monomorphizeExpr(i.slice, typeMap),
-        start = monomorphizeExpr(i.start, typeMap),
-        end = monomorphizeExpr(i.end, typeMap),
+        slice = monomorphizeExpr(allocator, i.slice, typeMap),
+        start = monomorphizeExpr(allocator, i.start, typeMap),
+        end = monomorphizeExpr(allocator, i.end, typeMap),
       };
 
     case ExprKind::Member as m:
       resultKind = ExprKind::Member {
-        object = monomorphizeExpr(m.object, typeMap),
+        object = monomorphizeExpr(allocator, m.object, typeMap),
         identifier = m.identifier,
         op = m.op,
         fieldIndex = m.fieldIndex,
@@ -216,48 +228,52 @@ func monomorphizeExpr(expr: ExprAST*, typeMap: TypeMap*) -> ExprAST* {
     case ExprKind::Unary as u:
       resultKind = ExprKind::Unary {
         op = u.op,
-        postfix = monomorphizeExpr(u.postfix, typeMap),
-        prefix = monomorphizeExpr(u.prefix, typeMap),
+        postfix = monomorphizeExpr(allocator, u.postfix, typeMap),
+        prefix = monomorphizeExpr(allocator, u.prefix, typeMap),
       };
     case ExprKind::Conditional as cond:
       resultKind = ExprKind::Conditional {
-        cond = monomorphizeExpr(cond.cond, typeMap),
-        trueExpr = monomorphizeExpr(cond.trueExpr, typeMap),
-        falseExpr = monomorphizeExpr(cond.falseExpr, typeMap),
+        cond = monomorphizeExpr(allocator, cond.cond, typeMap),
+        trueExpr = monomorphizeExpr(allocator, cond.trueExpr, typeMap),
+        falseExpr = monomorphizeExpr(allocator, cond.falseExpr, typeMap),
       };
     case ExprKind::Binary as b:
       resultKind = ExprKind::Binary {
         op = b.op,
-        lhs = monomorphizeExpr(b.lhs, typeMap),
-        rhs = monomorphizeExpr(b.rhs, typeMap),
+        lhs = monomorphizeExpr(allocator, b.lhs, typeMap),
+        rhs = monomorphizeExpr(allocator, b.rhs, typeMap),
       };
     case ExprKind::Cast as c:
       resultKind = ExprKind::Cast {
-        expr = monomorphizeExpr(c.expr, typeMap),
+        expr = monomorphizeExpr(allocator, c.expr, typeMap),
         castKind = c.castKind,
         fieldIndex = c.fieldIndex,
       };
     case ExprKind::Paren as p:
       resultKind = ExprKind::Paren {
-        expr = monomorphizeExpr(p.expr, typeMap),
+        expr = monomorphizeExpr(allocator, p.expr, typeMap),
       };
     case ExprKind::Let as l:
       resultKind = ExprKind::Let {
-        decl = monomorphizeDecls(l.decl, typeMap),
+        decl = monomorphizeDecls(allocator, l.decl, typeMap),
       };
     case ExprKind::Int, ExprKind::Str, ExprKind::Variable:
       break;
   }
 
-  let result = newExpr(resultKind);
+  let result = newExpr(allocator, resultKind);
   result->location = expr->location;
-  result->type = substituteTypeWithMapping(expr->type, typeMap);
+  result->type = substituteTypeWithMapping(allocator, expr->type, typeMap);
 
-  result->next = monomorphizeExpr(expr->next, typeMap);
+  result->next = monomorphizeExpr(allocator, expr->next, typeMap);
   return result;
 }
 
-func monomorphizeDecls(decl: DeclAST*, typeMap: TypeMap*) -> DeclAST* {
+func monomorphizeDecls(
+    allocator: Allocator*,
+    decl: DeclAST*,
+    typeMap: TypeMap*
+) -> DeclAST* {
   if (decl == null) {
     return null;
   }
@@ -265,14 +281,14 @@ func monomorphizeDecls(decl: DeclAST*, typeMap: TypeMap*) -> DeclAST* {
   let result: DeclAST* = null;
   switch (decl->kind) {
     case DeclKind::Var as var:
-      result = newDecl(DeclKind::Var {
-        init = monomorphizeExpr(var.init, typeMap),
+      result = newDecl(allocator, DeclKind::Var {
+        init = monomorphizeExpr(allocator, var.init, typeMap),
         isExtern = var.isExtern,
       });
 
     case DeclKind::Const as cst:
-      result = newDecl(DeclKind::Const {
-        init = monomorphizeExpr(cst.init, typeMap),
+      result = newDecl(allocator, DeclKind::Const {
+        init = monomorphizeExpr(allocator, cst.init, typeMap),
       });
     default:
       unreachable("Non var decl in function?");
@@ -282,12 +298,16 @@ func monomorphizeDecls(decl: DeclAST*, typeMap: TypeMap*) -> DeclAST* {
   result->location = decl->location;
   result->endLocation = decl->endLocation;
 
-  result->type = substituteTypeWithMapping(decl->type, typeMap);
-  result->next = monomorphizeDecls(decl->next, typeMap);
+  result->type = substituteTypeWithMapping(allocator, decl->type, typeMap);
+  result->next = monomorphizeDecls(allocator, decl->next, typeMap);
   return result;
 }
 
-func monomorphizeStmt(stmt: StmtAST*, typeMap: TypeMap*) -> StmtAST* {
+func monomorphizeStmt(
+    allocator: Allocator*,
+    stmt: StmtAST*,
+    typeMap: TypeMap*
+) -> StmtAST* {
   if (stmt == null) {
     return null;
   }
@@ -296,57 +316,57 @@ func monomorphizeStmt(stmt: StmtAST*, typeMap: TypeMap*) -> StmtAST* {
   switch (stmt->kind) {
     case StmtKind::Compound as c:
       resultKind = StmtKind::Compound {
-        stmt = monomorphizeStmt(c.stmt, typeMap),
+        stmt = monomorphizeStmt(allocator, c.stmt, typeMap),
       };
     case StmtKind::Expr as e:
       resultKind = StmtKind::Expr {
-        expr = monomorphizeExpr(e.expr, typeMap),
+        expr = monomorphizeExpr(allocator, e.expr, typeMap),
       };
     case StmtKind::Return as r:
       resultKind = StmtKind::Return {
-        expr = monomorphizeExpr(r.expr, typeMap),
+        expr = monomorphizeExpr(allocator, r.expr, typeMap),
       };
 
     case StmtKind::For as f:
       resultKind = StmtKind::For {
-        init = monomorphizeStmt(f.init, typeMap),
-        cond = monomorphizeStmt(f.cond, typeMap),
-        update = monomorphizeExpr(f.update, typeMap),
-        body = monomorphizeStmt(f.body, typeMap),
+        init = monomorphizeStmt(allocator, f.init, typeMap),
+        cond = monomorphizeStmt(allocator, f.cond, typeMap),
+        update = monomorphizeExpr(allocator, f.update, typeMap),
+        body = monomorphizeStmt(allocator, f.body, typeMap),
       };
 
     case StmtKind::If as i:
       resultKind = StmtKind::If {
-        cond = monomorphizeExpr(i.cond, typeMap),
-        thenStmt = monomorphizeStmt(i.thenStmt, typeMap),
-        elseStmt = monomorphizeStmt(i.elseStmt, typeMap),
+        cond = monomorphizeExpr(allocator, i.cond, typeMap),
+        thenStmt = monomorphizeStmt(allocator, i.thenStmt, typeMap),
+        elseStmt = monomorphizeStmt(allocator, i.elseStmt, typeMap),
       };
 
     case StmtKind::While as w:
       resultKind = StmtKind::While {
-        cond = monomorphizeExpr(w.cond, typeMap),
-        body = monomorphizeStmt(w.body, typeMap),
+        cond = monomorphizeExpr(allocator, w.cond, typeMap),
+        body = monomorphizeStmt(allocator, w.body, typeMap),
       };
     case StmtKind::Defer as d:
       resultKind = StmtKind::Defer {
-        stmt = monomorphizeStmt(d.stmt, typeMap),
+        stmt = monomorphizeStmt(allocator, d.stmt, typeMap),
       };
 
     case StmtKind::Switch as s:
       resultKind = StmtKind::Switch {
-        expr = monomorphizeExpr(s.expr, typeMap),
-        body = monomorphizeStmt(s.body, typeMap),
+        expr = monomorphizeExpr(allocator, s.expr, typeMap),
+        body = monomorphizeStmt(allocator, s.body, typeMap),
       };
 
     case StmtKind::Case as c:
       resultKind = StmtKind::Case {
-        expr = monomorphizeExpr(c.expr, typeMap),
-        body = monomorphizeStmt(c.body, typeMap),
+        expr = monomorphizeExpr(allocator, c.expr, typeMap),
+        body = monomorphizeStmt(allocator, c.body, typeMap),
       };
 
     case StmtKind::Default as d:
       resultKind = StmtKind::Default {
-        body = monomorphizeStmt(d.body, typeMap),
+        body = monomorphizeStmt(allocator, d.body, typeMap),
       };
 
     case StmtKind::Continue:
@@ -356,16 +376,21 @@ func monomorphizeStmt(stmt: StmtAST*, typeMap: TypeMap*) -> StmtAST* {
       resultKind = StmtKind::Break {};
   }
 
-  let result = newStmt(resultKind);
+  let result = newStmt(allocator, resultKind);
   result->location = stmt->location;
   result->endLocation = stmt->endLocation;
 
-  result->next = monomorphizeStmt(stmt->next, typeMap);
+  result->next = monomorphizeStmt(allocator, stmt->next, typeMap);
   return result;
 }
 
-func monomorphize(function: DeclAST*, typeMap: TypeMap*, name: Token) -> DeclAST* {
-  let newFunc = newDecl(function->kind);
+func monomorphize(
+    allocator: Allocator*,
+    function: DeclAST*,
+    typeMap: TypeMap*,
+    name: Token
+) -> DeclAST* {
+  let newFunc = newDecl(allocator, function->kind);
   newFunc->location = function->location;
   newFunc->endLocation = function->endLocation;
 
@@ -376,7 +401,7 @@ func monomorphize(function: DeclAST*, typeMap: TypeMap*, name: Token) -> DeclAST
   newFunc->name = name;
 
   // Erase genericArgs, as it's not a generic function anymore.
-  newFunc->type = substituteTypeWithMapping(function->type, typeMap);
+  newFunc->type = substituteTypeWithMapping(allocator, function->type, typeMap);
   let funcType = newFunc->type->kind as TypeKind::Func*;
   funcType->typeArgs = null;
 
@@ -387,7 +412,7 @@ func monomorphize(function: DeclAST*, typeMap: TypeMap*, name: Token) -> DeclAST
     return null;
   }
 
-  newFuncKind->args = monomorphizeDecls(funcKind->args, typeMap);
-  newFuncKind->body = monomorphizeStmt(funcKind->body, typeMap);
+  newFuncKind->args = monomorphizeDecls(allocator, funcKind->args, typeMap);
+  newFuncKind->body = monomorphizeStmt(allocator, funcKind->body, typeMap);
   return newFunc;
 }

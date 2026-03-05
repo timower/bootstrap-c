@@ -25,7 +25,7 @@ func isAggregate(type: Type*) -> bool {
 
 
 // Convert type to LLVM type.
-func convertType(type: Type*) -> [i8] {
+func convertType(a: Allocator*, type: Type*) -> [i8] {
   if (type == null) {
     unreachable("NULL-TYPE!");
     return "NULL";
@@ -38,7 +38,7 @@ func convertType(type: Type*) -> [i8] {
       return "i1";
 
     case TypeKind::Int as int:
-      let buf = malloc(16) as i8*;
+      let buf = alloc(a, 16) as i8*;
       let len = sprintf(buf, "i%d", int.size);
       return buf[:len];
 
@@ -54,7 +54,7 @@ func convertType(type: Type*) -> [i8] {
       if (s.parent != null) {
         let parent = s.parent->kind as TypeKind::Union*;
         let parentLen = parent->tag.data.len as iptr;
-        buf = malloc((len + parentLen + 10) as uptr) as i8[0]*;
+        buf = alloc(a, len + parentLen + 10) as i8[0]*;
         len = sprintf(
             &buf[0],
             "%%struct.%.*s.%.*s",
@@ -63,14 +63,14 @@ func convertType(type: Type*) -> [i8] {
             len,
             &s.tag.data[0]);
       } else {
-        buf = malloc((len + 10) as uptr) as i8[0]*;
+        buf = alloc(a, len + 10) as i8[0]*;
         len = sprintf(&buf[0], "%%struct.%.*s", len, &s.tag.data[0]);
       }
       return buf[:len];
 
     case TypeKind::Union as u:
       let len = u.tag.data.len as iptr;
-      let buf = malloc((len + 10) as uptr) as i8*;
+      let buf = alloc(a, len + 10) as i8*;
       len = sprintf(buf, "%%union.%.*s", len, &u.tag.data[0]);
       return buf[:len];
 
@@ -78,15 +78,15 @@ func convertType(type: Type*) -> [i8] {
       if (arr.size < 0) {
         unreachable("Unsized array in ir gen");
       }
-      let buf = malloc(32) as i8*;
-      let len = sprintf(buf, "[%d x %s]", arr.size, &convertType(arr.element)[0]);
+      let buf = alloc(a, 32) as i8*;
+      let len = sprintf(buf, "[%d x %s]", arr.size, &convertType(a, arr.element)[0]);
       return buf[:len];
 
     case TypeKind::Func as fn:
-      let buf = newBuf(128);
-      let offset = sprintf(&buf[0], "%s (", &convertType(fn.result)[0]);
+      let buf = newBuf(a, 128);
+      let offset = sprintf(&buf[0], "%s (", &convertType(a, fn.result)[0]);
       for (let arg = fn.args; arg != null; arg = arg->next) {
-        offset += sprintf(&buf[offset], "%s", &convertType(arg)[0]);
+        offset += sprintf(&buf[offset], "%s", &convertType(a, arg)[0]);
         if (arg->next != null) {
           offset += sprintf(&buf[offset], ", ");
         }

@@ -10,25 +10,27 @@ let outFile: void* = null;
 
 // Prints the IR in llvm IR format.
 func printModule(module: Module*) {
+  let allocator = Allocator {};
+  defer freeAll(&allocator);
   fprintf(outFile, "target triple = \"%s\"\n\n", module->target.triple);
 
   for (let type = module->types; type != null; type = type->next) {
-    printStruct(type);
+    printStruct(&allocator, type);
   }
 
   for (let global = module->globals; global != null; global = global->next) {
-    printGlobal(global);
+    printGlobal(&allocator, global);
   }
 
   for (let fn = module->functions; fn != null; fn = fn->next) {
-    printFunc(fn);
+    printFunc(&allocator, fn);
   }
 }
 
-func printStruct(type: IRStruct*) {
+func printStruct(a: Allocator*, type: IRStruct*) {
   fprintf(outFile, "%s = type <{ ", type->name);
   for (let field = type->fields; field != null; field = field->next) {
-    fprintf(outFile, "%s", &convertType(field)[0]);
+    fprintf(outFile, "%s", &convertType(a, field)[0]);
     if (field->next != null) {
       fprintf(outFile, ", ");
     }
@@ -37,31 +39,31 @@ func printStruct(type: IRStruct*) {
 }
 
 
-func _getType(value: Value) -> [i8] {
+func _getType(a: Allocator*, value: Value) -> [i8] {
   switch (value) {
     case Value::InstrPtr as p:
       if (p.ptr == null) {
         unreachable("NULL-INSTR!");
       }
-      return convertType(p.ptr->type);
+      return convertType(a, p.ptr->type);
 
     case Value::IntConstant as i:
-      return convertType(i.type);
+      return convertType(a, i.type);
 
     case Value::StrConstant as s:
-      return convertType(s.type);
+      return convertType(a, s.type);
 
-    case Value::ArrayConstant as a:
-      return convertType(a.type);
+    case Value::ArrayConstant as arr:
+      return convertType(a, arr.type);
 
     case Value::StructConstant as s:
-      return convertType(s.type);
+      return convertType(a, s.type);
 
-    case Value::Argument as a:
-      return convertType(a.type);
+    case Value::Argument as arg:
+      return convertType(a, arg.type);
 
     case Value::Zero as z:
-      return convertType(z.type);
+      return convertType(a, z.type);
 
     case Value::FuncPtr as f:
       return "ptr";
@@ -79,18 +81,18 @@ func _getType(value: Value) -> [i8] {
 }
 
 
-func _getName(value: Value) -> [i8] {
+func _getName(a: Allocator*, value: Value) -> [i8] {
   switch (value) {
     case Value::InstrPtr as p:
       if (p.ptr == null) {
         unreachable("NULL-INSTR!");
       }
-      let buf = malloc(32) as i8*;
+      let buf = alloc(a, 32) as i8*;
       let len = sprintf(buf, "%%tmp%d", p.ptr->name);
       return buf[:len];
 
     case Value::IntConstant as i:
-      let buf = malloc(16) as i8*;
+      let buf = alloc(a, 16) as i8*;
       let len = sprintf(buf, "%d", i.value);
       return buf[:len];
 
@@ -98,7 +100,7 @@ func _getName(value: Value) -> [i8] {
       let tok = s.value;
       let len = tok.data.len as iptr;
       let data = tok.data;
-      let buf = newBuf((len * 2) + 16 as iptr);
+      let buf = newBuf(a, (len * 2) + 16 as iptr);
 
       let offset = sprintf(&buf[0], "c\"");      // %.*s\\00\"", len, tok.data);
 
@@ -114,19 +116,19 @@ func _getName(value: Value) -> [i8] {
       offset += sprintf(&buf[offset], "\\00\"");
       return buf[:offset];
 
-    case Value::ArrayConstant as a:
-      let buf = newBuf(64 * a.values.len as iptr);
+    case Value::ArrayConstant as arr:
+      let buf = newBuf(a, 64 * arr.values.len as iptr);
 
       let offset = sprintf(&buf[0], "[ ");
 
-      for (let i = 0; i < a.values.len; i++) {
-        let value = a.values[i];
+      for (let i = 0; i < arr.values.len; i++) {
+        let value = arr.values[i];
         offset += sprintf(
             &buf[offset],
             "%s %s",
-            &_getType(value)[0],
-            &_getName(value)[0]);
-        if (i != a.values.len - 1) {
+            &_getType(a, value)[0],
+            &_getName(a, value)[0]);
+        if (i != arr.values.len - 1) {
           offset += sprintf(&buf[offset], ", ");
         }
       }
@@ -134,7 +136,7 @@ func _getName(value: Value) -> [i8] {
       return buf[:offset];
 
     case Value::StructConstant as s:
-      let buf = newBuf(64 * s.values.len as iptr);
+      let buf = newBuf(a, 64 * s.values.len as iptr);
 
       let offset = sprintf(&buf[0], "<{ ");
 
@@ -144,8 +146,8 @@ func _getName(value: Value) -> [i8] {
         offset += sprintf(
             &buf[offset],
             "%s %s",
-            &_getType(value)[0],
-            &_getName(value)[0]);
+            &_getType(a, value)[0],
+            &_getName(a, value)[0]);
         if (i != s.values.len - 1) {
           offset += sprintf(&buf[offset], ", ");
         }
@@ -156,20 +158,20 @@ func _getName(value: Value) -> [i8] {
     case Value::GlobalPtr as g:
       return g.ptr->name;
 
-    case Value::AllocaPtr as a:
-      let nameLen = a.ptr->dbgName.len;
-      let buf = malloc(32 + nameLen as uptr) as i8*;
+    case Value::AllocaPtr as aptr:
+      let nameLen = aptr.ptr->dbgName.len;
+      let buf = alloc(a, 32 + nameLen) as i8*;
       let len = sprintf(
           buf,
           "%%%.*s.%d",
           nameLen,
-          &a.ptr->dbgName[0],
-          a.ptr->name);
+          &aptr.ptr->dbgName[0],
+          aptr.ptr->name);
       return buf[:len];
 
-    case Value::Argument as a:
-      let buf = malloc(32) as i8*;
-      let len = sprintf(buf, "%%arg%d", a.idx);
+    case Value::Argument as arg:
+      let buf = alloc(a, 32) as i8*;
+      let len = sprintf(buf, "%%arg%d", arg.idx);
       return buf[:len];
 
     case Value::FuncPtr as f:
@@ -189,16 +191,16 @@ func _getName(value: Value) -> [i8] {
       }
 
     case Value::Sizeof as s:
-      let buf = malloc(128) as i8*;
+      let buf = alloc(a, 128) as i8*;
       let len = sprintf(
           buf,
           "ptrtoint (ptr getelementptr (%s, ptr null, i32 1) to i32)",
-          &convertType(s.type)[0]);
+          &convertType(a, s.type)[0]);
       return buf[:len];
   }
 }
 
-func printGlobal(global: Global*) {
+func printGlobal(a: Allocator*, global: Global*) {
   let declSpec =
       global->type->isConst
        ? "constant"[:]
@@ -210,28 +212,28 @@ func printGlobal(global: Global*) {
         "%s = external %s %s\n",
         &global->name[0],
         &declSpec[0],
-        &convertType(global->type)[0]);
+        &convertType(a, global->type)[0]);
   } else {
     fprintf(
         outFile,
         "%s = %s %s %s\n",
         &global->name[0],
         &declSpec[0],
-        &_getType(global->init)[0],
-        &_getName(global->init)[0]);
+        &_getType(a, global->init)[0],
+        &_getName(a, global->init)[0]);
   }
 }
 
-func printFunc(fn: Function*) {
+func printFunc(a: Allocator*, fn: Function*) {
   let fnType = fn->type->kind as TypeKind::Func*;
   let isEmpty = fn->begin == null;
   let defOrDecl = isEmpty ? "declare"[:] : "define"[:];
 
-  fprintf(outFile, "%s %s %s(", &defOrDecl[0], &convertType(fnType->result)[0], &fn->name[0]);
+  fprintf(outFile, "%s %s %s(", &defOrDecl[0], &convertType(a, fnType->result)[0], &fn->name[0]);
 
   let idx = 0;
   for (let arg = fnType->args; arg != null; arg = arg->next, idx++) {
-    fprintf(outFile, "%s %%arg%d", &convertType(arg)[0], idx);
+    fprintf(outFile, "%s %%arg%d", &convertType(a, arg)[0], idx);
     if (arg->next != null || fnType->isVarargs) {
       fprintf(outFile, ", ");
     }
@@ -257,25 +259,25 @@ func printFunc(fn: Function*) {
     fprintf(
         outFile,
         "  %s = alloca %s\n",
-        &_getName(val)[0],
-        &convertType(alloc->type)[0]);
+        &_getName(a, val)[0],
+        &convertType(a, alloc->type)[0]);
   }
   if (fn->allocs != null) {
-    fprintf(outFile, "  br label %%%s\n", getBBName(fn->begin));
+    fprintf(outFile, "  br label %%%s\n", getBBName(a, fn->begin));
   }
 
   // print the entry block label
   for (let bb = fn->begin; bb != null; bb = bb->next) {
-    printBB(bb);
+    printBB(a, bb);
   }
 
   fprintf(outFile, "}\n\n");
 }
 
-func getBBName(bb: BasicBlock*) -> i8* {
+func getBBName(a: Allocator*, bb: BasicBlock*) -> i8* {
   let name = bb->location->fileName[:strlen(bb->location->fileName)];
 
-  let ptr = malloc(32 + name.len as uptr) as i8*;
+  let ptr = alloc(a, 32 + name.len) as i8*;
   let buf = ptr[:32 + name.len];
 
   let offset = sprintf(ptr, "%s.%d.", bb->label, bb->name);
@@ -292,14 +294,14 @@ func getBBName(bb: BasicBlock*) -> i8* {
   return ptr;
 }
 
-func printBB(bb: BasicBlock*) {
-  fprintf(outFile, "%s:\n", getBBName(bb));
+func printBB(a: Allocator*, bb: BasicBlock*) {
+  fprintf(outFile, "%s:\n", getBBName(a, bb));
   for (let instr = bb->begin; instr != null; instr = instr->next) {
-    printInstr(instr);
+    printInstr(a, instr);
   }
 }
 
-func printInstr(instr: Instruction*) {
+func printInstr(a: Allocator*, instr: Instruction*) {
   fprintf(outFile, "  ");
 
   // Non void instructions have a name.
@@ -312,18 +314,18 @@ func printInstr(instr: Instruction*) {
       fprintf(
           outFile,
           "getelementptr inbounds %s, ptr %s, i32 0, i32 %d",
-          &convertType(g.type)[0],
-          &_getName(g.ptr)[0],
+          &convertType(a, g.type)[0],
+          &_getName(a, g.ptr)[0],
           g.field);
 
     case InstrKind::ArrayGEP as g:
       fprintf(
           outFile,
           "getelementptr inbounds %s, ptr %s, %s %s",
-          &convertType(g.type)[0],
-          &_getName(g.ptr)[0],
-          &_getType(g.idx)[0],
-          &_getName(g.idx)[0]);
+          &convertType(a, g.type)[0],
+          &_getName(a, g.ptr)[0],
+          &_getType(a, g.idx)[0],
+          &_getName(a, g.idx)[0]);
 
     case InstrKind::Binary as b:
       let binStr: [i8] = nullBuf();
@@ -355,9 +357,9 @@ func printInstr(instr: Instruction*) {
           outFile,
           "%s %s %s, %s",
           &binStr[0],
-          &_getType(b.lhs)[0],
-          &_getName(b.lhs)[0],
-          &_getName(b.rhs)[0]);
+          &_getType(a, b.lhs)[0],
+          &_getName(a, b.lhs)[0],
+          &_getName(a, b.rhs)[0]);
 
     case InstrKind::Cmp as c:
       let condStr: [i8] = nullBuf();
@@ -379,9 +381,9 @@ func printInstr(instr: Instruction*) {
           outFile,
           "icmp %s %s %s, %s",
           &condStr[0],
-          &_getType(c.lhs)[0],
-          &_getName(c.lhs)[0],
-          &_getName(c.rhs)[0]);
+          &_getType(a, c.lhs)[0],
+          &_getName(a, c.lhs)[0],
+          &_getName(a, c.rhs)[0]);
 
     case InstrKind::Cast as c:
       let castStr: [i8] = nullBuf();
@@ -399,14 +401,14 @@ func printInstr(instr: Instruction*) {
           outFile,
           "%s %s %s to %s",
           &castStr[0],
-          &_getType(c.val)[0],
-          &_getName(c.val)[0],
-          &convertType(instr->type)[0]);
+          &_getType(a, c.val)[0],
+          &_getName(a, c.val)[0],
+          &convertType(a, instr->type)[0]);
 
     case InstrKind::Call as c:
-      fprintf(outFile, "call %s %s(", &convertType(c.fnType)[0], &_getName(c.fn)[0]);
+      fprintf(outFile, "call %s %s(", &convertType(a, c.fnType)[0], &_getName(a, c.fn)[0]);
       for (let i = 0; i < c.args.len; i++) {
-        fprintf(outFile, "%s %s", &_getType(c.args[i])[0], &_getName(c.args[i])[0]);
+        fprintf(outFile, "%s %s", &_getType(a, c.args[i])[0], &_getName(a, c.args[i])[0]);
         if (i != c.args.len - 1) {
           fprintf(outFile, ", ");
         }
@@ -417,28 +419,28 @@ func printInstr(instr: Instruction*) {
       fprintf(
           outFile,
           "select i1 %s, %s %s, %s %s",
-          &_getName(s.cond)[0],
-          &_getType(s.trueVal)[0],
-          &_getName(s.trueVal)[0],
-          &_getType(s.falseVal)[0],
-          &_getName(s.falseVal)[0]);
+          &_getName(a, s.cond)[0],
+          &_getType(a, s.trueVal)[0],
+          &_getName(a, s.trueVal)[0],
+          &_getType(a, s.falseVal)[0],
+          &_getName(a, s.falseVal)[0]);
 
     case InstrKind::Switch as s:
       fprintf(
           outFile,
           "switch %s %s, label %%%s [\n",
-          &_getType(s.cond)[0],
-          &_getName(s.cond)[0],
-          getBBName(s.defaultBB));
+          &_getType(a, s.cond)[0],
+          &_getName(a, s.cond)[0],
+          getBBName(a, s.defaultBB));
 
       // Print all cases
       for (let cse = s.cases; cse != null; cse = cse->next) {
         fprintf(
             outFile,
             "    %s %s, label %%%s\n",
-            &_getType(cse->val)[0],
-            &_getName(cse->val)[0],
-            getBBName(cse->bb));
+            &_getType(a, cse->val)[0],
+            &_getName(a, cse->val)[0],
+            getBBName(a, cse->bb));
       }
       fprintf(outFile, "  ]");
 
@@ -446,41 +448,41 @@ func printInstr(instr: Instruction*) {
       fprintf(
           outFile,
           "phi %s [ %s, %%%s ], [ %s, %%%s ]",
-          &convertType(instr->type)[0],
-          &_getName(p.trueVal)[0],
-          getBBName(p.trueBB),
-          &_getName(p.falseVal)[0],
-          getBBName(p.falseBB));
+          &convertType(a, instr->type)[0],
+          &_getName(a, p.trueVal)[0],
+          getBBName(a, p.trueBB),
+          &_getName(a, p.falseVal)[0],
+          getBBName(a, p.falseBB));
 
     case InstrKind::Branch as b:
-      fprintf(outFile, "br label %%%s", getBBName(b.bb));
+      fprintf(outFile, "br label %%%s", getBBName(a, b.bb));
 
     case InstrKind::CondBranch as b:
       fprintf(
           outFile,
           "br %s %s, label %%%s, label %%%s",
-          &_getType(b.cond)[0],
-          &_getName(b.cond)[0],
-          getBBName(b.trueBB),
-          getBBName(b.falseBB));
+          &_getType(a, b.cond)[0],
+          &_getName(a, b.cond)[0],
+          getBBName(a, b.trueBB),
+          getBBName(a, b.falseBB));
 
     case InstrKind::Store as s:
       fprintf(
           outFile,
           "store %s %s, ptr %s",
-          &_getType(s.val)[0],
-          &_getName(s.val)[0],
-          &_getName(s.ptr)[0]);
+          &_getType(a, s.val)[0],
+          &_getName(a, s.val)[0],
+          &_getName(a, s.ptr)[0]);
 
     case InstrKind::Load as l:
       fprintf(
           outFile,
           "load %s, ptr %s",
-          &convertType(instr->type)[0],
-          &_getName(l.ptr)[0]);
+          &convertType(a, instr->type)[0],
+          &_getName(a, l.ptr)[0]);
 
     case InstrKind::Return as r:
-      fprintf(outFile, "ret %s %s", &_getType(r.val)[0], &_getName(r.val)[0]);
+      fprintf(outFile, "ret %s %s", &_getType(a, r.val)[0], &_getName(a, r.val)[0]);
     case InstrKind::ReturnVoid:
       fprintf(outFile, "ret void");
   }

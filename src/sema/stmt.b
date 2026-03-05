@@ -81,7 +81,7 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
       memberExpr.fieldIndex = tagIdx;
 
       // Make a new variable declaration.
-      let varDecl = newDecl(DeclKind::Var {});
+      let varDecl = newDecl(state->astAlloc, DeclKind::Var {});
       varDecl->type = tagDecl->type;
       varDecl->name = varName;
       varDecl->location = varName.location;
@@ -210,21 +210,20 @@ func semaSwitchStmt(state: SemaState*, stmt: StmtAST*) {
   }
 }
 
-func makeNullCmp(expr: ExprAST*) -> ExprAST* {
-  let nullExpr = newExpr(ExprKind::Int {
+func makeNullCmp(state: SemaState*, expr: ExprAST*) -> ExprAST* {
+  let nullExpr = newExpr(state->astAlloc, ExprKind::Int {
     value = 0,
   });
   nullExpr->type = expr->type;
 
-  let cmpExpr = newExpr(ExprKind::Binary {
+  let cmpExpr = newExpr(state->astAlloc, ExprKind::Binary {
     op = Token {
       kind = TokenKind::NE_OP,
     },
     lhs = expr,
     rhs = nullExpr,
   });
-  cmpExpr->type = getBool();
-
+  cmpExpr->type = getBool(state->astAlloc);
   return cmpExpr;
 }
 
@@ -271,7 +270,7 @@ func semaStmt(state: SemaState*, stmt: StmtAST*) {
       // Add != null for let expressions.
       if (ifStmt.cond->kind as ExprKind::Let* != null) {
         if (let ptrType = &ifStmt.cond->type->kind as TypeKind::Pointer*) {
-          ifStmt.cond = makeNullCmp(ifStmt.cond);
+          ifStmt.cond = makeNullCmp(state, ifStmt.cond);
         }
       }
       checkBool(state, ifStmt.cond);

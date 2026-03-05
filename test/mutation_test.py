@@ -122,7 +122,10 @@ def make_content(tpl):
 
 def compile(file):
     out = f"{file}.ll.o"
-    res = run(["clang", "-O0", "-c", "-x", "ir", "-o", out, file], capture_output=True)
+    res = run(
+        ["clang", "-fsanitize=address", "-O0", "-c", "-x", "ir", "-o", out, file],
+        capture_output=True,
+    )
     if res.returncode != 0:
         print(f"Failed to compile {file}")
         print(res.stderr.decode())
@@ -134,7 +137,15 @@ def build_bin(tpl):
     file, input_name, others, idx = tpl
     bin_name = f"{input_name}.bin"
 
-    args = ["clang", "-fuse-ld=lld", "-O0", "-o", bin_name, input_name] + others
+    args = [
+        "clang",
+        "-fsanitize=address",
+        "-fuse-ld=lld",
+        "-O0",
+        "-o",
+        bin_name,
+        input_name,
+    ] + others
     res = run(args, capture_output=True)
     if res.returncode != 0:
         print(f"Failed to compile {file}")

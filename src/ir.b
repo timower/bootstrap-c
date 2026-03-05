@@ -224,16 +224,16 @@ union Value {
 }
 
 
-func newFunction() -> Function* {
-  return calloc(1, sizeof(struct Function)) as Function*;
+func newFunction(allocator: Allocator*) -> Function* {
+  return alloc(allocator, sizeof(struct Function)) as Function*;
 }
 
-func newGlobal() -> Global* {
-  return calloc(1, sizeof(struct Global)) as Global*;
+func newGlobal(allocator: Allocator*) -> Global* {
+  return alloc(allocator, sizeof(struct Global)) as Global*;
 }
 
-func newIRStruct() -> IRStruct* {
-  return calloc(1, sizeof(struct IRStruct)) as IRStruct*;
+func newIRStruct(allocator: Allocator*) -> IRStruct* {
+  return alloc(allocator, sizeof(struct IRStruct)) as IRStruct*;
 }
 
 func hasResult(instr: Instruction*) -> bool {

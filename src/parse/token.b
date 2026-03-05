@@ -51,15 +51,14 @@ func is_alnum(c: i32) -> bool {
 }
 
 func newLocation(state: ParseState*, start: i32) -> SourceLoc* {
-  // opt: Only allocate if the slab is empty.
-  if (state->sourceSlabs.len == 0) {
-    let slabs = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
-    state->sourceSlabs = slabs[:source_slab_size];
-  }
+  let result = alloc(state->astAlloc, sizeof(SourceLoc)) as SourceLoc*;
 
-  let result = &state->sourceSlabs[0];
-  state->sourceSlabs = state->sourceSlabs[1:];
-
+  // if (state->sourceSlabs.len == 0) {
+  //   let slabs = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
+  //   state->sourceSlabs = slabs[:source_slab_size];
+  // }
+  // let result = &state->sourceSlabs[0];
+  // state->sourceSlabs = state->sourceSlabs[1:];
   result->column = start - state->lineStart + 1;
   result->line = state->line;
   result->fileName = state->fileName;
@@ -184,7 +183,7 @@ func getToken(state: ParseState*) -> Token {
     }
 
     // opt: Don't parse comment tokens if concrete is false.
-    if (state->options.concrete) {
+    if (state->concrete) {
       let token = makeToken(state, tokenStart);
       token.kind = TokenKind::COMMENT;
       return token;
@@ -231,7 +230,7 @@ func getNextToken(state: ParseState*) -> Token {
 
   let token = getToken(state);
   while (token.kind == TokenKind::COMMENT) {
-    let comment = newComment(token);
+    let comment = newComment(state->astAlloc, token);
     if (state->lastComment != null) {
       state->lastComment->next = comment;
     }

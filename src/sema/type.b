@@ -154,7 +154,7 @@ func getStructDeclSize(state: SemaState*, decl: DeclAST*, parents: DeclList*) ->
     }
   }
 
-  let newParents = newDeclList(decl);
+  let newParents = newDeclList(&state->localAlloc, decl);
   newParents->next = parents;
   let structKind = decl->kind as DeclKind::Struct*;
 
@@ -295,11 +295,11 @@ func addGenericInst(
     return inst->name;
   }
 
-  let inst = calloc(1, sizeof(GenericInst)) as GenericInst*;
+  let inst = alloc(root->astAlloc, sizeof(GenericInst)) as GenericInst*;
   inst->function = function;
   inst->typeMap = mapping;
 
-  let newName = newInternalToken(128);
+  let newName = newInternalToken(root->astAlloc, 128);
   let len = sprintf(
       &newName.data[0],
       "%.*s_%d",

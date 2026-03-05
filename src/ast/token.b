@@ -208,10 +208,10 @@ func tokCmpHash(token: Token, hash: i64) -> bool {
   return getTokenHash(token) == hash;
 }
 
-func newInternalToken(bufSize: uptr) -> Token {
-  let alloc = newBuf((bufSize + sizeof(SourceLoc)) as iptr);
-  let loc = (&alloc[0] as void*) as SourceLoc*;
-  let data = alloc[(sizeof(SourceLoc)):];
+func newInternalToken(allocator: Allocator*, bufSize: uptr) -> Token {
+  let alloc = alloc(allocator, bufSize as iptr + sizeof(SourceLoc));
+  let loc = alloc as SourceLoc*;
+  let data = (alloc as i8*)[sizeof(SourceLoc):sizeof(SourceLoc) + bufSize];
   let str: [i8] = "<builtin>";
   loc->fileName = &str[0];
   loc->line = 1;

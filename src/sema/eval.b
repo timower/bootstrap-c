@@ -87,7 +87,7 @@ func evalConstant(state: SemaState*, expr: ExprAST*) -> ExprAST* {
       }
 
       // Create new constant expression with computed value
-      let constExpr = newExpr(ExprKind::Int {
+      let constExpr = newExpr(state->astAlloc, ExprKind::Int {
         value = result,
         token = binary.op,
       });

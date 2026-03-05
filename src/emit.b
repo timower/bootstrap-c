@@ -206,6 +206,8 @@ func emitFunction(fn: Function*, useUnderscore: bool) {
   for (let bb = fn->begin; bb != null; bb = bb->next) {
     emitBasicBlock(bb, &state);
   }
+
+  free(&state.instrToReg[0]);
 }
 
 func emitBasicBlock(bb: BasicBlock*, state: EmitState*) {

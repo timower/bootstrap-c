@@ -51,6 +51,9 @@ struct SemaState {
   // Depth tracker, to prevent infinite generic instantiations.
   depth: i32;
 
+  astAlloc: Allocator*;
+  localAlloc: Allocator;
+
   jmpBuf: JmpBuf*;
 }
 
@@ -60,8 +63,15 @@ func newState(parent: SemaState*) -> SemaState {
     result = parent->result,
     target = parent->target,
     semaLspMode = parent->semaLspMode,
+    astAlloc = parent->astAlloc,
+    localAlloc = parent->localAlloc,
   };
   return state;
+}
+
+func freeSemaState(state: SemaState*) {
+  free(state->jmpBuf);
+  freeAll(&state->localAlloc);
 }
 
 
@@ -104,41 +114,41 @@ func getRoot(state: SemaState*) -> SemaState* {
   return state;
 }
 
-func getNullDecl() -> DeclAST* {
-  let nullTok = newInternalToken(4);
+func getNullDecl(astAlloc: Allocator*) -> DeclAST* {
+  let nullTok = newInternalToken(astAlloc, 4);
   memcpy(&nullTok.data[0], "null", 4);
 
   // Add null as a nullptr
-  let nullDecl = newDecl(DeclKind::EnumField {
+  let nullDecl = newDecl(astAlloc, DeclKind::EnumField {
     enumValue = 0,
   });
   nullDecl->name = nullTok;
-  nullDecl->type = newType(TypeKind::Pointer {
-    pointee = newType(TypeKind::Void {}),
+  nullDecl->type = newType(astAlloc, TypeKind::Pointer {
+    pointee = newType(astAlloc, TypeKind::Void {}),
   });
 
   return nullDecl;
 }
 
-func getTargetDecl(target: Target*) -> DeclAST* {
-  let targetTok = newInternalToken(8);
+func getTargetDecl(astAlloc: Allocator*, target: Target*) -> DeclAST* {
+  let targetTok = newInternalToken(astAlloc, 8);
   memcpy(&targetTok.data[0], "_TARGET_", 8);
-  let initVal = newInternalToken(target->triple.len as uptr);
+  let initVal = newInternalToken(astAlloc, target->triple.len as uptr);
   memcpy(&initVal.data[0], &target->triple[0], target->triple.len as uptr);
 
-  let init = newExpr(ExprKind::Str {
+  let init = newExpr(astAlloc, ExprKind::Str {
     identifier = initVal,
   });
-  init->type = newType(TypeKind::Array {
-    element = getCharType(),
+  init->type = newType(astAlloc, TypeKind::Array {
+    element = getCharType(astAlloc),
     size = target->triple.len as i32 + 1,
   });
 
-  let decl = newDecl(DeclKind::Var {
+  let decl = newDecl(astAlloc, DeclKind::Var {
     init = init,
   });
-  decl->type = newType(TypeKind::Array {
-    element = getCharType(),
+  decl->type = newType(astAlloc, TypeKind::Array {
+    element = getCharType(astAlloc),
     size = target->triple.len as i32,
   });
   decl->name = targetTok;
@@ -146,17 +156,24 @@ func getTargetDecl(target: Target*) -> DeclAST* {
   return decl;
 }
 
-func initSemaState(target: Target, lspMode: bool) -> SemaState {
-  let nullDecl = getNullDecl();
-  let targetDecl = getTargetDecl(&target);
+func initSemaState(
+    target: Target,
+    lspMode: bool,
+    astAlloc: Allocator*
+) -> SemaState {
+  let nullDecl = getNullDecl(astAlloc);
+  let targetDecl = getTargetDecl(astAlloc, &target);
 
-  let locals = newDeclList(nullDecl);
-  locals->next = newDeclList(targetDecl);
+  let localAlloc = Allocator {};
+  let locals = newDeclList(&localAlloc, nullDecl);
+  locals->next = newDeclList(&localAlloc, targetDecl);
 
   return SemaState {
     target = target,
     locals = locals,
     semaLspMode = lspMode,
     extraDecls = targetDecl,
+    astAlloc = astAlloc,
+    localAlloc = localAlloc,
   };
 }

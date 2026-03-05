@@ -1,4 +1,5 @@
 import libc;
+import alloc;
 
 func unreachable(msg: i8*) {
   printf("UNREACHABLE: %s\n", msg);
@@ -24,17 +25,13 @@ func nullBuf() -> [i8] {
   return (null as i8*)[:0];
 }
 
-func newBuf(len: iptr) -> [i8] {
-  let ptr = calloc(1, len as uptr) as i8*;
+func newBuf(allocator: Allocator*, len: iptr) -> [i8] {
+  let ptr = alloc(allocator, len) as i8*;
   return ptr[:len];
 }
 
-func reallocBuf(buf: [i8], len: iptr) -> [i8] {
-  let newBuf = realloc(&buf[0], len as uptr) as i8*;
-  return newBuf[:len];
-}
 
-func readFile(name: i8*) -> [i8] {
+func readFile(allocator: Allocator*, name: i8*) -> [i8] {
   let fd = open(name, 0);  //  O_RDONLY
   if (fd == -1) {
     fprintf(getStderr(), "open failed: %s!\n", name);
@@ -54,7 +51,7 @@ func readFile(name: i8*) -> [i8] {
   }
 
   // Add one i64 as padding so packTokenhash doesn't read out of bounds.
-  let result = newBuf(size + sizeof(i64))[:size];
+  let result = newBuf(allocator, size + sizeof(i64))[:size];
 
   let off: iptr = 0;
   while (off != size) {
@@ -70,8 +67,8 @@ func readFile(name: i8*) -> [i8] {
   return result;
 }
 
-func readStdin() -> [i8] {
-  let mem = newBuf(1024);
+func readStdin(allocator: Allocator*) -> [i8] {
+  let mem = newSlab(allocator, 1024);
 
   let res: iptr = 0;
   let offset: iptr = 0;
@@ -81,7 +78,7 @@ func readStdin() -> [i8] {
 
     // opt: Only realloc if needed.
     if (offset + 128 > mem.len as iptr) {
-      mem = reallocBuf(mem, (mem.len * 2) as iptr);
+      mem = reallocSlab(allocator, (mem.len * 2) as iptr);
     }
     remaining = mem[offset:];
   }

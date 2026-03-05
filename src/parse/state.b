@@ -2,21 +2,20 @@ import ast;
 import ast.print;
 
 import libc;
+import alloc;
 
-struct ParseOptions {
-  // If set to true, build a concere syntax tree,
-  // preserving parens.
-  concrete: bool;
-}
-
-const source_slab_size = 512;
 
 struct ParseState {
-  // Any parse options the parser was constructed with.
-  options: ParseOptions;
+  // If set to true, build a concere syntax tree, preserving parens.
+  concrete: bool;
 
   // [start, end[ contains the current data buffer.
   buf: [i8];
+
+  astAlloc: Allocator*;
+
+  // current file name.
+  fileName: i8*;
 
   // Pointer in [start, end[ where we're currently parsing.
   current: i32;
@@ -25,11 +24,7 @@ struct ParseState {
   // Currently parsed token.
   curToken: Token;
 
-  // current file name.
-  fileName: i8*;
   line: i32;
-
-  sourceSlabs: [SourceLoc];
 
   // Any comments that should be taken up by the next node.
   // Only parsed if concrete is true.
@@ -102,11 +97,11 @@ func expect(state: ParseState*, tok: TokenKind) {
 }
 
 func newLocDecl(state: ParseState*, kind: DeclKind) -> DeclAST* {
-  let res = newDecl(kind);
+  let res = newDecl(state->astAlloc, kind);
   res->location = state->curToken.location;
 
   // opt: Only parse comments if concrete is enabled.
-  if (state->options.concrete) {
+  if (state->concrete) {
     res->comments = state->comments;
     state->comments = null;
     state->lastComment = null;
@@ -115,24 +110,24 @@ func newLocDecl(state: ParseState*, kind: DeclKind) -> DeclAST* {
   return res;
 }
 
-func newLocExpr(loc: SourceLoc*, kind: ExprKind) -> ExprAST* {
-  let res = newExpr(kind);
+func newLocExpr(state: ParseState*, loc: SourceLoc*, kind: ExprKind) -> ExprAST* {
+  let res = newExpr(state->astAlloc, kind);
   res->location = loc;
   return res;
 }
 
 func newCurLocExpr(state: ParseState*, kind: ExprKind) -> ExprAST* {
-  let res = newExpr(kind);
+  let res = newExpr(state->astAlloc, kind);
   res->location = state->curToken.location;
   return res;
 }
 
 func newLocStmt(state: ParseState*, kind: StmtKind) -> StmtAST* {
-  let res = newStmt(kind);
+  let res = newStmt(state->astAlloc, kind);
   res->location = state->curToken.location;
 
   // opt: Only parse comments if concrete is enabled.
-  if (state->options.concrete) {
+  if (state->concrete) {
     res->comments = state->comments;
     state->comments = null;
     state->lastComment = null;

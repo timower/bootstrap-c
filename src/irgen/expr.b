@@ -48,7 +48,7 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
       if (sliceIdx.end == null || sliceIdx.start != null) {
         failIRGen(state, "Constant GEP not supported yet");
       }
-      let values = (calloc(2, sizeof(Value)) as Value*)[:2];
+      let values = (alloc(state->irAlloc, (2 * sizeof(Value)) as iptr) as Value*)[:2];
       values[0] = slice;
       values[1] = genConstant(state, sliceIdx.end);
       return Value::StructConstant {
@@ -67,7 +67,7 @@ func genConstant(state: IRGenState*, expr: ExprAST*) -> Value {
     case ExprKind::Array as arrayExpr:
       let arrayType = expr->type->kind as TypeKind::Array*;
       let size = arrayType->size as u32;
-      let valuesPtr = calloc(size as uptr, sizeof(union Value)) as Value*;
+      let valuesPtr = alloc(state->irAlloc, ((size as uptr) * sizeof(union Value)) as iptr) as Value*;
       let values = valuesPtr[:size];
 
       let i = 0;
@@ -135,8 +135,8 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
       switch (indexExpr.array->type->kind) {
         case TypeKind::Slice:
           let sliceVal = genExpr(state, indexExpr.array);
-          array = addInstr(state, getPtrType(), InstrKind::Load {
-            ptr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+          array = addInstr(state, getPtrType(state->irAlloc), InstrKind::Load {
+            ptr = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
               type = indexExpr.array->type,
               ptr = sliceVal,
               field = 0,
@@ -149,7 +149,7 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
       }
 
       let index = genExpr(state, indexExpr.index);
-      return addInstr(state, getPtrType(), InstrKind::ArrayGEP {
+      return addInstr(state, getPtrType(state->irAlloc), InstrKind::ArrayGEP {
         type = expr->type,
         ptr = array,
         idx = index,
@@ -168,7 +168,7 @@ func genAddr(state: IRGenState*, expr: ExprAST*) -> Value {
       } else {
         aggType = (memberExpr.object->type->kind as TypeKind::Pointer*)->pointee;
       }
-      return addInstr(state, getPtrType(), InstrKind::StructGEP {
+      return addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
         type = aggType,
         ptr = agg,
         field = memberExpr.fieldIndex,
@@ -300,18 +300,18 @@ func genExpr(state: IRGenState*, expr: ExprAST*) -> Value {
 func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
   let slice = expr->kind as ExprKind::SliceIndex*;
 
-  let iptrType = getIPtr(&state->module->target);
+  let iptrType = getIPtr(state->irAlloc, &state->module->target);
 
   let sliceType = expr->type;
   let sliceKind = sliceType->kind as TypeKind::Slice*;
 
   let alloc = addAlloca(state, sliceType);
-  let dataPtr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+  let dataPtr = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
     type = sliceType,
     ptr = alloc,
     field = 0,
   });
-  let sizePtr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+  let sizePtr = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
     type = sliceType,
     ptr = alloc,
     field = 1,
@@ -338,15 +338,15 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
 
     case TypeKind::Slice:
       let sliceVal = genExpr(state, slice->slice);
-      ptrVal = addInstr(state, getPtrType(), InstrKind::Load {
-        ptr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+      ptrVal = addInstr(state, getPtrType(state->irAlloc), InstrKind::Load {
+        ptr = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
           type = sliceType,
           ptr = sliceVal,
           field = 0,
         }),
       });
       sizeVal = addInstr(state, iptrType, InstrKind::Load {
-        ptr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+        ptr = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
           type = sliceType,
           ptr = sliceVal,
           field = 1,
@@ -364,7 +364,7 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
   };
   if (slice->start != null) {
     startVal = genExpr(state, slice->start);
-    ptrVal = addInstr(state, getPtrType(), InstrKind::ArrayGEP {
+    ptrVal = addInstr(state, getPtrType(state->irAlloc), InstrKind::ArrayGEP {
       type = sliceKind->element,
       ptr = ptrVal,
       idx = startVal,
@@ -458,7 +458,7 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
         lhs = op,
         rhs = Value::IntConstant {
           value = -1,
-          type = getInt32(),
+          type = getInt32(state->irAlloc),
         },
       });
 
@@ -469,7 +469,7 @@ func genUnary(state: IRGenState*, expr: ExprAST*) -> Value {
         lhs = op,
         rhs = Value::IntConstant {
           value = 0,
-          type = getBool(),
+          type = getBool(state->irAlloc),
         },
       });
 
@@ -494,20 +494,20 @@ func genCast(state: IRGenState*, expr: ExprAST*) -> Value {
     case CastKind::StructUnion:
       let res = addAlloca(state, to);
 
-      let kindAddr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+      let kindAddr = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
         type = to,
         ptr = res,
         field = 0,
       });
 
-      let kindType = getInt32();
+      let kindType = getInt32(state->irAlloc);
       let kindVal = Value::IntConstant {
         value = castExpr->fieldIndex,
         type = kindType,
       };
       genStore(state, kindAddr, kindVal, kindType);
 
-      let valAddr = addInstr(state, getPtrType(), InstrKind::StructGEP {
+      let valAddr = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
         type = to,
         ptr = res,
         field = 1,
@@ -519,20 +519,20 @@ func genCast(state: IRGenState*, expr: ExprAST*) -> Value {
     case CastKind::UnionStructPtr:
       let unionType = (from->kind as TypeKind::Pointer*)->pointee;
 
-      let kindGEP = addInstr(state, getPtrType(), InstrKind::StructGEP {
+      let kindGEP = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
         type = unionType,
         ptr = v,
         field = 0,
       });
-      let kindType = getInt32();
+      let kindType = getInt32(state->irAlloc);
       let kind = genLoad(state, kindGEP, kindType);
-      let valGEP = addInstr(state, getPtrType(), InstrKind::StructGEP {
+      let valGEP = addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
         type = unionType,
         ptr = v,
         field = 1,
       });
 
-      let cmpRes = addInstr(state, getBool(), InstrKind::Cmp {
+      let cmpRes = addInstr(state, getBool(state->irAlloc), InstrKind::Cmp {
         op = CmpOp::Eq,
         lhs = kind,
         rhs = Value::IntConstant {
@@ -757,7 +757,7 @@ func genConditional(state: IRGenState*, expr: ExprAST*) -> Value {
   state->curBB = contBB;
   let type = expr->type;
   if (isAggregate(type)) {
-    type = getPtrType();
+    type = getPtrType(state->irAlloc);
   }
   return addInstr(state, type, InstrKind::Phi {
     trueBB = trueExitBB,
@@ -780,7 +780,7 @@ func genStructExpr(state: IRGenState*, expr: ExprAST*) -> Value {
   for (let field = structExpr->fieldIndices; field != null; field = field->next) {
     let fieldVal = genExpr(state, field->value);
     let fieldGep =
-        addInstr(state, getPtrType(), InstrKind::StructGEP {
+        addInstr(state, getPtrType(state->irAlloc), InstrKind::StructGEP {
       type = expr->type,
       ptr = res,
       field = field->index,
@@ -800,12 +800,12 @@ func genArrayExpr(state: IRGenState*, expr: ExprAST*) -> Value {
   for (let elem = structExpr->elements; elem != null; elem = elem->next, idx++) {
     let fieldVal = genExpr(state, elem);
     let fieldGep =
-        addInstr(state, getPtrType(), InstrKind::ArrayGEP {
+        addInstr(state, getPtrType(state->irAlloc), InstrKind::ArrayGEP {
       type = arrayType->element,
       ptr = res,
       idx = Value::IntConstant {
         value = idx,
-        type = getInt32(),
+        type = getInt32(state->irAlloc),
       },
     });
     genStore(state, fieldGep, fieldVal, elem->type);
@@ -821,7 +821,7 @@ func genCall(state: IRGenState*, expr: ExprAST*) -> Value {
     numArgs++;
   }
 
-  let args = (calloc(numArgs, sizeof(union Value)) as Value*)[:numArgs];
+  let args = (alloc(state->irAlloc, (numArgs * sizeof(union Value)) as iptr) as Value*)[:numArgs];
   let i = 0;
   for (let arg = callExpr->args; arg != null; arg = arg->next, i++) {
     let argVal = genExpr(state, arg);
@@ -839,7 +839,7 @@ func genCall(state: IRGenState*, expr: ExprAST*) -> Value {
 
   let res = addInstr(state, expr->type, InstrKind::Call {
     fn = fn,
-    fnType = newType(*fnType),
+    fnType = newType(state->irAlloc, *fnType),
     args = args,
   });
 

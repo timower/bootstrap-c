@@ -1,4 +1,6 @@
 import libc;
+
+import alloc;
 import ast.token;
 
 import target;
@@ -287,80 +289,80 @@ struct StmtAST {
 
 
 // utils
-func newExpr(kind: ExprKind) -> ExprAST* {
-  let result = calloc(1, sizeof(struct ExprAST)) as ExprAST*;
+func newExpr(allocator: Allocator*, kind: ExprKind) -> ExprAST* {
+  let result = alloc(allocator, sizeof(struct ExprAST)) as ExprAST*;
   result->kind = kind;
   return result;
 }
 
-func newFieldIndex(name: Token, field: ExprAST*) -> FieldIndex* {
-  let result = calloc(1, sizeof(struct FieldIndex)) as FieldIndex*;
+func newFieldIndex(allocator: Allocator*, name: Token, field: ExprAST*) -> FieldIndex* {
+  let result = alloc(allocator, sizeof(struct FieldIndex)) as FieldIndex*;
   result->fieldName = name;
   result->value = field;
   result->index = -1;
   return result;
 }
 
-func newDecl(kind: DeclKind) -> DeclAST* {
-  let decl = calloc(1, sizeof(struct DeclAST)) as DeclAST*;
+func newDecl(allocator: Allocator*, kind: DeclKind) -> DeclAST* {
+  let decl = alloc(allocator, sizeof(struct DeclAST)) as DeclAST*;
   decl->kind = kind;
   return decl;
 }
 
-func newDeclList(decl: DeclAST*) -> DeclList* {
-  let res = calloc(1, sizeof(struct DeclList)) as DeclList*;
+func newDeclList(allocator: Allocator*, decl: DeclAST*) -> DeclList* {
+  let res = alloc(allocator, sizeof(struct DeclList)) as DeclList*;
   res->decl = decl;
   return res;
 }
 
-func newStmt(kind: StmtKind) -> StmtAST* {
-  let stmt = calloc(1, sizeof(struct StmtAST)) as StmtAST*;
+func newStmt(allocator: Allocator*, kind: StmtKind) -> StmtAST* {
+  let stmt = alloc(allocator, sizeof(struct StmtAST)) as StmtAST*;
   stmt->kind = kind;
   return stmt;
 }
 
 
-func newType(kind: TypeKind) -> Type* {
-  let type = calloc(1, sizeof(struct Type)) as Type*;
+func newType(allocator: Allocator*, kind: TypeKind) -> Type* {
+  let type = alloc(allocator, sizeof(struct Type)) as Type*;
   type->kind = kind;
   return type;
 }
 
-func newComment(token: Token) -> Comment* {
-  let comment = calloc(1, sizeof(struct Comment)) as Comment*;
+func newComment(allocator: Allocator*, token: Token) -> Comment* {
+  let comment = alloc(allocator, sizeof(struct Comment)) as Comment*;
   comment->value = token;
   comment->location = token.location;
   return comment;
 }
 
-func getCharType() -> Type* {
-  return newType(TypeKind::Int {
+func getCharType(allocator: Allocator*) -> Type* {
+  return newType(allocator, TypeKind::Int {
     size = 8,
     isSigned = true,
   });
 }
 
-func getInt32() -> Type* {
-  return newType(TypeKind::Int {
+func getInt32(allocator: Allocator*) -> Type* {
+  return newType(allocator, TypeKind::Int {
     size = 32,
     isSigned = true,
   });
 }
 
-func getBool() -> Type* {
-  return newType(TypeKind::Bool {});
+func getBool(allocator: Allocator*) -> Type* {
+  return newType(allocator, TypeKind::Bool {});
 }
 
-func getIPtr(target: Target*) -> Type* {
-  return newType(TypeKind::Int {
+func getIPtr(allocator: Allocator*, target: Target*) -> Type* {
+  return newType(allocator, TypeKind::Int {
     size = getIntSize(target),
     isSigned = true,
     isPtr = true,
   });
 }
 
-func getUPtr(target: Target*) -> Type* {
-  return newType(TypeKind::Int {
+func getUPtr(allocator: Allocator*, target: Target*) -> Type* {
+  return newType(allocator, TypeKind::Int {
     size = getIntSize(target),
     isSigned = false,
     isPtr = true,
