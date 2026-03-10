@@ -18,6 +18,7 @@
   tree-sitter,
   nodejs,
   python3Packages,
+  valgrind-light,
 
   binutils,
 }:
@@ -62,6 +63,7 @@ llvmPackages_19.stdenv.mkDerivation {
     lib.optionals (!stdenv.hostPlatform.isDarwin) [
       qemu-user
       pkgsCross.armv7l-hf-multiplatform.buildPackages.gcc
+      valgrind-light
     ]
     ++ [
       lit-with-psutil

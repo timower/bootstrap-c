@@ -78,7 +78,7 @@ lit-stage%: stage%
 .PHONY: lit-mutate
 lit-mutate: bootstrap-coverage ## Run lit tests with mutated compiler
 	rm -rf test/**/Output
-	env ASAN_OPTIONS=detect_leaks=1 python3 ./test/mutation_test.py $(BUILD_DIR)/coverage.ll
+	python3 ./test/mutation_test.py $(BUILD_DIR)/coverage.ll
 
 .PHONY: lit-coverage
 lit-coverage: bootstrap-coverage ## Run tests with coverage analysis

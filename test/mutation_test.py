@@ -123,7 +123,7 @@ def make_content(tpl):
 def compile(file):
     out = f"{file}.ll.o"
     res = run(
-        ["clang", "-fsanitize=address", "-O0", "-c", "-x", "ir", "-o", out, file],
+        ["clang", "-O0", "-c", "-x", "ir", "-o", out, file],
         capture_output=True,
     )
     if res.returncode != 0:
@@ -139,7 +139,6 @@ def build_bin(tpl):
 
     args = [
         "clang",
-        "-fsanitize=address",
         "-fuse-ld=lld",
         "-O0",
         "-o",
