@@ -295,7 +295,7 @@ func addGenericInst(
     return inst->name;
   }
 
-  let inst = alloc(root->astAlloc, sizeof(GenericInst)) as GenericInst*;
+  let inst = alloc(&root->localAlloc, sizeof(GenericInst)) as GenericInst*;
   inst->function = function;
   inst->typeMap = mapping;
 

@@ -9,6 +9,7 @@ extern func sprintf(s: i8*, format: const i8*, ...) -> i32;
 extern func exit(status: i32);
 extern func strcmp(s1: const i8*, s2: const i8*) -> i32;
 extern func open(file: const i8*, oflags: i32, ...) -> i32;
+extern func close(fd: i32) -> i32;
 extern func memcmp(s1: const void*, s2: const void*, n: uptr) -> i32;
 extern func strlen(s: const i8*) -> uptr;
 extern func malloc(size: uptr) -> void*;

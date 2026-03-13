@@ -155,25 +155,3 @@ func getTargetDecl(astAlloc: Allocator*, target: Target*) -> DeclAST* {
 
   return decl;
 }
-
-func initSemaState(
-    target: Target,
-    lspMode: bool,
-    astAlloc: Allocator*
-) -> SemaState {
-  let nullDecl = getNullDecl(astAlloc);
-  let targetDecl = getTargetDecl(astAlloc, &target);
-
-  let localAlloc = Allocator {};
-  let locals = newDeclList(&localAlloc, nullDecl);
-  locals->next = newDeclList(&localAlloc, targetDecl);
-
-  return SemaState {
-    target = target,
-    locals = locals,
-    semaLspMode = lspMode,
-    extraDecls = targetDecl,
-    astAlloc = astAlloc,
-    localAlloc = localAlloc,
-  };
-}

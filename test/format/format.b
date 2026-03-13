@@ -52,12 +52,17 @@ const x = 12;
 
 func test(x: bool) {
   defer x++;
+
   if (x) {
+    let x = 0;
+
     defer {
       x *= 2;
     }
+
     return;
   }
+
   return;  // test
 }
 

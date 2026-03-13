@@ -37,6 +37,7 @@ func readFile(allocator: Allocator*, name: i8*) -> [i8] {
     fprintf(getStderr(), "open failed: %s!\n", name);
     return nullBuf();
   }
+  defer close(fd);
 
   let size = lseek(fd, 0, SEEK_END);
   if (size == -1) {
@@ -47,7 +48,6 @@ func readFile(allocator: Allocator*, name: i8*) -> [i8] {
   if (lseek(fd, 0, SEEK_SET) == -1) {
     // The first one would've failed, so this seems unreachable.
     unreachable("seek failed!");
-    return nullBuf();
   }
 
   // Add one i64 as padding so packTokenhash doesn't read out of bounds.
@@ -64,6 +64,7 @@ func readFile(allocator: Allocator*, name: i8*) -> [i8] {
     off += r;
   }
 
+  // opt: Earlier returns are identical to unit result.
   return result;
 }
 

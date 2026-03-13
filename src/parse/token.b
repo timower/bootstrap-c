@@ -52,13 +52,6 @@ func is_alnum(c: i32) -> bool {
 
 func newLocation(state: ParseState*, start: i32) -> SourceLoc* {
   let result = alloc(state->astAlloc, sizeof(SourceLoc)) as SourceLoc*;
-
-  // if (state->sourceSlabs.len == 0) {
-  //   let slabs = calloc(source_slab_size, sizeof(SourceLoc)) as SourceLoc*;
-  //   state->sourceSlabs = slabs[:source_slab_size];
-  // }
-  // let result = &state->sourceSlabs[0];
-  // state->sourceSlabs = state->sourceSlabs[1:];
   result->column = start - state->lineStart + 1;
   result->line = state->line;
   result->fileName = state->fileName;

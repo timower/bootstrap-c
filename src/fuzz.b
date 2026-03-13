@@ -6,6 +6,7 @@ import ir.print;
 func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
   let bufPtr = calloc(1, size + sizeof(i64)) as i8*;
   defer free(bufPtr);
+
   memcpy(bufPtr, data, size);
   let buf = bufPtr[:size];
 
@@ -16,6 +17,7 @@ func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
 
   let astAlloc = Allocator {};
   defer freeAll(&astAlloc);
+
   let fileName: [i8] = "fuzz";
   let parseState = ParseState {
     concrete = false,
@@ -38,9 +40,7 @@ func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
     abi = ABI::Gnu,
   };
 
-  let state = initSemaState(target, false, &astAlloc);
-  defer freeSemaState(&state);
-  decls = semaTopLevel(&state, decls);
+  decls = sema(&globalAlloc, target, false, decls);
 
   let module = genModule(&astAlloc, decls, target);
   if (module == null) {

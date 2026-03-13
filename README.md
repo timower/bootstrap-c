@@ -71,19 +71,23 @@ TODO
 
  - [x] 100% branch coverage.
  - [x] Fuzz testing targets.
- - [ ] Mutation testing fixes.
- - [ ] `defer` keyword
- - [ ] `free` memory in stages, verify leak free-ness.
+ - [x] Mutation testing fixes.
+ - [x] `defer` keyword
+ - [x] `free` memory in stages, verify leak free-ness.
+ - [x] Dedup generic instantiations.
 
  - [ ] allow array lvalues?
- - [ ] Add function attributes, mainly `noreturn` for exits.
+ - [ ] Add function attributes:
+  * `#noreturn` for exits.
+  * `#embed` for var decls.
+  * `#constructor` for init functions.
 
- - [ ] Dedup generic instantiations.
+ - [ ] stdlib shipped with compiler.
+
  - [ ] Generic function inference
  - [ ] Generic types
  - [ ] `is[T, U](union: U*) -> bool` function.
      * `is[T, U](union: U*) -> bool { return union as T* != NULL; }`
- - [ ] stdlib shipped with compiler.
 
  - [ ] Isolated imports.
 

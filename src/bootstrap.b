@@ -55,6 +55,7 @@ func main(argc: i32, argv: i8**) -> i32 {
 
   let globalAlloc = Allocator {};
   defer freeAll(&globalAlloc);
+
   let name: i8* = &args.inputFile[0];
   let buf = args.readFromStdin
        ? readStdin(&globalAlloc) : readFile(&globalAlloc, name);
@@ -85,16 +86,12 @@ func main(argc: i32, argv: i8**) -> i32 {
     return 0;
   }
 
-  {
-    let semaState = initSemaState(args.target, args.mode == Mode::SemaLsp, &globalAlloc);
-    defer freeSemaState(&semaState);
-    debug("Begin sema");
-    decls = semaTopLevel(&semaState, decls);
-    if (decls == null) {
-      return 1;
-    }
-    debug("End sema");
+  debug("Begin sema");
+  decls = sema(&globalAlloc, args.target, args.mode == Mode::SemaLsp, decls);
+  if (decls == null) {
+    return 1;
   }
+  debug("End sema");
 
   if (args.mode == Mode::SemaLsp) {
     return 0;

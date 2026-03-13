@@ -98,7 +98,7 @@ func resolveImport(state: SemaState*, decl: DeclAST*) {
   defer free(rootFile);
   let rootDir = dirname(rootFile);
 
-  // Not in cache, do full resolution
+  // Paths are stored in the AST locations, so use the ast alloc.
   let relPath = alloc(state->astAlloc, 4096);
   let lastLen = strlen(rootDir);
   while (true) {
@@ -257,4 +257,31 @@ func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   }
 
   return decl;
+}
+
+func sema(
+    astAlloc: Allocator*,
+    target: Target,
+    lspMode: bool,
+    decls: DeclAST*
+) -> DeclAST* {
+  let nullDecl = getNullDecl(astAlloc);
+  let targetDecl = getTargetDecl(astAlloc, &target);
+
+  let localAlloc = Allocator {};
+  let locals = newDeclList(&localAlloc, nullDecl);
+  locals->next = newDeclList(&localAlloc, targetDecl);
+
+  let state = SemaState {
+    target = target,
+    locals = locals,
+    semaLspMode = lspMode,
+    extraDecls = targetDecl,
+    astAlloc = astAlloc,
+    localAlloc = localAlloc,
+  };
+  defer freeSemaState(&state);
+
+  let res = semaTopLevel(&state, decls);
+  return res;
 }

@@ -608,7 +608,7 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
         failSemaExpr(state, expr, "Expected generic function type");
       }
 
-      let mapping = getTypeMap(state->astAlloc, fnType, genericInst.typeArgs);
+      let mapping = getTypeMap(&state->localAlloc, fnType, genericInst.typeArgs);
       if (mapping == null) {
         failSemaExpr(state, expr, "Failed to instantiate, incorrect number of type args");
       }
