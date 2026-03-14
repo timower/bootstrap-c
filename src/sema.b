@@ -282,6 +282,5 @@ func sema(
   };
   defer freeSemaState(&state);
 
-  let res = semaTopLevel(&state, decls);
-  return res;
+  return semaTopLevel(&state, decls);
 }
