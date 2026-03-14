@@ -9,6 +9,9 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
   newScope(state);
 
   state->cleanupSlot = Value::Zero {};
+  state->retSlot = Value::Zero {};
+  state->retBlock = null;
+
   state->curFunc = fn;
   state->curBB = addBasicBlock(state, "entry", decl->location);
 
@@ -44,6 +47,19 @@ func genFunc(state: IRGenState*, decl: DeclAST*, fn: Function*) {
         type = fnType->result,
       },
     });
+  }
+
+  if (state->retBlock != null) {
+    state->curBB = state->retBlock;
+
+    let v: Value = Value::Zero {};
+    if (fnType->result->kind as TypeKind::Void* == null) {
+      v = addInstr(state, fnType->result, InstrKind::Load {
+        ptr = state->retSlot,
+      });
+    }
+
+    genReturn(state, v, fnType->result);
   }
 }
 
@@ -150,6 +166,33 @@ func genBranch(state: IRGenState*, target: JmpSlot) {
   }
 }
 
+func getRetSlot(state: IRGenState*, type: Type*) -> Value {
+  if (state->retSlot as Value::Zero* != null) {
+    state->retSlot = addAlloca(state, type);
+
+    let alloc = state->retSlot as Value::AllocaPtr*;
+    alloc->ptr->dbgName = "retSlot";
+  }
+  return state->retSlot;
+}
+
+func getRetBlock(state: IRGenState*, loc: SourceLoc*) -> BasicBlock* {
+  if (state->retBlock == null) {
+    state->retBlock = addBasicBlock(state, "ret", loc);
+  }
+  return state->retBlock;
+}
+
+func genReturn(state: IRGenState*, val: Value, type: Type*) {
+  if (type == null || type->kind as TypeKind::Void* != null) {
+    addInstr(state, null, InstrKind::ReturnVoid {});
+    return;
+  }
+
+  addInstr(state, null, InstrKind::Return {
+    val = val,
+  });
+}
 
 func genStmt(state: IRGenState*, stmt: StmtAST*) {
   switch (stmt->kind) {
@@ -167,36 +210,29 @@ func genStmt(state: IRGenState*, stmt: StmtAST*) {
       popScope(state);
 
     case StmtKind::Return as retStmt:
+      let t: Type* = null;
+      let v: Value = Value::Zero {};
+      if (retStmt.expr != null) {
+        t = retStmt.expr->type;
+        v = genExpr(state, retStmt.expr);
+        if (hasCleanup(state)) {
+          genStore(state, getRetSlot(state, t), v, t);
+        }
+      }
+
       if (hasCleanup(state)) {
-        let retBB = addBasicBlock(state, "ret", stmt->location);
         genBranch(state, JmpSlot {
-          bb = retBB,
+          bb = getRetBlock(state, stmt->location),
           scope = null,
         });
-
-        state->curBB = retBB;
+      } else {
+        if (t != null && isAggregate(t)) {
+          v = addInstr(state, t, InstrKind::Load {
+            ptr = v,
+          });
+        }
+        genReturn(state, v, t);
       }
-
-      // TODO: single return BB?
-      if (retStmt.expr == null) {
-        addInstr(state, null, InstrKind::ReturnVoid {});
-        return;
-      }
-
-      let v = genExpr(state, retStmt.expr);
-      if (&retStmt.expr->type->kind as TypeKind::Void* != null) {
-        addInstr(state, null, InstrKind::ReturnVoid {});
-        return;
-      }
-
-      if (isAggregate(retStmt.expr->type)) {
-        v = addInstr(state, retStmt.expr->type, InstrKind::Load {
-          ptr = v,
-        });
-      }
-      addInstr(state, null, InstrKind::Return {
-        val = v,
-      });
 
     case StmtKind::If as ifStmt:
       let cond = genExpr(state, ifStmt.cond);

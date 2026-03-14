@@ -16,6 +16,10 @@ struct IRGenState {
   cleanupSlot: Value;
   cleanupCounter: i32;
 
+  // Used when needed for a return through cleanup.
+  retSlot: Value;
+  retBlock: BasicBlock*;
+
   // Used for basic blocks.
   globalCounter: i32;
 
