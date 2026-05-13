@@ -75,8 +75,11 @@ TODO
  - [x] `defer` keyword
  - [x] `free` memory in stages, verify leak free-ness.
  - [x] Dedup generic instantiations.
+ - [x] allow slice of array lvalues?
 
- - [ ] allow array lvalues?
+ - [ ] Methods and method call syntax
+    * `a.foo(...)` -> `Foo::foo(a, ...)`
+
  - [ ] Add function attributes:
   * `#noreturn` for exits.
   * `#embed` for var decls.
@@ -91,8 +94,6 @@ TODO
 
  - [ ] Isolated imports.
 
- - [ ] Methods and method call syntax
-    * `a.foo(...)` -> `Foo::foo(a, ...)`
 
  - [ ] aarch64 backend
  - [ ] Remove intrinsic lists for types, cache types.

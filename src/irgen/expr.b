@@ -322,7 +322,7 @@ func genSliceIndex(state: IRGenState*, expr: ExprAST*) -> Value {
 
   switch (slice->slice->type->kind) {
     case TypeKind::Array as a:
-      let sliceVal = genAddr(state, slice->slice);
+      let sliceVal = genExpr(state, slice->slice);
       sizeVal = Value::IntConstant {
         value = a.size,
         type = iptrType,

@@ -4,6 +4,11 @@
 // CHECK-NEXT: burp
 // CHECK-NEXT: baz
 // CHECK-NEXT: burp
+// CHECK-NEXT: 1
+// CHECK-NEXT: 2
+// CHECK-NEXT: 3
+// CHECK-NEXT: 4
+// CHECK-NEXT: 5
 extern func puts(s: i8*) -> i32;
 extern func printf(s: i8*, ...) -> i32;
 
@@ -17,11 +22,8 @@ let test: [i8] = "foo"[:];
 let array2: [i8][] = [ "baz"[:], "burp"[:] ];
 
 func printArray() {
-  let arr = array2;
-  let slice = arr[:];  // TODO: allow .len on arrays.
-
-  for (let i = 0; i < slice.len; i++) {
-    puts(&slice[i][0]);
+  for (let i = 0; i < array2.len; i++) {
+    puts(&array2[i][0]);
   }
 }
 
@@ -40,6 +42,11 @@ func printArray2() {
   }
 }
 
+func useArray(x: [i32]) {
+  for (let i = 0; i < x.len; i++) {
+    printf("%d\n", x[i]);
+  }
+}
 
 func main() -> i32 {
   let test: [i8][2]* = &array2;
@@ -58,6 +65,9 @@ func main() -> i32 {
   if (array.len != 4) {
     return 1;
   }
+
+  useArray([ 1, 2 ][:]);
+  useArray([ 3, 4, 5 ][:]);
 
   return 0;
 }
