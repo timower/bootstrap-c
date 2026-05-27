@@ -176,11 +176,20 @@ func parseUnion(state: ParseState*) -> DeclAST* {
 //  'func' identifier [ '->' type ] '(' [decl (',' decl)*] ')' compound_stmt?
 func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   let decl = newLocDecl(state, DeclKind::Func {});
-  (&decl->kind as DeclKind::Func*)->isExtern = isExtern;
+  let funcKind = &decl->kind as DeclKind::Func*;
+  funcKind->isExtern = isExtern;
   getNextToken(state);  // eat func
 
   expect(state, TokenKind::IDENTIFIER);
   decl->name = getNextToken(state);
+
+  if (match(state, TokenKind::SCOPE)) {
+    getNextToken(state);    // eat ::
+    expect(state, TokenKind::IDENTIFIER);
+    funcKind->structName = decl->name;
+    let memberName = getNextToken(state);
+    decl->name.data = decl->name.data[:decl->name.data.len + memberName.data.len + 2];
+  }
 
   // Parse optional type parameters [T, U, V]
   let typeParams: Type* = null;
@@ -260,7 +269,7 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
   }
   getNextToken(state);  // eat )
 
-  (&decl->kind as DeclKind::Func*)->args = firstParam;
+  funcKind->args = firstParam;
 
   funcType->args = decl->type->next;
   decl->type->next = null;
@@ -272,7 +281,6 @@ func parseFuncDecl(state: ParseState*, isExtern: bool) -> DeclAST* {
     funcType->result = newType(state->astAlloc, TypeKind::Void {});
   }
 
-  let funcKind = &decl->kind as DeclKind::Func*;
   if (!funcKind->isExtern) {
     expect(state, TokenKind::OPEN_BRACE);
     funcKind->body = parseCompoundStmt(state);

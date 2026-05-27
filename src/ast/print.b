@@ -658,6 +658,7 @@ func printDeclIndent(decl: DeclAST*, indent: i32) {
         fprintf(printFile, "extern ");
       }
       fprintf(printFile, "func ");
+
       printToken(decl->name);
 
       // Print type parameters if present

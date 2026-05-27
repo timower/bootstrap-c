@@ -43,14 +43,6 @@ func getFieldBitset(state: SemaState*, expr: ExprAST*) -> i32 {
 
 func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
   switch (expr->kind) {
-    case ExprKind::Binary as binary:
-      if (binary.op.kind != TokenKind::COMMA) {
-        unreachable("Binary expressions should be evaluated");
-      }
-      semaCaseExpr(state, switchType, binary.lhs);
-      semaCaseExpr(state, switchType, binary.rhs);
-      expr->type = switchType;
-
     case ExprKind::Member as memberExpr:
       let scopeExpr = memberExpr.object;
       let varName = memberExpr.identifier;
@@ -126,13 +118,18 @@ func semaCaseExpr(state: SemaState*, switchType: Type*, expr: ExprAST*) {
               "Expected union or enum parent for member case expr");
       }
 
+    case ExprKind::Binary as binary:
+      if (binary.op.kind != TokenKind::COMMA) {
+        unreachable("Binary expressions should be evaluated");
+      }
+
+      semaCaseExpr(state, switchType, binary.lhs);
+      semaCaseExpr(state, switchType, binary.rhs);
+      expr->type = switchType;
+
     default:
       semaExpr(state, expr);
-
-      // Try to evaluate constant expressions in case statements
       let evaluated = evalConstant(state, expr);
-
-      // Replace the expression with its evaluated form
       expr->kind = evaluated->kind;
       expr->type = evaluated->type;
   }

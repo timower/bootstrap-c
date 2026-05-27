@@ -77,6 +77,9 @@ struct Task {
 }
 
 
+const foo = 3;
+
+
 // Test basic integer switch
 func testIntegerSwitch() {
   printf("=== Integer Switch Tests ===\n");
@@ -88,7 +91,7 @@ func testIntegerSwitch() {
       case (sizeof(i8) as i32):
         printf("One\n");
         break;
-      case 2, 3:
+      case 2, foo:
         printf("Two or Three\n");
         break;
       case 5:

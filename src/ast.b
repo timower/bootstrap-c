@@ -197,6 +197,9 @@ union DeclKind {
     args: DeclAST*;
     body: StmtAST*;
     isExtern: bool;
+
+    // Optional name, only set for member functions.
+    structName: Token;
   }
   Import {
     path: ExprAST*;

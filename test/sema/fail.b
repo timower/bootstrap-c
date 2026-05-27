@@ -87,6 +87,8 @@
 // RUN: not %bootstrap %t/not_bool.b 2>&1 | grep "Expected bool"
 // RUN: not %bootstrap %t/consistent_type.b 2>&1 | grep "Init must have consistent type"
 //
+// RUN: not %bootstrap %t/not_func_member.b 2>&1 | grep "Must call function or function pointer type"
+//
 //--- var.b
 let x = y;
 
@@ -487,3 +489,10 @@ let x = !12;
 
 //--- consistent_type.b
 let x = [ 1 as i32, 2 as u32 ];
+
+
+//--- not_func_member.b
+func a() {
+  let w = [ 1, 2 ];
+  w.len();
+}

@@ -77,8 +77,9 @@ TODO
  - [x] Dedup generic instantiations.
  - [x] allow slice of array lvalues?
 
- - [ ] Methods and method call syntax
-    * `a.foo(...)` -> `Foo::foo(a, ...)`
+ - [x] Methods and method call syntax
+    * `a.foo(...)` -> `Foo::foo(&a, ...)`
+    * `a->foo(...)` -> `Foo::foo(a, ...)`
 
  - [ ] Add function attributes:
   * `#noreturn` for exits.

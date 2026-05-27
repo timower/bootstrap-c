@@ -159,7 +159,8 @@ func parseParen(state: ParseState*) -> ExprAST* {
   expect(state, TokenKind::CLOSE_PAREN);
   getNextToken(state);  // eat )
 
-  // if (!state->options.concrete) {
+  // We do parse parens, otherwise we couldn't get coverage.
+  // if (!state->concrete) {
   //   return expr;
   // }
   let res = newLocExpr(state, loc, ExprKind::Paren {

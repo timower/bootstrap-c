@@ -411,6 +411,176 @@ func convertTypes(
   }
 }
 
+func semaMemberObject(state: SemaState*, expr: ExprAST*) -> Type* {
+  let memberExpr = expr->kind as ExprKind::Member*;
+
+  semaExpr(state, memberExpr->object);
+
+  let objectType: Type* = null;
+  if (memberExpr->op.kind == TokenKind::PTR_OP) {
+    let ptrType = memberExpr->object->type->kind as TypeKind::Pointer*;
+    if (ptrType == null) {
+      failSemaExpr(state, expr, "Expected pointer for ->");
+    }
+    objectType = ptrType->pointee;
+  } else if (memberExpr->op.kind == TokenKind::DOT) {
+    objectType = memberExpr->object->type;
+  } else {
+    // The parser doesn't allow this.
+    unreachable("Unknown member op");
+  }
+
+  return objectType;
+}
+
+func semaMemberField(state: SemaState*, expr: ExprAST*, objectType: Type*) {
+  let memberExpr = expr->kind as ExprKind::Member*;
+  switch (objectType->kind) {
+    case TypeKind::Array as a:
+      if (!tokCmpStr(memberExpr->identifier, "len")) {
+        failSemaExpr(state, expr, " Only 'len' member supported");
+      }
+
+      expr->kind = ExprKind::Int {
+        token = memberExpr->identifier,
+        value = a.size,
+      };
+      expr->type = getIPtr(state->astAlloc, &state->target);
+
+    case TypeKind::Slice:
+      if (!tokCmpStr(memberExpr->identifier, "len")) {
+        failSemaExpr(state, expr, " Only 'len' member supported");
+      }
+
+      // (ptr, len) so index 1
+      memberExpr->fieldIndex = 1;
+      expr->type = getIPtr(state->astAlloc, &state->target);
+
+    case TypeKind::Struct as structType:
+      let structDecl = lookupStruct(state, &structType);
+      if (structDecl == null) {
+        failSemaExpr(state, expr, "Unknown type for member expression");
+      }
+
+      let fieldDecl = findField(
+          state,
+          structDecl,
+          memberExpr->identifier,
+          &memberExpr->fieldIndex);
+      if (fieldDecl == null) {
+        failSemaExpr(state, expr, " Cannot find field");
+      }
+
+      expr->type = fieldDecl->type;
+
+    default:
+      failSemaExpr(state, expr, ": Expected struct type for member access");
+  }
+}
+
+func semaMemberCall(state: SemaState*, callExpr: ExprKind::Call*, expr: ExprAST*) {
+  let memberExpr = expr->kind as ExprKind::Member*;
+  let objectType = semaMemberObject(state, expr);
+
+  if (let objStruct = objectType->kind as TypeKind::Struct*) {
+    let objName = objStruct->tag.data;
+    let memberName = memberExpr->identifier.data;
+    let nameLen = objName.len + memberName.len + 2;
+    let name = alloc(state->astAlloc, nameLen + 1) as i8*;
+    sprintf(name, "%.*s::%.*s", objName.len, &objName[0], memberName.len, &memberName[0]);
+    let nameTok = Token {
+      kind = TokenKind::IDENTIFIER,
+      data = name[:nameLen],
+      location = null,
+    };
+
+    let local = lookupLocal(state, nameTok);
+
+    if (local != null) {
+      expr->type = local->type;
+
+      callExpr->function = newExpr(state->astAlloc, ExprKind::Variable {
+        identifier = nameTok,
+      });
+      callExpr->function->type = local->type;
+
+      let thisExpr = memberExpr->object;
+      if (memberExpr->op.kind == TokenKind::DOT) {
+        thisExpr = newExpr(state->astAlloc, ExprKind::Unary {
+          op = Token {
+            kind = TokenKind::AND,
+          },
+          postfix = null,
+          prefix = thisExpr,
+        });
+      }
+
+      thisExpr->next = callExpr->args;
+      callExpr->args = thisExpr;
+
+      return;
+    }
+  }
+  semaMemberField(state, expr, objectType);
+}
+
+func semaCall(state: SemaState*, expr: ExprAST*) {
+  let callExpr = expr->kind as ExprKind::Call*;
+
+  let funcExpr = callExpr->function;
+  switch (funcExpr->kind) {
+    case ExprKind::Member as memberKind:
+      semaMemberCall(state, callExpr, funcExpr);
+
+    default:
+      semaExpr(state, funcExpr);
+  }
+
+  let funType = getFunctionType(callExpr);
+  if (funType == null) {
+    failSemaExpr(state, expr, "Must call function or function pointer type");
+  }
+
+  let curArgTy = funType->args;
+  let cur = callExpr->args;
+  let last: ExprAST** = &callExpr->args;
+  for (; cur != null; cur = cur->next) {
+    // Cache the string expression kind before sema transforms it.
+    let isStringExpr = cur->kind as ExprKind::Str* != null;
+    semaExpr(state, cur);
+
+    if (curArgTy != null) {
+      let conv = doConvertBase(state, cur, curArgTy, isStringExpr);
+      if (conv == null) {
+        printType(curArgTy);
+        failSemaExpr(state, expr, " Arg type mismatch");
+      }
+
+      if (conv != cur) {
+        // Chain in 'conv' to replace 'cur'
+        conv->next = cur->next;
+        cur->next = null;
+        cur = conv;
+
+        *last = conv;
+      }
+    } else if (!funType->isVarargs) {
+      break;
+    }
+
+    last = &cur->next;
+
+    if (curArgTy != null) {
+      curArgTy = curArgTy->next;
+    }
+  }
+
+  if (((curArgTy == null) != (cur == null))) {
+    errorSema(state, expr->location, "Function call arg length mismatch");
+  }
+  expr->type = funType->result;
+}
+
 func semaBinExpr(state: SemaState*, expr: ExprAST*) {
   let binExpr = expr->kind as ExprKind::Binary*;
   semaExpr(state, binExpr->lhs);
@@ -535,59 +705,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       expr->type = decl->type;
 
     case ExprKind::Member as memberExpr:
-      semaExpr(state, memberExpr.object);
-
-      let objectType: Type* = null;
-      if (memberExpr.op.kind == TokenKind::PTR_OP) {
-        let ptrType = memberExpr.object->type->kind as TypeKind::Pointer*;
-        if (ptrType == null) {
-          failSemaExpr(state, expr, "Expected pointer for ->");
-        }
-        objectType = ptrType->pointee;
-      } else if (memberExpr.op.kind == TokenKind::DOT) {
-        objectType = memberExpr.object->type;
-      } else {
-        // The parser doesn't allow this.
-        unreachable("Unknown member op");
-      }
-
-      switch (objectType->kind) {
-        case TypeKind::Array as a:
-          if (!tokCmpStr(memberExpr.identifier, "len")) {
-            failSemaExpr(state, expr, " Only 'len' member supported");
-          }
-
-          expr->kind = ExprKind::Int {
-            token = memberExpr.identifier,
-            value = a.size,
-          };
-          expr->type = getIPtr(state->astAlloc, &state->target);
-
-        case TypeKind::Slice:
-          if (!tokCmpStr(memberExpr.identifier, "len")) {
-            failSemaExpr(state, expr, " Only 'len' member supported");
-          }
-
-          // (ptr, len) so index 1
-          memberExpr.fieldIndex = 1;
-          expr->type = getIPtr(state->astAlloc, &state->target);
-
-        case TypeKind::Struct as structType:
-          let structDecl = lookupStruct(state, &structType);
-          if (structDecl == null) {
-            failSemaExpr(state, expr, "Unknown type for member expression");
-          }
-
-          let fieldDecl = findField(state, structDecl, memberExpr.identifier, &memberExpr.fieldIndex);
-          if (fieldDecl == null) {
-            failSemaExpr(state, expr, " Cannot find field");
-          }
-
-          expr->type = fieldDecl->type;
-
-        default:
-          failSemaExpr(state, expr, ": Expected struct type for member access");
-      }
+      let objectType = semaMemberObject(state, expr);
+      semaMemberField(state, expr, objectType);
 
     case ExprKind::GenericInstantiation as genericInst:
       resolveTypeTags(state, genericInst.typeArgs);
@@ -623,52 +742,8 @@ func semaExpr(state: SemaState*, expr: ExprAST*) {
       resolveTypeTags(state, expr->type);
       genericInst.instance = addGenericInst(state, local, mapping);
 
-    case ExprKind::Call as callExpr:
-      semaExpr(state, callExpr.function);
-
-      let funType = getFunctionType(&callExpr);
-      if (funType == null) {
-        failSemaExpr(state, expr, "Must call function or function pointer type");
-      }
-
-      let curArgTy = funType->args;
-      let cur = callExpr.args;
-      let last: ExprAST** = &callExpr.args;
-      for (; cur != null; cur = cur->next) {
-        // Cache the string expression kind before sema transforms it.
-        let isStringExpr = cur->kind as ExprKind::Str* != null;
-        semaExpr(state, cur);
-
-        if (curArgTy != null) {
-          let conv = doConvertBase(state, cur, curArgTy, isStringExpr);
-          if (conv == null) {
-            printType(curArgTy);
-            failSemaExpr(state, expr, " Arg type mismatch");
-          }
-
-          if (conv != cur) {
-            // Chain in 'conv' to replace 'cur'
-            conv->next = cur->next;
-            cur->next = null;
-            cur = conv;
-
-            *last = conv;
-          }
-        } else if (!funType->isVarargs) {
-          break;
-        }
-
-        last = &cur->next;
-
-        if (curArgTy != null) {
-          curArgTy = curArgTy->next;
-        }
-      }
-
-      if (((curArgTy == null) != (cur == null))) {
-        errorSema(state, expr->location, "Function call arg length mismatch");
-      }
-      expr->type = funType->result;
+    case ExprKind::Call:
+      semaCall(state, expr);
 
     case ExprKind::Conditional as condExpr:
       semaExpr(state, condExpr.cond);

@@ -79,8 +79,26 @@ func genModule(
 
 func getDeclIRName(a: Allocator*, ident: [i8]) -> [i8] {
   let len = ident.len as i32;
-  let buf: i8* = alloc(a, len + 2);
-  len = sprintf(buf, "@%.*s", len, &ident[0]);
+
+  let needsEscape = false;
+  for (let i = 0; i < ident.len; i++) {
+    let c = ident[i];
+    if (c == '_'
+        || (c >= 'a' && c <= 'z')
+        || (c >= 'A' && c <= 'Z')
+        || (c >= '0' && c <= '9')) {
+      continue;
+    }
+    needsEscape = true;
+    break;
+  }
+
+  let buf: i8* = alloc(a, len + 4);
+  if (needsEscape) {
+    len = sprintf(buf, "@\"%.*s\"", len, &ident[0]);
+  } else {
+    len = sprintf(buf, "@%.*s", len, &ident[0]);
+  }
   return buf[:len];
 }
 
