@@ -122,6 +122,7 @@ module.exports = grammar({
     _func_def: $ => seq(
       'func',
       $.identifier,
+      optional(seq('::', $.identifier)),
       optional($.generic_param_list),
       $.param_list,
       optional(seq('->', field('result', $.type))),
