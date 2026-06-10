@@ -165,7 +165,7 @@ $(BUILD_DIR)/%.ll: src/%.b $(ALL_SRC) bootstrap
 	llc $(OPTLEVEL) $(LLCBASEFLAGS) $(LLCFLAGS) $< -o $@
 
 $(BUILD_DIR)/bootstrap.ll: $(PARENT_STAGE) $(ALL_SRC)
-	$(PARENT_STAGE) $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
+	$(PARENT_STAGE) -stdlib . $(BOOTSTRAP_FLAGS) $(MAIN_SRC) -o $@
 
 $(CACHE_DIR)/stage-%:
 	$(eval COMMIT_HASH := $(patsubst $(CACHE_DIR)/stage-%,%,$@))
