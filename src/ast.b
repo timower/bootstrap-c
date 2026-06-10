@@ -1,4 +1,4 @@
-import libc;
+import stdlib.libc;
 
 import alloc;
 import ast.token;

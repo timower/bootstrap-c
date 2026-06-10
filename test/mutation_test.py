@@ -221,6 +221,9 @@ def invert():
 def main(pool, args):
     invert()
 
+    os.symlink(os.path.realpath("./stdlib"), "build/stdlib.tmp")
+    os.rename("build/stdlib.tmp", "build/stdlib")
+
     print("Splitting")
     files = split_file(args.ir_file)
     print("Disassembling")

@@ -33,6 +33,7 @@
         };
         bootstrap-checked = bootstrap.overrideAttrs (_oldAttrs: {
           doCheck = true;
+          doInstallCheck = true;
         });
       in
       {
@@ -66,6 +67,8 @@
           ];
           shellHook = ''
             export LDFLAGS='-fsanitize=address'
+            export prefix=build/out
+
             # export ASAN_OPTIONS='detect_leaks=0'
             # export PARENT_STAGE="${nixpkgs.lib.getExe parent-bootstrap}"
           '';

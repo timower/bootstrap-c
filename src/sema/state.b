@@ -13,6 +13,7 @@ struct ImportList {
 
 struct SemaState {
   target: Target;
+  stdlibPath: i8*;
 
   parent: SemaState*;
 
@@ -65,6 +66,7 @@ func newState(parent: SemaState*) -> SemaState {
     semaLspMode = parent->semaLspMode,
     astAlloc = parent->astAlloc,
     localAlloc = parent->localAlloc,
+    stdlibPath = parent->stdlibPath,
   };
   return state;
 }

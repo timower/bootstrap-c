@@ -1,7 +1,7 @@
 import ast;
 import ast.print;
 
-import libc;
+import stdlib.libc;
 import alloc;
 
 

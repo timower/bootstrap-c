@@ -1,4 +1,4 @@
-import libc;
+import stdlib.libc;
 import util;
 
 import ast;
@@ -87,7 +87,12 @@ func main(argc: i32, argv: i8**) -> i32 {
   }
 
   debug("Begin sema");
-  decls = sema(&globalAlloc, args.target, args.mode == Mode::SemaLsp, decls);
+  decls = sema(
+      &globalAlloc,
+      args.target,
+      args.mode == Mode::SemaLsp,
+      args.stdlibPath,
+      decls);
   if (decls == null) {
     return 1;
   }

@@ -1,4 +1,4 @@
-import libc;
+import stdlib.libc;
 import target;
 
 import ir;

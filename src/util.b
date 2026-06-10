@@ -1,5 +1,6 @@
-import libc;
 import alloc;
+import stdlib.libc;
+import util.self_path;
 
 func unreachable(msg: i8*) {
   printf("UNREACHABLE: %s\n", msg);

@@ -1,12 +1,12 @@
 import ast;
 import ast.print;
-import parse;
 
 import sema.state;
 import sema.type;
 import sema.expr;
 import sema.decl;
 import sema.lsp;
+import sema.imports;
 
 import debug;
 
@@ -60,78 +60,13 @@ func resolveDeclTypeTags(state: SemaState*, decl: DeclAST*) {
   }
 }
 
-func getImportExprName(state: SemaState*, expr: ExprAST*) -> Token {
-  switch (expr->kind) {
-    case ExprKind::Variable as varExpr:
-      return varExpr.identifier;
-    case ExprKind::Member as memberExpr:
-      let lhsToken = getImportExprName(state, memberExpr.object);
-      let res = newInternalToken(
-          &state->localAlloc,
-          (lhsToken.data.len + memberExpr.identifier.data.len + 10) as uptr);
-      let len = sprintf(
-          &res.data[0],
-          "%.*s/%.*s",
-          lhsToken.data.len,
-          &lhsToken.data[0],
-          memberExpr.identifier.data.len,
-          &memberExpr.identifier.data[0]);
-      res.data = res.data[:len];
-      return res;
-
-    default:
-      unreachable("Unexpected expression in import");
-      return Token {};
-  }
-}
-
 func resolveImport(state: SemaState*, decl: DeclAST*) {
   if (state->parent != null) {
     // The parser doesn't accept this.
     unreachable("Import not allowed in local scope");
   }
 
-  let name = getImportExprName(state, (&decl->kind as DeclKind::Import*)->path);
-
-  // Create cache key from import name, target, and source directory
-  let rootFile = strdup(decl->location->fileName);
-  defer free(rootFile);
-  let rootDir = dirname(rootFile);
-
-  // Paths are stored in the AST locations, so use the ast alloc.
-  let relPath = alloc(state->astAlloc, 4096);
-  let lastLen = strlen(rootDir);
-  while (true) {
-    sprintf(relPath, "%s/%.*s.b", rootDir, name.data.len, &name.data[0]);
-    if (access(relPath, F_OK) == 0) {
-      break;
-    }
-
-    let targetName = getImportName(&state->target);
-    sprintf(
-        relPath,
-        "%s/%.*s.%.*s.b",
-        rootDir,
-        name.data.len,
-        &name.data[0],
-        targetName.len,
-        &targetName[0]);
-    if (access(relPath, F_OK) == 0) {
-      break;
-    }
-
-    rootDir = dirname(rootDir);
-    let newLen = strlen(rootDir);
-
-    // Check if 'rootDir' == '/'
-    if (lastLen == newLen) {
-      free(rootFile);
-      failSemaDecl(state, decl, "Couldn't find file");
-      return;
-    }
-
-    lastLen = newLen;
-  }
+  let relPath = getImportPath(state, decl);
 
   // Check if we already import this file.
   for (let cur = state->imports; cur != null; cur = cur->next) {
@@ -185,14 +120,6 @@ func instantiateGeneric(state: SemaState*, generic: GenericInst*) {
 
 func semaTopLevel(state: SemaState*, decl: DeclAST*) -> DeclAST* {
   let fileName = decl->location->fileName;
-
-  let root = getRoot(state);
-  if (root->jmpBuf == null) {
-    root->jmpBuf = newJmpBuf();
-    if (setjmp(root->jmpBuf) != 0) {
-      return null;
-    }
-  }
 
   // First resolve all imports.
   for (let cur = decl; cur != null; cur = cur->next) {
@@ -263,6 +190,7 @@ func sema(
     astAlloc: Allocator*,
     target: Target,
     lspMode: bool,
+    stdlibPath: i8*,
     decls: DeclAST*
 ) -> DeclAST* {
   let nullDecl = getNullDecl(astAlloc);
@@ -279,8 +207,18 @@ func sema(
     extraDecls = targetDecl,
     astAlloc = astAlloc,
     localAlloc = localAlloc,
+    stdlibPath = stdlibPath,
   };
   defer freeSemaState(&state);
+
+  state.jmpBuf = newJmpBuf();
+  if (setjmp(state.jmpBuf) != 0) {
+    return null;
+  }
+
+  if (state.stdlibPath == null) {
+    findStdlib(&state);
+  }
 
   return semaTopLevel(&state, decls);
 }

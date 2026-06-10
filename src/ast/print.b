@@ -1,5 +1,5 @@
 import ast;
-import libc;
+import stdlib.libc;
 
 let indent_width = 2;
 

@@ -6,6 +6,8 @@ OPTLEVEL ?= -O0
 LLCBASEFLAGS ?= --frame-pointer=all --relocation-model=pic -filetype=obj
 LLCFLAGS ?=
 
+prefix ?= /usr/local
+
 # Auto-detect platform and set appropriate target
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -41,12 +43,6 @@ OBJ = $(BUILD_DIR)/bootstrap.o
 .PHONY: all
 all: bootstrap ## Build the main bootstrap compiler
 
-.PHONY: help
-help: ## Show this help message
-	@echo "Available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
-
 bootstrap: $(OBJ) ## Build the bootstrap compiler
 	$(CC) $(LDFLAGS) $^ -o $@ $(LOADLIBES) $(LDLIBS)
 
@@ -63,7 +59,7 @@ bootstrap-coverage: bootstrap ## Build bootstrap with coverage instrumentation
 	  clang -Xclang -disable-llvm-passes -x ir - -o $@ -fprofile-instr-generate
 
 .PHONY: test
-test: format-check lit-coverage lit-stage2 lit-mutate tree-sitter-check ## Run all tests (format check + lit tests)
+test: format-check lit-coverage lit-stage2 tree-sitter-check lit-mutate ## Run all tests (format check + lit tests)
 
 .PHONY: lit
 lit: bootstrap ## Run LLVM lit tests with current bootstrap compiler
@@ -136,6 +132,16 @@ fuzz: $(BUILD_DIR)/fuzz-parser
 	find test src -name '*.b' -exec cp {} corpus/ \;
 	env ASAN_OPTIONS=detect_leaks=1 $(BUILD_DIR)/fuzz-parser -fork=6 -close_fd_mask=2 corpus/
 
+.PHONY: install
+install: bootstrap ## Install into $prefix
+	mkdir -p $(prefix)/bin $(prefix)/lib/bootstrap/
+	install -m 0755 bootstrap $(prefix)/bin/ || install -m 0755 bootstrap.exe $(prefix)/bin/
+	cp -r ./stdlib $(prefix)/lib/bootstrap/
+
+.PHONY: installcheck
+installcheck: ## Verifies the install is correct by trying to import stdlib.
+	cd $(prefix) && echo 'import stdlib.libc;' | ./bin/bootstrap - -o /dev/null
+
 .PHONY: clean
 clean: ## Remove build artifacts and binaries
 	rm -rf build/* bootstrap bootstrap-coverage stage*
@@ -172,3 +178,9 @@ $(CACHE_DIR)/stage-%:
 	cd $(CACHE_SRC_DIR) && $(MAKE) CACHE_DIR=$(CACHE_DIR) PARENT_STAGE=$(PARENT_STAGE_DEP) stage2; \
 	mv $(CACHE_SRC_DIR)/stage2 $@; \
 	git worktree remove $(CACHE_SRC_DIR)
+
+.PHONY: help
+help: ## Show this help message
+	@echo "Available targets:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'

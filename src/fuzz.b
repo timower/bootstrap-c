@@ -40,7 +40,7 @@ func LLVMFuzzerTestOneInput(data: i8*, size: uptr) -> i32 {
     abi = ABI::Gnu,
   };
 
-  decls = sema(&globalAlloc, target, false, decls);
+  decls = sema(&globalAlloc, target, false, null, decls);
 
   let module = genModule(&globalAlloc, decls, target);
   if (module == null) {

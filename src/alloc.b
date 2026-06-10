@@ -1,4 +1,4 @@
-import libc;
+import stdlib.libc;
 
 struct AllocSlab {
   prev: AllocSlab*;

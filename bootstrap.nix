@@ -84,11 +84,6 @@ llvmPackages_19.stdenv.mkDerivation {
     export GOCACHE="$TMPDIR/go-cache"
   '';
 
-  installPhase = ''
-    mkdir -p $out/bin
-    cp ./bootstrap $out/bin || cp ./bootstrap.exe $out/bin
-  ''
-  + lib.optionalString enable_lsp ''
-    cp ./bootstrap-lsp/bootstrap-lsp $out/bin
-  '';
+  installFlags = [ "prefix=$${out}" ];
+  installCheckFlags = [ "prefix=$${out}" ];
 }

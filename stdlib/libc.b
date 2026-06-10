@@ -29,6 +29,8 @@ extern func fprintf(file: void*, format: const i8*, ...) -> i32;
 extern func rename(oldname: i8*, newname: i8*) -> i32;
 extern func getpid() -> i32;
 
+extern func readlink(path: i8*, buf: i8*, size: uptr) -> iptr;
+
 const F_OK: i32 = 0;
 
 const SEEK_SET: i32 = 0;

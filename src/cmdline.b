@@ -1,4 +1,4 @@
-import libc;
+import stdlib.libc;
 import debug;
 
 import target;
@@ -37,6 +37,8 @@ struct CommandLineArgs {
 
   // true if reading from stdin (inputFile is "-").
   readFromStdin: bool;
+
+  stdlibPath: i8*;
 }
 
 func usage() {
@@ -54,6 +56,7 @@ func usage() {
   printf("  -i                  Format in-place (use with -format)\n");
   printf("  -stdin-filename <f> Set filename when reading from stdin\n");
   printf("  -debug              Enable debug mode\n");
+  printf("  -stdlib             Path to stdlib\n");
   printf("  -                   Read from stdin\n");
   printf("\n");
   printf("Examples:\n");
@@ -113,6 +116,14 @@ func parseOpts(argv: [i8*]) -> CommandLineArgs {
       let file = argv[i + 1];
       args.inputFile = file[:strlen(file)];
       args.readFromStdin = true;
+      i++;
+    } else if (strcmp(arg, "-stdlib") == 0) {
+      if (i + 1 >= argv.len) {
+        puts("Expected path after -stdlib");
+        usage();
+      }
+
+      args.stdlibPath = argv[i + 1];
       i++;
     } else {
       if (args.inputFile.len != 0) {
