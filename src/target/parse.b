@@ -79,6 +79,11 @@ func parseAbi(str: [i8]*, abi: ABI*) -> bool {
     return true;
   }
 
+  if (cmpTriplePart(str, "musleabihf")) {
+    *abi = ABI::MuslEabiHf;
+    return true;
+  }
+
   if (cmpTriplePart(str, "mingw32")) {
     *abi = ABI::Mingw32;
     return true;

@@ -1,7 +1,7 @@
 import ast;
 import stdlib.libc;
 
-let indent_width = 2;
+const indent_width = 2;
 
 let printFile: void* = null;
 

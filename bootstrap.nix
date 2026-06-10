@@ -20,7 +20,7 @@
   python3Packages,
   valgrind-light,
 
-  binutils,
+  pkgsBuildBuild,
 }:
 let
   targetTriple = stdenv.hostPlatform.config;
@@ -33,7 +33,7 @@ let
     dontUnpack = true;
     installPhase = ''
       mkdir -p "$out"/lib
-      "${binutils}"/bin/ar r "$out"/lib/libgcc_eh.a
+      "${pkgsBuildBuild.binutils}"/bin/ar r "$out"/lib/libgcc_eh.a
     '';
   };
 

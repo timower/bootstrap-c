@@ -50,6 +50,12 @@
             enable_lsp = false;
           };
 
+          cross-arm-static = pkgs-arm.pkgsStatic.callPackage ./bootstrap.nix {
+            inherit bootstrap_rev; # parent-bootstrap;
+            parent-bootstrap = bootstrap;
+            enable_lsp = false;
+          };
+
           cross-mingw64 = pkgs-mingw.callPackage ./bootstrap.nix {
             inherit bootstrap_rev parent-bootstrap;
             enable_lsp = false;

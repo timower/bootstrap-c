@@ -17,6 +17,7 @@ enum ABI {
   Gnu,
   GnuEabiHf,
   Musl,
+  MuslEabiHf,
   Mingw32,
 }
 
