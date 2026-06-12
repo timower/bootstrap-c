@@ -1,13 +1,13 @@
 // RUN: rm -rf %t
 // RUN: split-file %s %t
 ///
-// RUN: %bootstrap -o %t.ll -debug  %t/main.b
+// RUN: %brio -o %t.ll -debug  %t/main.b
 //
 // RUN: lli %t.ll
 // RUN: FileCheck %s --input-file=%t.ll
 //
 //
-// RUN: cd %t && %bootstrap main.b -o main.ll
+// RUN: cd %t && %brio main.b -o main.ll
 // RUN: cd %t && lli main.ll
 // RUN: cd %t && FileCheck %s --input-file=main.ll
 //

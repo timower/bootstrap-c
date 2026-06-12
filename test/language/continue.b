@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | lli | FileCheck %s
+// RUN: %brio %s | lli | FileCheck %s
 // Test continue statement functionality in loops
 
 extern func printf(format: i8*, ...) -> i32;

@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | %check-exit-code 5 lli
+// RUN: %brio %s | %check-exit-code 5 lli
 func returnInt() -> i32 {
   return 42;
 }

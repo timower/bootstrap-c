@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | lli | FileCheck %s
+// RUN: %brio %s | lli | FileCheck %s
 // Test comprehensive binary expressions functionality
 // CHECK: === Arithmetic Operations ===
 // CHECK-NEXT: 15 + 4 = 19

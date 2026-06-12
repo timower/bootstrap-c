@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | FileCheck %s
+// RUN: %brio %s | FileCheck %s
 // CHECK: @x = constant i32
 let x: const i32 = 0;
 

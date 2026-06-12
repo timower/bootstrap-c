@@ -1,10 +1,9 @@
-Bootstrap
+Brio
 =========
 
 A project exploring compiler bootstrapping.
 The first commit is a c-subset compiler that can compile itself.
 Each commit after adds a new feature, and is compiled by the previous commit.
-
 
 TODO
 ----
@@ -81,12 +80,13 @@ TODO
     * `a.foo(...)` -> `Foo::foo(&a, ...)`
     * `a->foo(...)` -> `Foo::foo(a, ...)`
 
+ - [x] stdlib shipped with compiler.
+
  - [ ] Add function attributes:
   * `#noreturn` for exits.
   * `#embed` for var decls.
   * `#constructor` for init functions.
 
- - [ ] stdlib shipped with compiler.
 
  - [ ] Generic function inference
  - [ ] Generic types

@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | FileCheck %s
+// RUN: %brio %s | FileCheck %s
 //
 // CHECK: %cleanupslot{{.*}} = alloca
 // CHECK-NOT: %cleanupslot{{.*}} = alloca

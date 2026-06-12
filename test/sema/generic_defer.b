@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s -o %t.ll
+// RUN: %brio %s -o %t.ll
 // RUN: lli %t.ll
 func foo[T](do: bool, x: T*) {
   if (do)   defer (*x)++;

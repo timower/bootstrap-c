@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | FileCheck %s
+// RUN: %brio %s | FileCheck %s
 // Test that struct, union, and enum declarations work WITHOUT semicolons
 // This verifies the optional semicolon feature by checking generated IR
 

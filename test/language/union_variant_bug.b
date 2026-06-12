@@ -1,4 +1,4 @@
-// RUN: not %bootstrap %s 2>&1 | grep "Expected enum type for scope expr"
+// RUN: not %brio %s 2>&1 | grep "Expected enum type for scope expr"
 union Foo {
   A {}
   B {}

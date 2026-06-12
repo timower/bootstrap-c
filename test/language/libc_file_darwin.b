@@ -1,6 +1,6 @@
 // REQUIRES: system-darwin
 
-// RUN: %bootstrap %s -o %t.ll
+// RUN: %brio %s -o %t.ll
 // RUN: opt -S -p verify %t.ll
 // RUN: lli %t.ll
 // RUN: FileCheck %s --input-file=%t.ll

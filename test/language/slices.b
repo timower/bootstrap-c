@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s -o %t.ll
+// RUN: %brio %s -o %t.ll
 // RUN: opt -S %t.ll
 // RUN: lli %t.ll | FileCheck %s
 //

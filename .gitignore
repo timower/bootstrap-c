@@ -1,6 +1,6 @@
 *.o
 *.ll
-/bootstrap
+/brio
 /format
 /stage*
 /cache/*
@@ -8,10 +8,10 @@
 /test/**/Output
 /result
 .direnv/
-/bootstrap-sema
-/bootstrap-coverage
+/brio-sema
+/brio-coverage
 mutated
-/bootstrap-lsp/bootstrap-lsp
+/brio-lsp/brio-lsp
 __pycache__/
 /corpus
 test/.inverted_test_times.txt

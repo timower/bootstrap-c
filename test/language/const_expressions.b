@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | lli | FileCheck %s
+// RUN: %brio %s | lli | FileCheck %s
 // Test evalConstant function coverage for const declarations and case expressions
 // CHECK: === Const Declarations ===
 // CHECK-NEXT: ADD (10 + 15): 25

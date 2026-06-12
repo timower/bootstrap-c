@@ -1,4 +1,4 @@
-// RUN: %bootstrap -emit-asm -emit-llvm %s -o %t.ll
+// RUN: %brio -emit-asm -emit-llvm %s -o %t.ll
 // RUN: lli %t.ll
 // RUN: FileCheck %s --input-file %t.ll
 extern func printf(format: i8*, ...) -> i32;

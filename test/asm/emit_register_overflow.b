@@ -1,7 +1,7 @@
 // Test case for backwards linear scan register allocation
 // This test verifies that the register allocator efficiently reuses registers
 // instead of running out of available registers
-// RUN: %bootstrap -emit-asm %s | FileCheck %s
+// RUN: %brio -emit-asm %s | FileCheck %s
 
 func main() -> i32 {
   // Chain arithmetic operations to create many SSA values

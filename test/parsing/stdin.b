@@ -1,4 +1,4 @@
-// RUN: cat %s | %bootstrap - | FileCheck %s
+// RUN: cat %s | %brio - | FileCheck %s
 // CHECK: define void @foo
 func foo() {
 

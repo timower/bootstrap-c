@@ -1,9 +1,9 @@
 // RUN: split-file %s %t
 //
-// RUN: not %bootstrap %t/case.b -o %t.ll 2>&1 | FileCheck %s
+// RUN: not %brio %t/case.b -o %t.ll 2>&1 | FileCheck %s
 // CHECK: Expected case or default
 //
-// RUN: not %bootstrap %t/nobreak.b -o %t.ll 2>&1 | FileCheck %s --check-prefix CHECK2
+// RUN: not %brio %t/nobreak.b -o %t.ll 2>&1 | FileCheck %s --check-prefix CHECK2
 // CHECK2: Empty case not allowed
 
 //--- case.b

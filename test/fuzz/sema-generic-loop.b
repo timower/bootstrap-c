@@ -1,4 +1,4 @@
-// RUN: %bootstrap -sema %s
+// RUN: %brio -sema %s
 func retInt[T]() {
   retInt:[i32]();
 }

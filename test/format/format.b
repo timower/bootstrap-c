@@ -1,12 +1,12 @@
-// RUN: %bootstrap -format %s -o %t
+// RUN: %brio -format %s -o %t
 // RUN: cmp %t %s
 //
 // RUN: printf '\n\n' >> %t
 // RUN: not cmp %t %s
-// RUN: %bootstrap -format -i %t
+// RUN: %brio -format -i %t
 // RUN: cmp %t %s
 //
-// RUN: cat %s | %bootstrap -format - -o %t
+// RUN: cat %s | %brio -format - -o %t
 // RUN: cmp %t %s
 import a.b;
 

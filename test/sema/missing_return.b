@@ -1,4 +1,4 @@
-// RUN: not %bootstrap -sema %s 2>&1 | FileCheck %s
+// RUN: not %brio -sema %s 2>&1 | FileCheck %s
 // CHECK: 13:10: warning: Duplicate return
 // CHECK-NOT: Duplicate return
 // CHECK: 16:1: sema error: Not all paths return

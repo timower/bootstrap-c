@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | lli | FileCheck %s
+// RUN: %brio %s | lli | FileCheck %s
 // CHECK: This is
 // CHECK-NEXT: a test   for '"parsing'"
 // CHECK: Bar

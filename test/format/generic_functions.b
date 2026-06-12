@@ -1,5 +1,5 @@
-// RUN: %bootstrap -format %s | cmp %s -
-// RUN: echo 'func nogeneric[](){}' | %bootstrap -format - | grep 'func nogeneric()'
+// RUN: %brio -format %s | cmp %s -
+// RUN: echo 'func nogeneric[](){}' | %brio -format - | grep 'func nogeneric()'
 // Basic generic function
 func swap[T](a: T*, b: T*) {
   let temp = *a;

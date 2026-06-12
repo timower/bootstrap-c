@@ -1,6 +1,6 @@
 /// Tests all types that are not modified by generics.
 //
-// RUN: %bootstrap %s -o %t.ll
+// RUN: %brio %s -o %t.ll
 // RUN: FileCheck %s --input-file %t.ll
 //
 // CHECK-DAG: define void @retVoid

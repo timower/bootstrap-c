@@ -1,4 +1,4 @@
-// RUN: not %bootstrap -sema %s 2>&1 | FileCheck %s
+// RUN: not %brio -sema %s 2>&1 | FileCheck %s
 // CHECK: Expected pointer type for *
 func deref[T](ptr: T) -> T {
   return *ptr;

@@ -42,9 +42,9 @@ struct CommandLineArgs {
 }
 
 func usage() {
-  printf("Bootstrap Compiler\n");
+  printf("Brio Compiler\n");
   printf("\n");
-  printf("Usage: bootstrap [OPTIONS] input.b\n");
+  printf("Usage: brio [OPTIONS] input.b\n");
   printf("\n");
   printf("OPTIONS:\n");
   printf("  -o <file>           Write output to <file> (default: stdout)\n");
@@ -60,9 +60,9 @@ func usage() {
   printf("  -                   Read from stdin\n");
   printf("\n");
   printf("Examples:\n");
-  printf("  bootstrap hello.b              # Compile to LLVM IR\n");
-  printf("  bootstrap -format -i hello.b   # Format file in-place\n");
-  printf("  bootstrap -sema hello.b        # Check syntax only\n");
+  printf("  brio hello.b              # Compile to LLVM IR\n");
+  printf("  brio -format -i hello.b   # Format file in-place\n");
+  printf("  brio -sema hello.b        # Check syntax only\n");
   exit(1);
 }
 

@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | lli
+// RUN: %brio %s | lli
 import stdlib.libc;
 
 func test(x: i32) {

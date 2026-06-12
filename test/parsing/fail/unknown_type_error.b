@@ -1,4 +1,4 @@
-// RUN: not %bootstrap -sema %s 2>&1 | FileCheck %s
+// RUN: not %brio -sema %s 2>&1 | FileCheck %s
 // Test unknown type parsing error with invalid token
 
 // CHECK: Unknown type

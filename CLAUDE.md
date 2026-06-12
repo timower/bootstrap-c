@@ -4,30 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Bootstrap is a self-hosting compiler project where each commit adds a new language feature and compiles itself using the previous commit's compiler. The compiler is written in its own Bootstrap language (`.b` files) and generates LLVM IR.
+Brio is a self-hosting compiler project where each commit adds a new language feature and compiles itself using the previous commit's compiler. The compiler is written in its own Brio language (`.b` files) and generates LLVM IR.
 
 ## Build Commands
 
 ### Core Build
-- `make bootstrap` - Build the main compiler from source
-- `make stage1` - Create stage1 compiler using bootstrap
+- `make brio` - Build the main compiler from source
+- `make stage1` - Create stage1 compiler using brio
 - `make stage2` - Create stage2 compiler using stage1
 - `make self` - Compile the compiler with itself (verification)
-- `make` - Compile bootstrap
+- `make` - Compile brio
 
 ### Testing
 - `make test` - Run all tests using lit (LLVM Integrated Tester)
-- `make lit` - Run tests with current bootstrap compiler
+- `make lit` - Run tests with current brio compiler
 - `make lit-coverage` - Run tests with coverage
 - `lit -v test/` - Run tests with verbose output
 
 ### Code Formatting
 - `make format-all` - Format all .b source files in the project
-- `./bootstrap -format -i <file.b>` - Format a specific source file in place
-- `./bootstrap -format <file.b> -o <file.b>` - Format with explicit output file
+- `./brio -format -i <file.b>` - Format a specific source file in place
+- `./brio -format <file.b> -o <file.b>` - Format with explicit output file
 
 ### Syntax Checking
-- `./bootstrap -sema <file>` - Check syntax of individual files
+- `./brio -sema <file>` - Check syntax of individual files
 
 ### Cleanup
 - `make clean` - Remove build artifacts and binaries
@@ -42,7 +42,7 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 5. **IR Representation** (`src/ir.b`, `src/ir/`) - Internal IR with LLVM printing
 
 ### Key Components
-- `src/bootstrap.b` - Main compiler entry point with integrated formatter and semantic analyzer
+- `src/brio.b` - Main compiler entry point with integrated formatter and semantic analyzer
 - `src/libc.b` - Platform abstraction layer (POSIX/Windows)
 - `src/util.b` - Common utilities and data structures including file I/O
 
@@ -64,14 +64,14 @@ Bootstrap is a self-hosting compiler project where each commit adds a new langua
 Uses LLVM's `lit` testing framework:
 - Test files in `test/` directory with `.b` extension
 - Tests use `// RUN:` commands with FileCheck for validation
-- Common pattern: `// RUN: %bootstrap %s | lli` (compile and execute)
+- Common pattern: `// RUN: %brio %s | lli` (compile and execute)
 - Platform-specific tests use `// REQUIRES: system-<platform>`
 
 ## Development Workflow
 
 ### Making Changes
 1. Modify source files (`.b` files in `src/`)
-2. Run `make bootstrap` to build with previous stage
+2. Run `make brio` to build with previous stage
 3. Use `make format-all` to maintain code style
 4. Run `make test` to verify correctness
 
@@ -84,7 +84,7 @@ Uses LLVM's `lit` testing framework:
 
 ## Build System Details
 
-### Bootstrap Process
+### Brio Process
 - Uses cached stages in `cache/stage-<commit-hash>` to avoid rebuilding
 - Parent commit compiler is automatically built and cached
 - LLVM backend generates object files via `llc`
@@ -96,19 +96,19 @@ Uses LLVM's `lit` testing framework:
 - Platform-specific code in `src/libc/impl.posix.b`, `src/libc/impl.windows.b`, and `src/libc/impl.darwin.b`
 
 ### Platform-Specific Build Instructions
-- **macOS/Darwin**: Automatically detected - `make bootstrap` will use `-target darwin`
-- **Linux**: Use default `make bootstrap` (uses POSIX target)
-- **Windows**: Use `make bootstrap BOOTSTRAP_FLAGS="-target windows"`
+- **macOS/Darwin**: Automatically detected - `make brio` will use `-target darwin`
+- **Linux**: Use default `make brio` (uses POSIX target)
+- **Windows**: Use `make brio BRIO_FLAGS="-target windows"`
 
 Note: The Makefile automatically detects Darwin and sets the appropriate target due to different stdout/stderr symbol names (`__stdoutp`/`__stderrp` vs `stdout`/`stderr`)
 
 ### Environment Variables
-- `BOOTSTRAP_FLAGS` - Additional compiler flags (use `-target <platform>` for cross-compilation)
-- `BOOTSTRAP` - Override bootstrap compiler path for testing
+- `BRIO_FLAGS` - Additional compiler flags (use `-target <platform>` for cross-compilation)
+- `BRIO` - Override brio compiler path for testing
 - `LIT_FILTER` - Name of the test to execute in lit and related targets
 
 ## Code Snippets
-```bootstrap
+```brio
 extern func printf(format: i8*, ...) -> i32;
 
 // Enum

@@ -1,4 +1,4 @@
-// RUN: %bootstrap -emit-asm %s -o %t.s
+// RUN: %brio -emit-asm %s -o %t.s
 // RUN: cat %t.s | FileCheck %s
 // RUN: %cc %t.s -o %t
 // RUN: %check-exit-code 11 %run %t

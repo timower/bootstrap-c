@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | lli
+// RUN: %brio %s | lli
 //
 struct Bar {
   x: i32;

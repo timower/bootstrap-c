@@ -171,7 +171,7 @@ def run_test(tpl):
             # TODO: "--filter-out=all/self.b",
             "--timeout=5",
             "--threads=1",
-            f"-DBOOTSTRAP={bin_name}",
+            f"-DBRIO={bin_name}",
             f"-DTEST_ROOT={test_dir}",
             "test/",
         ],

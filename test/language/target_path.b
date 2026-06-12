@@ -1,7 +1,7 @@
 // RUN: split-file %s %t
-// RUN: %bootstrap -target x86_64-unknown-linux-gnu %t/main.b | grep 'ret i32 0'
-// RUN: %bootstrap -target x86_64-apple-darwin %t/main.b | grep 'ret i32 1'
-// RUN: %bootstrap -target x86_64-w64-mingw32 %t/main.b | grep 'ret i32 2'
+// RUN: %brio -target x86_64-unknown-linux-gnu %t/main.b | grep 'ret i32 0'
+// RUN: %brio -target x86_64-apple-darwin %t/main.b | grep 'ret i32 1'
+// RUN: %brio -target x86_64-w64-mingw32 %t/main.b | grep 'ret i32 2'
 //--- main.b
 import foo;
 

@@ -1,4 +1,4 @@
-// RUN: not %bootstrap -sema %s 2>&1 | FileCheck %s
+// RUN: not %brio -sema %s 2>&1 | FileCheck %s
 // Test extern const error (gets caught at parser level)
 
 // CHECK: Expected func or let

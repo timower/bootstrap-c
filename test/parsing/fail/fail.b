@@ -1,27 +1,27 @@
 // RUN: split-file %s %t
-// RUN: not %bootstrap %t/unknown.b 2>&1 | grep "Unknown primary expression"
-// RUN: not %bootstrap %t/let1.b 2>&1 | grep "Extern let cannot have init"
+// RUN: not %brio %t/unknown.b 2>&1 | grep "Unknown primary expression"
+// RUN: not %brio %t/let1.b 2>&1 | grep "Extern let cannot have init"
 //
-// RUN: not %bootstrap %t/empty.b 2>&1 | grep "Failed to parse file"
-// RUN: not %bootstrap %t/empty_comment.b 2>&1 | grep "Failed to parse file"
-// RUN: not %bootstrap %t/empty_str.b 2>&1 | grep "Failed to parse file"
-// RUN: not %bootstrap %t/empty_char.b 2>&1 | grep "Failed to parse file"
-// RUN: not %bootstrap %t/empty_prepro.b 2>&1 | grep "Failed to parse file"
+// RUN: not %brio %t/empty.b 2>&1 | grep "Failed to parse file"
+// RUN: not %brio %t/empty_comment.b 2>&1 | grep "Failed to parse file"
+// RUN: not %brio %t/empty_str.b 2>&1 | grep "Failed to parse file"
+// RUN: not %brio %t/empty_char.b 2>&1 | grep "Failed to parse file"
+// RUN: not %brio %t/empty_prepro.b 2>&1 | grep "Failed to parse file"
 //
-// RUN: not %bootstrap %t/unknown_tok.b 2>&1 | grep "Unknown token"
+// RUN: not %brio %t/unknown_tok.b 2>&1 | grep "Unknown token"
 //
-// RUN: not %bootstrap %t/invalid_hex1.b 2>&1 | grep "Expected: ;"
-// RUN: not %bootstrap %t/invalid_hex2.b 2>&1 | grep "Expected: ;"
-// RUN: not %bootstrap %t/invalid_hex3.b 2>&1 | grep "Expected: ;"
-// RUN: not %bootstrap %t/invalid_int.b 2>&1 | grep "Invalid integer"
+// RUN: not %brio %t/invalid_hex1.b 2>&1 | grep "Expected: ;"
+// RUN: not %brio %t/invalid_hex2.b 2>&1 | grep "Expected: ;"
+// RUN: not %brio %t/invalid_hex3.b 2>&1 | grep "Expected: ;"
+// RUN: not %brio %t/invalid_int.b 2>&1 | grep "Invalid integer"
 //
-// RUN: not %bootstrap %t/unknown_decl.b 2>&1 | grep "Unknown declaration"
+// RUN: not %brio %t/unknown_decl.b 2>&1 | grep "Unknown declaration"
 //
-// RUN: not %bootstrap %t/negative_size.b 2>&1 | grep "Expected positive size"
-// RUN: not %bootstrap %t/no_size.b 2>&1 | grep "Expected"
+// RUN: not %brio %t/negative_size.b 2>&1 | grep "Expected positive size"
+// RUN: not %brio %t/no_size.b 2>&1 | grep "Expected"
 //
-// RUN: echo -n '#foo' | not %bootstrap - 2>&1 | grep 'Failed to parse file'
-// RUN: echo 'const x = 2#/1;' | not %bootstrap - 2>&1 | grep 'Unknown token'
+// RUN: echo -n '#foo' | not %brio - 2>&1 | grep 'Failed to parse file'
+// RUN: echo 'const x = 2#/1;' | not %brio - 2>&1 | grep 'Unknown token'
 
 //
 //--- unknown.b

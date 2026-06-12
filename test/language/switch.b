@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | lli | FileCheck %s
+// RUN: %brio %s | lli | FileCheck %s
 // Test comprehensive switch statement functionality
 // CHECK: === Integer Switch Tests ===
 // CHECK-NEXT: One

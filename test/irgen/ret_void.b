@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | opt -S | FileCheck %s
+// RUN: %brio %s | opt -S | FileCheck %s
 func foo() {
 
 }

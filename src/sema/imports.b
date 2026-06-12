@@ -7,7 +7,7 @@ import debug;
 // Find the stdlib path and cache it in the 'stdlibPath' global.
 // Search paths are:
 //  - binary_path/../stdlib/
-//  - binary_path/../../lib/bootstrap
+//  - binary_path/../../lib/brio
 func findStdlib(state: SemaState*) {
   let selfPath = getSelfPath(&state->localAlloc);
   debug(&selfPath[0]);
@@ -23,7 +23,7 @@ func findStdlib(state: SemaState*) {
   }
 
   selfDir = dirname(selfDir);
-  sprintf(result, "%s/%s", selfDir, "lib/bootstrap");
+  sprintf(result, "%s/%s", selfDir, "lib/brio");
   if (access(result, F_OK) == 0) {
     state->stdlibPath = result;
     return;

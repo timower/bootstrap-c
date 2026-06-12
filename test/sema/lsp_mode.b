@@ -27,12 +27,12 @@ let x: Enum = Enum::C;
 let y: Union = Union::A {}; //
 
 let z: Union = Union::Z {}; //
-// RUN: cat %s | not %bootstrap -stdin-filename test.b -sema-lsp 2>&1 \
+// RUN: cat %s | not %brio -stdin-filename test.b -sema-lsp 2>&1 \
 // RUN:  | FileCheck %s
-// RUN: not %bootstrap %s -sema 2>&1 \
+// RUN: not %brio %s -sema 2>&1 \
 // RUN:  | FileCheck --check-prefix=NOLSP %s
 //
-// RUN: not %bootstrap %s -sema-lsp 2>&1 \
+// RUN: not %brio %s -sema-lsp 2>&1 \
 // RUN:  | FileCheck --check-prefix=CHECK2 %s
 //
 // NOLSP-NOT: decl

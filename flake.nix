@@ -25,47 +25,47 @@
         pkgs-static = pkgs.pkgsStatic.pkgs;
         pkgs-arm = pkgs.pkgsCross.armv7l-hf-multiplatform;
 
-        parent-bootstrap = bootstrap-parent.packages.${system}.default;
-        bootstrap_rev = self.shortRev or self.dirtyShortRev;
+        parent-brio = bootstrap-parent.packages.${system}.default;
+        brio_rev = self.shortRev or self.dirtyShortRev;
 
-        bootstrap = pkgs.callPackage ./bootstrap.nix {
-          inherit bootstrap_rev parent-bootstrap;
+        brio = pkgs.callPackage ./brio.nix {
+          inherit brio_rev parent-brio;
         };
-        bootstrap-checked = bootstrap.overrideAttrs (_oldAttrs: {
+        brio-checked = brio.overrideAttrs (_oldAttrs: {
           doCheck = true;
           doInstallCheck = true;
         });
       in
       {
         packages = {
-          default = bootstrap;
+          default = brio;
 
-          static = pkgs-static.callPackage ./bootstrap.nix {
-            inherit bootstrap_rev parent-bootstrap;
+          static = pkgs-static.callPackage ./brio.nix {
+            inherit brio_rev parent-brio;
             enable_lsp = false;
           };
 
-          cross-arm = pkgs-arm.callPackage ./bootstrap.nix {
-            inherit bootstrap_rev parent-bootstrap;
+          cross-arm = pkgs-arm.callPackage ./brio.nix {
+            inherit brio_rev parent-brio;
             enable_lsp = false;
           };
 
-          cross-arm-static = pkgs-arm.pkgsStatic.callPackage ./bootstrap.nix {
-            inherit bootstrap_rev; # parent-bootstrap;
-            parent-bootstrap = bootstrap;
+          cross-arm-static = pkgs-arm.pkgsStatic.callPackage ./brio.nix {
+            inherit brio_rev; # parent-brio;
+            parent-brio = brio;
             enable_lsp = false;
           };
 
-          cross-mingw64 = pkgs-mingw.callPackage ./bootstrap.nix {
-            inherit bootstrap_rev parent-bootstrap;
+          cross-mingw64 = pkgs-mingw.callPackage ./brio.nix {
+            inherit brio_rev parent-brio;
             enable_lsp = false;
           };
         };
 
-        checks.bootstrap = bootstrap-checked;
+        checks.brio = brio-checked;
 
         devShells.default = pkgs.mkShell {
-          inputsFrom = [ bootstrap-checked ];
+          inputsFrom = [ brio-checked ];
           packages = with pkgs; [
             gopls
             lldb
@@ -76,24 +76,24 @@
             export prefix=build/out
 
             # export ASAN_OPTIONS='detect_leaks=0'
-            # export PARENT_STAGE="${nixpkgs.lib.getExe parent-bootstrap}"
+            # export PARENT_STAGE="${nixpkgs.lib.getExe parent-brio}"
           '';
         };
 
         # packages.parent = pkgs.stdenv.mkDerivation {
-        #   pname = "bootstrap";
+        #   pname = "brio";
         #   version = "dev";
         #   buildInputs = with pkgs; [
         #     git
         #     llvmPackages_19.llvm
         #   ];
         #   src = pkgs.fetchurl {
-        #     url = "https://github.com/timower/bootstrap-c/releases/download/bootstrap-f7619be/bootstrap-f7619be.tar.gz";
+        #     url = "https://github.com/timower/brio-c/releases/download/brio-f7619be/brio-f7619be.tar.gz";
         #     hash = "sha256-MEZfzNj6ar3eIy6SpJj/NoeGLzwUY1ao3m29nafwxGE=";
         #   };
         #   installPhase = ''
         #     mkdir -p $out/bin
-        #     cp bootstrap $out/bin/bootstrap-parent
+        #     cp brio $out/bin/brio-parent
         #   '';
         # };
       }

@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | lli
+// RUN: %brio %s | lli
 //
 func test() -> i32 {
   let x = 1;

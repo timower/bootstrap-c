@@ -1,13 +1,13 @@
 // RUN: split-file %s %t
 //
-// RUN: not %bootstrap %t/slice1.b  2>&1 | grep "Arg type mismatch"
-// RUN: not %bootstrap %t/slice2.b  2>&1 | grep "Arg type mismatch"
-// RUN: not %bootstrap %t/slice3.b  2>&1 | grep "Arg type mismatch"
+// RUN: not %brio %t/slice1.b  2>&1 | grep "Arg type mismatch"
+// RUN: not %brio %t/slice2.b  2>&1 | grep "Arg type mismatch"
+// RUN: not %brio %t/slice3.b  2>&1 | grep "Arg type mismatch"
 //
-// RUN: not %bootstrap %t/ptr1.b  2>&1 | grep "Arg type mismatch"
-// RUN: not %bootstrap %t/ptr2.b  2>&1 | grep "Arg type mismatch"
+// RUN: not %brio %t/ptr1.b  2>&1 | grep "Arg type mismatch"
+// RUN: not %brio %t/ptr2.b  2>&1 | grep "Arg type mismatch"
 //
-// RUN: not %bootstrap %t/union.b  2>&1 | grep "Arg type mismatch"
+// RUN: not %brio %t/union.b  2>&1 | grep "Arg type mismatch"
 //
 //--- slice1.b
 func slice1(x: [i32]) {

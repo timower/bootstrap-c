@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s -o %t.ll
+// RUN: %brio %s -o %t.ll
 // RUN: lli %t.ll
 // RUN: grep alloca %t.ll | wc -l | grep 2
 struct A {

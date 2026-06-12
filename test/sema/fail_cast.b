@@ -1,25 +1,25 @@
 // RUN: split-file %s %t
 //
-// RUN: not %bootstrap %t/unrelated_union.b 2>&1 | grep "Cannot cast union"
-// RUN: not %bootstrap %t/unrelated_struct.b 2>&1 | grep "Cannot cast union"
+// RUN: not %brio %t/unrelated_union.b 2>&1 | grep "Cannot cast union"
+// RUN: not %brio %t/unrelated_struct.b 2>&1 | grep "Cannot cast union"
 //
-// RUN: not %bootstrap %t/unknown_union1.b 2>&1 | grep "Can't cast struct to unrelated union"
-// RUN: not %bootstrap %t/unknown_union2.b 2>&1 | grep "Cannot cast union"
+// RUN: not %brio %t/unknown_union1.b 2>&1 | grep "Can't cast struct to unrelated union"
+// RUN: not %brio %t/unknown_union2.b 2>&1 | grep "Cannot cast union"
 //
-// RUN: not %bootstrap %t/unknown_struct1.b 2>&1 | grep "Can't cast struct to unrelated union"
-// RUN: not %bootstrap %t/unknown_struct2.b 2>&1 | grep "Cannot cast union"
+// RUN: not %brio %t/unknown_struct1.b 2>&1 | grep "Can't cast struct to unrelated union"
+// RUN: not %brio %t/unknown_struct2.b 2>&1 | grep "Cannot cast union"
 //
-// RUN: not %bootstrap %t/cant_cast1.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/cant_cast2.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/cant_cast3.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/cant_cast4.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/cant_cast5.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/cant_cast6.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/cant_cast7.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/cant_cast1.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/cant_cast2.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/cant_cast3.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/cant_cast4.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/cant_cast5.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/cant_cast6.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/cant_cast7.b 2>&1 | grep "Can't cast"
 //
-// RUN: not %bootstrap %t/cant_cast8.b 2>&1 | grep "Cannot cast union"
+// RUN: not %brio %t/cant_cast8.b 2>&1 | grep "Cannot cast union"
 //
-// RUN: not %bootstrap %t/cant_cast9.b 2>&1 | FileCheck %s
+// RUN: not %brio %t/cant_cast9.b 2>&1 | FileCheck %s
 // CHECK-NOT: Can't cast struct to unrelated union
 //
 //--- unrelated_union.b

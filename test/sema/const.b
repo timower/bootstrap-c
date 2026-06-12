@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | FileCheck %s
+// RUN: %brio %s | FileCheck %s
 // CHECK-NOT: alloca
 // CHECK: ret i32 17
 const a = 11 + 1;

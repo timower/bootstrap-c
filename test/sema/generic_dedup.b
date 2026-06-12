@@ -1,4 +1,4 @@
-// RUN: %bootstrap %s | FileCheck %s
+// RUN: %brio %s | FileCheck %s
 //
 // CHECK: define %struct.Bar.A
 // CHECK: icmp eq i32 {{.*}}, 2

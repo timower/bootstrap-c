@@ -1,22 +1,22 @@
 // RUN: split-file %s %t
-// RUN: not %bootstrap %t/no-const.b 2>&1 | grep "TODO"
-// RUN: not %bootstrap %t/slice-idx.b 2>&1 | grep "Constant GEP"
+// RUN: not %brio %t/no-const.b 2>&1 | grep "TODO"
+// RUN: not %brio %t/slice-idx.b 2>&1 | grep "Constant GEP"
 //
-// RUN: not %bootstrap %t/lvalue1.b 2>&1 | grep "Expr can't be used as lvalue"
-// RUN: not %bootstrap %t/lvalue2.b 2>&1 | grep "Expr can't be used as lvalue"
-// RUN: not %bootstrap %t/lvalue3.b 2>&1 | grep "Expr can't be used as lvalue"
+// RUN: not %brio %t/lvalue1.b 2>&1 | grep "Expr can't be used as lvalue"
+// RUN: not %brio %t/lvalue2.b 2>&1 | grep "Expr can't be used as lvalue"
+// RUN: not %brio %t/lvalue3.b 2>&1 | grep "Expr can't be used as lvalue"
 //
-// RUN: not %bootstrap %t/sizeof_unknown.b 2>&1 | grep "Unkown type"
-// RUN: not %bootstrap %t/break.b 2>&1 | grep "Break outside loop"
-// RUN: not %bootstrap %t/continue.b 2>&1 | grep "Continue outside loop"
-// RUN: not %bootstrap %t/slice_end.b 2>&1 | grep "Constant GEP"
+// RUN: not %brio %t/sizeof_unknown.b 2>&1 | grep "Unkown type"
+// RUN: not %brio %t/break.b 2>&1 | grep "Break outside loop"
+// RUN: not %brio %t/continue.b 2>&1 | grep "Continue outside loop"
+// RUN: not %brio %t/slice_end.b 2>&1 | grep "Constant GEP"
 //
-// RUN: not %bootstrap %t/const_cast.b 2>&1 | grep "TODO"
-// RUN: not %bootstrap %t/const_unary.b 2>&1 | grep "TODO"
-// RUN: not %bootstrap %t/const_addr.b 2>&1 | grep "TODO"
-// RUN: not %bootstrap %t/const_struct.b 2>&1 | grep "TODO"
+// RUN: not %brio %t/const_cast.b 2>&1 | grep "TODO"
+// RUN: not %brio %t/const_unary.b 2>&1 | grep "TODO"
+// RUN: not %brio %t/const_addr.b 2>&1 | grep "TODO"
+// RUN: not %brio %t/const_struct.b 2>&1 | grep "TODO"
 //
-// RUN: not %bootstrap -debug %t/break.b 2>&1 | FileCheck %s
+// RUN: not %brio -debug %t/break.b 2>&1 | FileCheck %s
 // CHECK: Break outside loop
 // CHECK-NOT: End irgen
 //

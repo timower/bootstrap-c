@@ -2,18 +2,18 @@
 //
 // canCast is true if 'from `typeEq` to '
 //
-// RUN: not %bootstrap %t/arr1.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/arr2.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/slice.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/struct1.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/struct2.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/arr1.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/arr2.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/slice.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/struct1.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/struct2.b 2>&1 | grep "Can't cast"
 //
-// RUN: not %bootstrap %t/func1.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/func2.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/func3.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/func4.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/func5.b 2>&1 | grep "Can't cast"
-// RUN: not %bootstrap %t/func6.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/func1.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/func2.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/func3.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/func4.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/func5.b 2>&1 | grep "Can't cast"
+// RUN: not %brio %t/func6.b 2>&1 | grep "Can't cast"
 //
 //--- arr1.b
 func arr1(x: i8[3]) {

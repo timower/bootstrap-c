@@ -1,4 +1,4 @@
-// RUN: %bootstrap -format %s -o %t
+// RUN: %brio -format %s -o %t
 // RUN: cmp %s %t
 func foo() -> i32 {
   return 12;
