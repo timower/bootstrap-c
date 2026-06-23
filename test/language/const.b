@@ -1,8 +1,6 @@
-// RUN: %brio %s -o %t.ll
-// RUN: opt -S -p verify %t.ll
-// RUN: lli %t.ll
-//
+// RUN: %compile-and-run %s %t.ll
 // RUN: FileCheck %s < %t.ll
+//
 // CHECK-NOT: @foo =
 // CHECK-NOT: store i32 -12
 // CHECK: add i32

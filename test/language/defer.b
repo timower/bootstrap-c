@@ -1,5 +1,4 @@
-// RUN: %brio %s -o %t.ll
-// RUN: lli %t.ll | FileCheck %s
+// RUN: %compile-and-run %s | FileCheck %s
 // CHECK: x1: 3
 // CHECK: x2: 5
 // CHECK: x3: 12

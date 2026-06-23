@@ -1,4 +1,4 @@
-// RUN: %brio %s | lli | FileCheck %s
+// RUN: %compile-and-run %s | FileCheck %s
 // Test ternary conditional with struct types to cover genConditional isAggregate path
 extern func printf(format: i8*, ...) -> i32;
 

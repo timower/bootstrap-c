@@ -1,8 +1,6 @@
 // REQUIRES: system-darwin
 
-// RUN: %brio %s -o %t.ll
-// RUN: opt -S -p verify %t.ll
-// RUN: lli %t.ll
+// RUN: %compile-and-run %s %t.ll
 // RUN: FileCheck %s --input-file=%t.ll
 extern func fprintf(file: void*, fmt: i8*, ...) -> i32;
 

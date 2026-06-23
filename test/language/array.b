@@ -1,4 +1,4 @@
-// RUN: %brio %s | lli | FileCheck %s
+// RUN: %compile-and-run %s | FileCheck %s
 // CHECK: Hello!
 // CHECK-NEXT: baz
 // CHECK-NEXT: burp

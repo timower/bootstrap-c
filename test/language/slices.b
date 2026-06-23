@@ -1,6 +1,4 @@
-// RUN: %brio %s -o %t.ll
-// RUN: opt -S %t.ll
-// RUN: lli %t.ll | FileCheck %s
+// RUN: %compile-and-run %s | FileCheck %s
 //
 // CHECK: len: 12
 // CHECK-NEXT: 0: 1

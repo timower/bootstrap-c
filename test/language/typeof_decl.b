@@ -1,4 +1,4 @@
-// RUN: %brio %s | %check-exit-code 5 lli
+// RUN: %check-exit-code 5 %compile-and-run %s
 func returnInt() -> i32 {
   return 42;
 }

@@ -1,5 +1,4 @@
-// RUN: %brio %s -o %t.ll
-// RUN: lli %t.ll
+// RUN: %compile-and-run %s %t.ll
 // RUN: FileCheck --input-file=%t.ll %s
 
 // CHECK-DAG: define i32 @foo

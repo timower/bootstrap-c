@@ -1,4 +1,4 @@
-// RUN: %brio %s | lli | FileCheck %s
+// RUN: %compile-and-run %s | FileCheck %s
 // CHECK: This is
 // CHECK-NEXT: a test   for '"parsing'"
 // CHECK: Bar

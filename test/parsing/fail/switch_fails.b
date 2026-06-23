@@ -1,7 +1,7 @@
 // RUN: split-file %s %t
 //
 // RUN: not %brio %t/empty_at_end.b 2>&1 | grep "Empty case not allowed"
-// RUN: %brio %t/union_comma.b | lli
+// RUN: %compile-and-run %t/union_comma.b
 // RUN: not %brio %t/unknown_type.b 2>&1 | grep "Couldn't find type"
 // RUN: not %brio %t/unknown_type2.b 2>&1 | grep "Unknown union"
 // RUN: not %brio %t/unknown_type3.b 2>&1 | grep "Expected union type"

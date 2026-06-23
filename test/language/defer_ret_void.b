@@ -1,4 +1,4 @@
-// RUN: %brio %s | lli
+// RUN: %compile-and-run %s
 import stdlib.libc;
 
 func test(x: i32) {

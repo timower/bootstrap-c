@@ -1,4 +1,4 @@
-// RUN: %brio %s | lli | FileCheck %s
+// RUN: %compile-and-run %s | FileCheck %s
 // CHECK: Void
 // CHECK-NEXT: B 99
 // CHECK-NEXT: A 55

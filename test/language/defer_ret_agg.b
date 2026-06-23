@@ -1,4 +1,4 @@
-// RUN: %brio %s | lli
+// RUN: %compile-and-run %s
 //
 struct Bar {
   x: i32;

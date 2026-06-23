@@ -1,5 +1,4 @@
-// RUN: %brio %s -o %t.ll
-// RUN: lli %t.ll
+// RUN: %compile-and-run %s %t.ll
 // RUN: grep alloca %t.ll | wc -l | grep 2
 struct A {
   foo: i32;

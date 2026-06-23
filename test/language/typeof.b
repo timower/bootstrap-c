@@ -1,4 +1,4 @@
-// RUN: %brio %s | lli | FileCheck %s
+// RUN: %compile-and-run %s | FileCheck %s
 // Test typeof operator in various contexts
 // CHECK: nested typeof: x = 42, y = 100, z = 200
 // CHECK: complex: a = 111, b = 222, c = 333

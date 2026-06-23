@@ -1,4 +1,4 @@
-// RUN: %brio %s | lli
+// RUN: %compile-and-run %s
 //
 func test() -> i32 {
   let x = 1;
